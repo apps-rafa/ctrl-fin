@@ -1005,6 +1005,41 @@ function _transacaoRealizada(t) {
 /** "Cronológica": divide em 2 grupos (Atual / A receber ou A pagar), com
  *  uma barra horizontal única mostrando a proporção de cada um em cima —
  *  hover mostra %+valor, clique abre/fecha o grupo correspondente. */
+/** Faturas de cartão do mês em exibição que ainda vencem DEPOIS de hoje: linhas "virtuais" do grupo
+ *  "A pagar" (não são lançamentos e não entram nos totais — as compras já estão nas despesas).
+ *  Some sozinha no dia do vencimento; antes disso dá pra marcar como paga (e desfazer). */
+function _faturasAPagar() {
+    const mes = estadoApp.mesAtual || new Date();
+    const comp = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}-01`;
+    const hoje = hojeISO();
+    const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
+    const pagas = estadoApp.faturasPagas || new Set();
+    return ((estadoApp.menus && estadoApp.menus.metodos) || [])
+        .filter(m => m.metodoKind === 'Crédito' && m.diaVencimento)
+        .map(m => {
+            const rot = rotuloMetodo(m);
+            const total = (estadoApp.transacoes.saidas || []).filter(t => t.metodo === rot).reduce((a, t) => a + valorDe(t), 0)
+                - (estadoApp.transacoes.entradas || []).filter(t => t.metodo === rot).reduce((a, t) => a + valorDe(t), 0);
+            if (!(total > 0.004)) return null;
+            const venc = dataVencimento(comp, m.diaVencimento);
+            if (!venc || venc <= hoje) return null; // venceu: conta como paga automaticamente
+            return { rot, comp, venc, total, paga: pagas.has(rot + '|' + comp) };
+        })
+        .filter(Boolean);
+}
+
+function _htmlFaturaVirtual(f) {
+    const esc = x => String(x).replace(/"/g, '&quot;');
+    const dd = f.venc.slice(8, 10) + '/' + f.venc.slice(5, 7);
+    return `
+        <div class="fatura-virtual${f.paga ? ' paga' : ''}">
+          <span class="fv-emoji">💳</span>
+          <div class="fv-info"><b>Fatura ${f.rot}</b><span>vcto. ${dd}${f.paga ? ' · marcada como paga' : ''}</span></div>
+          <b class="fv-valor">${formatarMoeda(f.total)}</b>
+          <button type="button" class="mini-btn" data-fatura-pagar data-metodo="${esc(f.rot)}" data-comp="${f.comp}" data-paga="${f.paga ? 1 : 0}">${f.paga ? '↩ Desfazer' : '✓ Marcar como paga'}</button>
+        </div>`;
+}
+
 function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     if (!container) return;
     if (!transacoes || !transacoes.length) {
@@ -1035,8 +1070,9 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     // Grupo vazio nunca abre — nem é clicável: sem <details>, é uma linha
     // estática (não tem nada pra mostrar, então não faz sentido nem deixar
     // "abrir" e ver "Nada aqui").
-    const grupoHTML = (nome, cor, itens, total, pct) => {
-        if (!itens.length) return `
+    const faturasVirtuais = tipoUI === 'saida' ? _faturasAPagar() : [];
+    const grupoHTML = (nome, cor, itens, total, pct, extraHTML = '', extraContagem = 0) => {
+        if (!itens.length && !extraHTML) return `
         <div class="rec-grupo rec-grupo--vazio" style="--cor-rec:${cor}">
           <span class="rec-grupo-nome">${nome}</span>
           <span class="rec-grupo-espaco"></span>
@@ -1047,11 +1083,12 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
           <summary>
             <span class="rec-grupo-nome">${nome}</span>
             <span class="rec-grupo-espaco"></span>
-            <span class="rec-grupo-contagem">${itens.length}</span>
+            <span class="rec-grupo-contagem">${itens.length + extraContagem}</span>
             <span class="rec-grupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalGeral ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
           </summary>
           <div class="rec-grupo-itens">
-            ${_barraGrupo(_renderOrdemCriacaoToggle(`${tipoUI}:cronologica:${nome}`) + (ehDespesaCron ? _renderOrganizadorInline(tipoUI, 'cronologica', nome, tipoUI === 'saida') : ''))}
+            ${extraHTML}
+            ${!itens.length ? '' : _barraGrupo(_renderOrdemCriacaoToggle(`${tipoUI}:cronologica:${nome}`) + (ehDespesaCron ? _renderOrganizadorInline(tipoUI, 'cronologica', nome, tipoUI === 'saida') : ''))}
             ${ehDespesaCron ? _corpoGrupoComSubmodo(itens, tipoUI, 'cronologica', nome, true, abertosSub) : itens.map(t => gerarHTMLTransacao(t, tipoUI)).join('')}
           </div>
         </details>`;
@@ -1067,10 +1104,24 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
                   title="${rotuloPendente}: ${formatarPct(pctPendente)}% · ${formatarMoeda(totalPendente)}" ${totalPendente ? '' : 'hidden'}></button>
         </div>
         ${grupoHTML('Atual', corAtual, atuais, totalAtual, pctAtual)}
-        ${grupoHTML(rotuloPendente, corPendente, pendentes, totalPendente, pctPendente)}
+        ${grupoHTML(rotuloPendente, corPendente, pendentes, totalPendente, pctPendente, faturasVirtuais.map(_htmlFaturaVirtual).join(''), faturasVirtuais.filter(f => !f.paga).length)}
     `;
     container.querySelectorAll('.subgrupo-organizador').forEach(_ajustarLabelsFiltro);
-    container.onclick = e => {
+    container.onclick = async e => {
+        const fatBtn = e.target.closest('[data-fatura-pagar]');
+        if (fatBtn) {
+            e.preventDefault();
+            const metodo = fatBtn.dataset.metodo, comp = fatBtn.dataset.comp, chave = metodo + '|' + comp;
+            fatBtn.disabled = true;
+            const { error } = fatBtn.dataset.paga === '1'
+                ? await sb.from('faturas_pagas').delete().eq('metodo', metodo).eq('competencia', comp)
+                : await sb.from('faturas_pagas').insert({ metodo, competencia: comp });
+            if (error) { console.error(error); mostrarNotificacao('Erro ao atualizar a fatura', 'erro'); fatBtn.disabled = false; return; }
+            estadoApp.faturasPagas = estadoApp.faturasPagas || new Set();
+            if (fatBtn.dataset.paga === '1') estadoApp.faturasPagas.delete(chave); else estadoApp.faturasPagas.add(chave);
+            renderListaCronologica(container, transacoes, tipoUI, msgVazia);
+            return;
+        }
         const subBtn = e.target.closest('[data-submodo]');
         if (subBtn) {
             e.preventDefault();

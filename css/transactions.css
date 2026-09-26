@@ -805,3 +805,12 @@
 /* Contagem de lançamentos ao lado do nome do grupo (Próximos: formas de pagamento e faturas) */
 .fatura-contagem { flex: none; font-size: .72rem; font-weight: 700; color: var(--text-muted); background: var(--surface-3); border-radius: 999px; padding: .05rem .45rem; }
 @media (max-width: 600px) { .fatura-contagem { font-size: .6rem; padding: .02rem .32rem; } }
+
+/* Fatura do cartão como linha virtual em "A pagar" */
+.fatura-virtual { display: flex; align-items: center; gap: .6rem; padding: .5rem .6rem; margin: .3rem 0; background: var(--surface); border: 1px dashed var(--border-strong, var(--border)); border-radius: var(--radius-sm); }
+.fatura-virtual .fv-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .1rem; font-size: .85rem; }
+.fatura-virtual .fv-info span { font-size: .72rem; color: var(--text-muted); }
+.fatura-virtual .fv-valor { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fatura-virtual .mini-btn { flex: none; white-space: nowrap; }
+.fatura-virtual.paga { opacity: .6; }
+.fatura-virtual.paga .fv-valor { text-decoration: line-through; }
