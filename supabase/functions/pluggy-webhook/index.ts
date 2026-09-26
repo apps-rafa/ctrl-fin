@@ -381,6 +381,20 @@ Deno.serve(async (req: Request) => {
     }
 
     const userId = contas[0].user_id;
+
+    // Só sincroniza conta ligada a uma forma de pagamento ATIVA (em "Selecione..." ou ligada a uma
+    // forma desativada não roda): avisa no Telegram e pula.
+    const metodoIds = [...new Set(contas.map((c: { metodo_id: number | null }) => c.metodo_id).filter(Boolean))];
+    const { data: metodosAtivos } = metodoIds.length
+      ? await supabaseAdmin.from("menu_itens").select("id").in("id", metodoIds).eq("status", "Ativo")
+      : { data: [] as { id: number }[] };
+    const idsAtivos = new Set((metodosAtivos ?? []).map((m: { id: number }) => m.id));
+    const contasSemForma = contas.filter((c: { metodo_id: number | null }) => !c.metodo_id || !idsAtivos.has(c.metodo_id));
+    for (const c of contasSemForma) {
+      await avisarErroTelegram(supabaseAdmin, `pluggy-sem-forma-${c.id}`, `⚠️ A conta ${c.nome_conta ?? c.id} chegou do Open Finance mas está sem forma de pagamento ativa (Selecione...). Ligue-a a uma forma em Configurações > Open Finance pra ela voltar a sincronizar.`);
+    }
+    const contasOk = contas.filter((c: { metodo_id: number | null }) => c.metodo_id && idsAtivos.has(c.metodo_id));
+    if (!contasOk.length) return json({ ok: true, ignorado: "contas sem forma de pagamento ativa" });
     const { data: categoriasApp } = await supabaseAdmin
       .from("menu_itens")
       .select("nome, categoria_tipo")
@@ -392,7 +406,7 @@ Deno.serve(async (req: Request) => {
     const aprendidas = await carregarCategoriasAprendidas(supabaseAdmin, userId);
     let novasNoTotal = 0;
 
-    for (const conta of contas) {
+    for (const conta of contasOk) {
       const dateFrom = conta.ultimo_sync
         ? String(conta.ultimo_sync).slice(0, 10)
         : new Date(Date.now() - DIAS_HISTORICO_PRIMEIRA_SYNC * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -474,7 +488,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    return json({ ok: true, novas: novasNoTotal, contasProcessadas: contas.length });
+    return json({ ok: true, novas: novasNoTotal, contasProcessadas: contasOk.length });
   } catch (e) {
     console.error(e);
     try {

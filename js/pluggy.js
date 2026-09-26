@@ -669,7 +669,25 @@ function _atualizarTotalMesPluggy() {
 }
 
 /** Botão "Sincronizar agora": busca transações novas em todas as contas. */
+/** Contas marcadas pra sincronizar que NÃO têm forma de pagamento ativa ligada ("Selecione..."). */
+async function _contasSemFormaDePagamento() {
+    const { data } = await sb.from('pluggy_contas').select('*').eq('sincronizar', true).in('status', ['ativo', 'erro']);
+    const ativas = new Set(((estadoApp.menus && estadoApp.menus.metodos) || []).map(m => m.id));
+    return (data || []).filter(c => !c.metodo_id || !ativas.has(c.metodo_id));
+}
+
 async function sincronizarPluggyAgora() {
+    // Sem forma de pagamento ligada (ou ligada a uma desativada) a conta não sincroniza
+    const semForma = await _contasSemFormaDePagamento();
+    if (semForma.length) {
+        const nomes = semForma.map(c => `<strong>${tituloContaPluggyCurto(c)}</strong>`).join(', ');
+        mostrarDialogo({
+            titulo: 'Falta a forma de pagamento',
+            texto: `Não dá pra sincronizar ${nomes}: a conta está sem forma de pagamento (em "Selecione...") ou ligada a uma forma desativada. Em Configurações > Open Finance, ligue a conta a uma forma de pagamento — reative a antiga ou crie uma nova — e sincronize de novo.`,
+            acoes: [{ label: 'Entendi', primario: true }],
+        });
+        return;
+    }
     _telaLimpaPluggy = false; // sincronizar mostra tudo de novo, como está no banco
     for (const k of Object.keys(_abertosPluggy)) delete _abertosPluggy[k]; // e tudo fechado, como no padrão
     const btn = document.getElementById('btnSincronizarPluggy');
