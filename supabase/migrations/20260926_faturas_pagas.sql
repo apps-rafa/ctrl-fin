@@ -12,3 +12,6 @@ create policy "faturas_pagas_dono" on public.faturas_pagas
   for all to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
+
+-- Escolha explícita do usuário (marcar/desmarcar) que vale mais que a data de vencimento
+alter table public.faturas_pagas add column if not exists pago boolean not null default true;
