@@ -195,6 +195,15 @@ function atualizarResumo() {
     setTxt('entradasAReceber', estadoApp.resumo.entradasAReceber);
     setTxt('saidasAtual', estadoApp.resumo.saidasAtual);
     setTxt('saidasAPagar', estadoApp.resumo.saidasAPagar);
+    // Quebra do "a pagar": lançamentos por vir x fatura em aberto (só aparece quando há fatura)
+    const detLinha = document.getElementById('saidasDetalheLinha');
+    if (detLinha) {
+        const fat = estadoApp.resumo.saidasFatura || 0;
+        detLinha.hidden = !(fat > 0.004);
+        const fmt = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
+        const det = document.getElementById('saidasDetalhe');
+        if (det) det.textContent = mask(`avulsos ${fmt(estadoApp.resumo.saidasAvulsos)} · fatura ${fmt(fat)}`);
+    }
 
     if (balancoEl) {
         balancoEl.textContent = mask(resumo.balanco);
@@ -1018,8 +1027,10 @@ function _faturasAPagar() {
         .filter(m => m.metodoKind === 'Crédito' && m.diaVencimento && itemAtivoEm(m, comp))
         .map(m => {
             const rot = rotuloMetodo(m);
-            const total = (estadoApp.transacoes.saidas || []).filter(t => t.metodo === rot).reduce((a, t) => a + valorDe(t), 0)
-                - (estadoApp.transacoes.entradas || []).filter(t => t.metodo === rot).reduce((a, t) => a + valorDe(t), 0);
+            // Só compras JÁ feitas (data <= hoje): as futuras ainda não bateram no cartão e aparecem soltas
+            const feita = t => !t.pendente && String(t.data).slice(0, 10) <= hoje;
+            const total = (estadoApp.transacoes.saidas || []).filter(t => t.metodo === rot && feita(t)).reduce((a, t) => a + valorDe(t), 0)
+                - (estadoApp.transacoes.entradas || []).filter(t => t.metodo === rot && feita(t)).reduce((a, t) => a + valorDe(t), 0);
             if (!(total > 0.004)) return null;
             const venc = dataVencimento(comp, m.diaVencimento);
             if (!venc) return null;
@@ -1042,6 +1053,7 @@ async function _alternarFaturaPagaBtn(fatBtn) {
     if (error) { console.error(error); mostrarNotificacao('Erro ao atualizar a fatura', 'erro'); fatBtn.disabled = false; return false; }
     if (!(estadoApp.faturasPagas instanceof Map)) estadoApp.faturasPagas = new Map();
     if (igualAoAutomatico) estadoApp.faturasPagas.delete(chave); else estadoApp.faturasPagas.set(chave, novo);
+    if (typeof calcularResumoMes === 'function') { calcularResumoMes(); atualizarResumo(); } // pago x a pagar mudam
     return true;
 }
 

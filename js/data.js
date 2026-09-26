@@ -240,14 +240,52 @@ function calcularResumoMes() {
     const s = somar(estadoApp.transacoes.saidas);
     const estorno = estornosCartao.length ? somar(estornosCartao) : { total: 0, atual: 0, pendente: 0 };
 
+    // Despesa por CAMINHO DO DINHEIRO (não por quando comprou):
+    //   pago      = o que já saiu (PIX/dinheiro até hoje + faturas vencidas ou marcadas como pagas)
+    //   fatura    = compras do cartão JÁ feitas (data <= hoje) de faturas ainda em aberto
+    //   avulsos   = o que ainda não aconteceu (PIX/dinheiro futuros e compras de cartão futuras,
+    //               que ainda não bateram no cartão)
+    const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
+    const mesVista = estadoApp.mesAtual || new Date();
+    const compVista = `${mesVista.getFullYear()}-${String(mesVista.getMonth() + 1).padStart(2, '0')}-01`;
+    const escolhasFatura = estadoApp.faturasPagas instanceof Map ? estadoApp.faturasPagas : new Map();
+    let pago = 0, avulsos = 0;
+    const porCartao = new Map();
+    estadoApp.transacoes.saidas.forEach(t => {
+        const tot = valorDe(t);
+        const jaAconteceu = !t.pendente && String(t.data).slice(0, 10) <= hoje;
+        if (metodosCredito.has(t.metodo)) {
+            if (jaAconteceu) porCartao.set(t.metodo, (porCartao.get(t.metodo) || 0) + tot);
+            else avulsos += tot;
+        } else if (t.tipoRecorrencia === 'Semanal' && t.valorMes != null) {
+            pago += t.valor || 0; avulsos += tot - (t.valor || 0);
+        } else if (jaAconteceu) pago += tot;
+        else avulsos += tot;
+    });
+    estornosCartao.forEach(t => {
+        const tot = valorDe(t);
+        if (!t.pendente && String(t.data).slice(0, 10) <= hoje) porCartao.set(t.metodo, (porCartao.get(t.metodo) || 0) - tot);
+        else avulsos -= tot;
+    });
+    let faturaAberta = 0;
+    porCartao.forEach((soma, rot) => {
+        const cartao = metodosCredito.get(rot);
+        const venc = cartao && cartao.diaVencimento ? dataVencimento(compVista, cartao.diaVencimento) : null;
+        const escolha = escolhasFatura.get(rot + '|' + compVista);
+        const paga = escolha !== undefined ? escolha : !!(venc && venc <= hoje);
+        if (paga) pago += soma; else faturaAberta += soma;
+    });
+
     estadoApp.resumo = {
         entradas: e.total,
         saidas: r2(s.total - estorno.total),
         balanco: r2(e.total - s.total + estorno.total),
         entradasAtual: e.atual,
         entradasAReceber: e.pendente,
-        saidasAtual: r2(s.atual - estorno.atual),
-        saidasAPagar: r2(s.pendente - estorno.pendente)
+        saidasAtual: r2(pago),
+        saidasAPagar: r2(avulsos + faturaAberta),
+        saidasAvulsos: r2(avulsos),
+        saidasFatura: r2(faturaAberta)
     };
 
     console.log('📈 Resumo calculado:', estadoApp.resumo);

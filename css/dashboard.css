@@ -420,3 +420,7 @@
     font-size: .72rem; padding: .15rem 0; color: var(--text-muted);
 }
 .saldo-contas-lista .sc-linha b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Despesa: detalhe do "a pagar" (avulsos + fatura), discreto */
+.summary-card .linha-detalhe i { font-size: .62rem; opacity: .75; font-style: normal; }
+.summary-card .linha-detalhe[hidden] { display: none; }
