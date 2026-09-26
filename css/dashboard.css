@@ -423,4 +423,4 @@
 
 /* Despesa: detalhe do "a pagar" (avulsos + fatura), discreto */
 .summary-card .linha-detalhe i { font-size: .62rem; opacity: .75; font-style: normal; }
-.summary-card .linha-detalhe[hidden] { display: none; }
+.summary-card .linha-detalhe.vazio { visibility: hidden; } /* segura a altura da linha */
