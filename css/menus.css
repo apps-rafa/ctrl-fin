@@ -1296,3 +1296,7 @@ summary [role="button"] { font-family: Arial; text-align: center; }
 /* Bolinha de cor menor, na proporção dos ícones ao lado (ordem: ✏️ 🗑️ ⊘ cor) */
 .item-actions button.cor-swatch { width: .9rem; height: .9rem; margin: 0 .2rem; }
 
+
+/* Respiro entre as contas conectadas/desconectadas do Open Finance */
+.pluggy-contas-grupo > .menu-item + .menu-item { margin-top: .6rem; }
+.pluggy-contas-grupo > .pluggy-contas-grupo-titulo + .menu-item { margin-top: .4rem; }
