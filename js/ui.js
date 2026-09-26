@@ -1030,6 +1030,21 @@ function _faturasAPagar() {
         .filter(Boolean);
 }
 
+/** Marca/desmarca a fatura como paga (botão "paga"). true se gravou. */
+async function _alternarFaturaPagaBtn(fatBtn) {
+    const metodo = fatBtn.dataset.metodo, comp = fatBtn.dataset.comp, chave = metodo + '|' + comp;
+    const novo = fatBtn.dataset.paga !== '1';            // inverte o estado atual (marcado x desmarcado)
+    const igualAoAutomatico = novo === (fatBtn.dataset.auto === '1'); // voltou ao que a data já diz: some a escolha
+    fatBtn.disabled = true;
+    const { error } = igualAoAutomatico
+        ? await sb.from('faturas_pagas').delete().eq('metodo', metodo).eq('competencia', comp)
+        : await sb.from('faturas_pagas').upsert({ metodo, competencia: comp, pago: novo }, { onConflict: 'user_id,metodo,competencia' });
+    if (error) { console.error(error); mostrarNotificacao('Erro ao atualizar a fatura', 'erro'); fatBtn.disabled = false; return false; }
+    if (!(estadoApp.faturasPagas instanceof Map)) estadoApp.faturasPagas = new Map();
+    if (igualAoAutomatico) estadoApp.faturasPagas.delete(chave); else estadoApp.faturasPagas.set(chave, novo);
+    return true;
+}
+
 function _htmlFaturaVirtual(f) {
     const esc = x => String(x).replace(/"/g, '&quot;');
     const dd = f.venc.slice(8, 10) + '/' + f.venc.slice(5, 7);
@@ -1118,16 +1133,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
         const fatBtn = e.target.closest('[data-fatura-pagar]');
         if (fatBtn) {
             e.preventDefault();
-            const metodo = fatBtn.dataset.metodo, comp = fatBtn.dataset.comp, chave = metodo + '|' + comp;
-            const novo = fatBtn.dataset.paga !== '1';            // inverte o estado atual (marcado x desmarcado)
-            const igualAoAutomatico = novo === (fatBtn.dataset.auto === '1'); // voltou ao que a data já diz: some a escolha
-            fatBtn.disabled = true;
-            const { error } = igualAoAutomatico
-                ? await sb.from('faturas_pagas').delete().eq('metodo', metodo).eq('competencia', comp)
-                : await sb.from('faturas_pagas').upsert({ metodo, competencia: comp, pago: novo }, { onConflict: 'user_id,metodo,competencia' });
-            if (error) { console.error(error); mostrarNotificacao('Erro ao atualizar a fatura', 'erro'); fatBtn.disabled = false; return; }
-            if (!(estadoApp.faturasPagas instanceof Map)) estadoApp.faturasPagas = new Map();
-            if (igualAoAutomatico) estadoApp.faturasPagas.delete(chave); else estadoApp.faturasPagas.set(chave, novo);
+            if (!(await _alternarFaturaPagaBtn(fatBtn))) return;
             renderListaCronologica(container, transacoes, tipoUI, msgVazia);
             return;
         }
@@ -1766,7 +1772,13 @@ async function atualizarGrafico() {
 /** Clique dentro da lista de "Próximas" — cobre o organizador inline das
  *  faturas de cartão (data-submodo/data-submodo-icone) antes de cair no
  *  handler padrão (editar/excluir). */
-function _onCliqueProximas(e) {
+async function _onCliqueProximas(e) {
+    const fatPagar = e.target.closest('[data-fatura-pagar]');
+    if (fatPagar) {
+        e.preventDefault();
+        if (await _alternarFaturaPagaBtn(fatPagar)) atualizarProximasTransacoes();
+        return;
+    }
     // Dentro da busca, refaz a busca (e não a aba Próximos)
     const refazer = () => (e.target.closest('#resultadoBusca') ? atualizarBuscaGlobal() : atualizarProximasTransacoes());
     const subBtn = e.target.closest('[data-submodo]');
@@ -1807,6 +1819,37 @@ function _onCliqueProximas(e) {
  * de crédito do mês em exibição (a lista de recorrências futuras não existe
  * mais, só há lançamentos avulsos/parcelados).
  */
+/** Aba Próximos: dois grupos — Receita (o que ainda vai entrar) e Despesa (a fatura de cada cartão,
+ *  com o botão "paga", e embaixo só os lançamentos que ainda não aconteceram, de cartão ou não). */
+function renderProximasAgrupado(abertos = {}) {
+    const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
+    const soma = l => l.reduce((a, t) => a + valorDe(t), 0);
+    const futuras = lista => (lista || []).filter(t => !_transacaoRealizada(t))
+        .sort((a, b) => String(a.data).localeCompare(String(b.data)));
+    const receitas = futuras(estadoApp.transacoes.entradas);
+    const despesas = futuras(estadoApp.transacoes.saidas);
+    const faturas = _faturasAPagar();
+    const aberto = k => (abertos[k] !== undefined ? abertos[k] : true);
+    const grupo = (nome, chave, cor, contagem, total, corpo) => `
+        <details class="fatura-item" data-pend="${chave}" style="--cor-cartao:${cor}" ${aberto(chave) ? 'open' : ''}>
+          <summary>
+            <span class="fatura-nome">${nome}</span>
+            <span class="fatura-contagem">${contagem}</span>
+            <span class="fatura-espaco"></span>
+            <span class="fatura-total">${formatarMoeda(total)}</span>
+          </summary>
+          <div class="fatura-itens">${corpo}</div>
+        </details>`;
+    const htmlR = receitas.length
+        ? grupo('Receita', 'receita', 'var(--receita-text)', receitas.length, soma(receitas), receitas.map(t => gerarHTMLTransacao(t, 'entrada')).join(''))
+        : '';
+    const htmlD = (despesas.length || faturas.length)
+        ? grupo('Despesa', 'despesa', 'var(--despesa-text)', despesas.length + faturas.filter(f => !f.paga).length, soma(despesas),
+            faturas.map(_htmlFaturaVirtual).join('') + despesas.map(t => gerarHTMLTransacao(t, 'saida')).join(''))
+        : '';
+    return htmlR + htmlD;
+}
+
 async function atualizarProximasTransacoes() {
     const container = document.querySelector(SELECTORS.proximasLista);
     if (!container) return;
@@ -1815,9 +1858,7 @@ async function atualizarProximasTransacoes() {
         // Lê o aberto/fechado ANTES de reescrever (a fatura também usa essa chave).
         const abertosPend = {};
         container.querySelectorAll('details.fatura-item[data-pend]').forEach(d => { abertosPend[d.dataset.pend] = d.open; });
-        const pendentesHTML = renderPendentesProximas(abertosPend);
-        const faturasHTML = renderFaturasCartao(container);
-        const html = pendentesHTML + (faturasHTML || '');
+        const html = renderProximasAgrupado(abertosPend);
         container.innerHTML = html || `<p class="empty-message">Nada a receber, a pagar nem fatura neste mês</p>`;
         container.onclick = html ? _onCliqueProximas : null;
         container.querySelectorAll('.faturas-cartao .subgrupo-organizador').forEach(_ajustarLabelsFiltro);
