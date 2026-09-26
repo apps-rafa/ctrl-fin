@@ -1049,7 +1049,7 @@ function _htmlFaturaVirtual(f) {
     const esc = x => String(x).replace(/"/g, '&quot;');
     const dd = f.venc.slice(8, 10) + '/' + f.venc.slice(5, 7);
     const banco = f.banco || String(f.rot).replace(/^Crédito\s+/i, '');
-    const nomeLongo = `Fatura CC ${banco}`;
+    const nomeLongo = `Fatura ${f.rot}`; // desktop: nome inteiro; o abreviado é só do celular
     const nomeCurto = `Fatura CC ${banco.length > 5 ? banco.slice(0, 4) + '.' : banco}`;
     const detalhe = `vcto. ${dd}`;
     return `

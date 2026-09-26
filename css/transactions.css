@@ -823,3 +823,7 @@
   .fatura-virtual .fv-longo { display: none; }
   .fatura-virtual .fv-curto { display: inline; }
 }
+@media (min-width: 601px) {
+  .fatura-virtual .fv-valor { font-size: .9rem; font-weight: 700; } /* igual ao total do grupo */
+  .fatura-virtual .fv-info b { font-size: .85rem; }
+}
