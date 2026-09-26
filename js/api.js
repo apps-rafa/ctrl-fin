@@ -151,6 +151,8 @@ async function carregarMenusAPI() {
             categoriasReceita: cats.filter(c => c.categoriaTipo === 'entradas').map(i => i.nome),
             // métodos como objetos (o formulário precisa do tipo/fechamento p/ competência)
             metodos,
+            // inclui inativos: cartão que você parou de usar ainda tem fatura nos meses em que foi usado
+            metodosTodos: todos.filter(i => i.tipo === 'Método'),
             cores: {
                 categoria: mapaCor(todos.filter(i => i.tipo === 'Categoria')),
                 metodo: mapaCorMetodo(todos.filter(i => i.tipo === 'Método'))

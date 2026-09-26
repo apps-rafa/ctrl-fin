@@ -774,7 +774,7 @@ async function buscarAmpla(termo) {
 /** Itens que a aba Próximos mostraria (A receber / A pagar sem cartão + tudo
  *  do cartão de crédito no mês) que batem com o termo. */
 function _itensProximosBusca(termo) {
-    const metodos = (estadoApp.menus && estadoApp.menus.metodos) || [];
+    const metodos = (estadoApp.menus && (estadoApp.menus.metodosTodos || estadoApp.menus.metodos)) || [];
     const credito = new Set(metodos.filter(m => m.metodoKind === 'Crédito').map(m => rotuloMetodo(m)));
     const todos = [...(estadoApp.transacoes.entradas || []), ...(estadoApp.transacoes.saidas || [])];
     // Só o que AINDA não aconteceu (vencimento/pagamento não passou) — o que já
@@ -1013,8 +1013,8 @@ function _faturasAPagar() {
     const comp = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}-01`;
     const hoje = hojeISO();
     const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
-    const pagas = estadoApp.faturasPagas || new Set();
-    return ((estadoApp.menus && estadoApp.menus.metodos) || [])
+    const pagas = estadoApp.faturasPagas instanceof Map ? estadoApp.faturasPagas : new Map();
+    return ((estadoApp.menus && (estadoApp.menus.metodosTodos || estadoApp.menus.metodos)) || [])
         .filter(m => m.metodoKind === 'Crédito' && m.diaVencimento)
         .map(m => {
             const rot = rotuloMetodo(m);
@@ -1024,8 +1024,8 @@ function _faturasAPagar() {
             const venc = dataVencimento(comp, m.diaVencimento);
             if (!venc) return null;
             const auto = venc <= hoje;               // venceu: conta como paga automaticamente (fica riscada)
-            const manual = pagas.has(rot + '|' + comp);
-            return { rot, banco: m.banco || '', comp, venc, total, auto, manual, paga: auto || manual };
+            const escolha = pagas.get(rot + '|' + comp); // marcar/desmarcar à mão vale mais que a data
+            return { rot, banco: m.banco || '', comp, venc, total, auto, paga: escolha !== undefined ? escolha : auto };
         })
         .filter(Boolean);
 }
@@ -1036,13 +1036,13 @@ function _htmlFaturaVirtual(f) {
     const banco = f.banco || String(f.rot).replace(/^Crédito\s+/i, '');
     const nomeLongo = `Fatura CC ${banco}`;
     const nomeCurto = `Fatura CC ${banco.length > 5 ? banco.slice(0, 4) + '.' : banco}`;
-    const detalhe = f.auto ? `vcto. ${dd} · paga` : (f.manual ? `vcto. ${dd} · marcada como paga` : `vcto. ${dd}`);
+    const detalhe = `vcto. ${dd}`;
     return `
         <div class="fatura-virtual${f.paga ? ' paga' : ''}">
           <div class="fv-info"><b><span class="fv-longo">${nomeLongo}</span><span class="fv-curto">${nomeCurto}</span></b><span>${detalhe}</span></div>
           <div class="fv-lado">
             <b class="fv-valor">${formatarMoeda(f.total)}</b>
-            <button type="button" class="fv-btn${f.paga ? ' on' : ''}" data-fatura-pagar data-metodo="${esc(f.rot)}" data-comp="${f.comp}" data-paga="${f.manual ? 1 : 0}" ${f.auto ? 'disabled title="Venceu — conta como paga"' : 'title="Marcar/desmarcar como paga"'}>${f.paga ? '✓ ' : ''}paga</button>
+            <button type="button" class="fv-btn${f.paga ? ' on' : ''}" data-fatura-pagar data-metodo="${esc(f.rot)}" data-comp="${f.comp}" data-paga="${f.paga ? 1 : 0}" data-auto="${f.auto ? 1 : 0}" title="${f.auto ? 'Marcada automaticamente pelo vencimento — clique para alterar' : 'Marcar/desmarcar como paga'}">${f.paga ? '✓ ' : ''}paga</button>
           </div>
         </div>`;
 }
@@ -1119,13 +1119,15 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
         if (fatBtn) {
             e.preventDefault();
             const metodo = fatBtn.dataset.metodo, comp = fatBtn.dataset.comp, chave = metodo + '|' + comp;
+            const novo = fatBtn.dataset.paga !== '1';            // inverte o estado atual (marcado x desmarcado)
+            const igualAoAutomatico = novo === (fatBtn.dataset.auto === '1'); // voltou ao que a data já diz: some a escolha
             fatBtn.disabled = true;
-            const { error } = fatBtn.dataset.paga === '1'
+            const { error } = igualAoAutomatico
                 ? await sb.from('faturas_pagas').delete().eq('metodo', metodo).eq('competencia', comp)
-                : await sb.from('faturas_pagas').insert({ metodo, competencia: comp });
+                : await sb.from('faturas_pagas').upsert({ metodo, competencia: comp, pago: novo }, { onConflict: 'user_id,metodo,competencia' });
             if (error) { console.error(error); mostrarNotificacao('Erro ao atualizar a fatura', 'erro'); fatBtn.disabled = false; return; }
-            estadoApp.faturasPagas = estadoApp.faturasPagas || new Set();
-            if (fatBtn.dataset.paga === '1') estadoApp.faturasPagas.delete(chave); else estadoApp.faturasPagas.add(chave);
+            if (!(estadoApp.faturasPagas instanceof Map)) estadoApp.faturasPagas = new Map();
+            if (igualAoAutomatico) estadoApp.faturasPagas.delete(chave); else estadoApp.faturasPagas.set(chave, novo);
             renderListaCronologica(container, transacoes, tipoUI, msgVazia);
             return;
         }
@@ -1830,7 +1832,7 @@ async function atualizarProximasTransacoes() {
  *  _transacaoRealizada), fora os de cartão de crédito, que aparecem em
  *  "Faturas". Abertos por padrão. */
 function renderPendentesProximas(abertos = {}, termo = '') {
-    const metodos = (estadoApp.menus && estadoApp.menus.metodos) || [];
+    const metodos = (estadoApp.menus && (estadoApp.menus.metodosTodos || estadoApp.menus.metodos)) || [];
     const rotulosCredito = new Set(metodos.filter(m => m.metodoKind === 'Crédito').map(m => rotuloMetodo(m)));
     const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
     const pend = lista => _filtrarPorBusca(lista || [], termo)
@@ -1865,7 +1867,7 @@ function renderPendentesProximas(abertos = {}, termo = '') {
  *  cartão dentro (despesas + estornos/reembolsos que abatem a fatura),
  *  fechado por padrão. */
 function renderFaturasCartao(container, termo = '', soNaoRealizadas = false) {
-    const cartoes = ((estadoApp.menus && estadoApp.menus.metodos) || [])
+    const cartoes = ((estadoApp.menus && (estadoApp.menus.metodosTodos || estadoApp.menus.metodos)) || [])
         .filter(m => m.metodoKind === 'Crédito');
     if (!cartoes.length) return '';
     const mes = estadoApp.mesAtual || new Date();

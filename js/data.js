@@ -119,6 +119,7 @@ async function carregarMenus() {
         estadoApp.menus.categoriasDespesa = menus.categoriasDespesa || [];
         estadoApp.menus.categoriasReceita = menus.categoriasReceita || [];
         estadoApp.menus.metodos = menus.metodos || [];
+        estadoApp.menus.metodosTodos = menus.metodosTodos || menus.metodos || [];
         estadoApp.menus.cores = menus.cores || { categoria: {}, metodo: {} };
 
         console.log('✓ Menus carregados:', estadoApp.menus);
@@ -202,7 +203,7 @@ function calcularResumoMes() {
     // Métodos de crédito: o gasto só "realiza" (sai da fatura em aberto) depois
     // que o vencimento da fatura daquela competência já passou.
     const metodosCredito = new Map(
-        ((estadoApp.menus && estadoApp.menus.metodos) || [])
+        ((estadoApp.menus && (estadoApp.menus.metodosTodos || estadoApp.menus.metodos)) || [])
             .filter(m => m.metodoKind === 'Crédito')
             .map(m => [(typeof rotuloMetodo === 'function' ? rotuloMetodo(m) : m.nome), m])
     );
@@ -263,14 +264,14 @@ async function recarregarDados() {
     if (typeof aplicarDataPadrao === 'function') aplicarDataPadrao(false);
 }
 
-/** Faturas de cartão que o usuário marcou como pagas ("metodo|YYYY-MM-01"). */
+/** Escolhas do usuário sobre faturas de cartão ("metodo|YYYY-MM-01" -> pago true/false); sem escolha vale a data de vencimento. */
 async function carregarFaturasPagasAPI() {
     try {
-        const { data, error } = await sb.from('faturas_pagas').select('metodo, competencia');
+        const { data, error } = await sb.from('faturas_pagas').select('metodo, competencia, pago');
         if (error) throw error;
-        return new Set((data || []).map(r => r.metodo + '|' + String(r.competencia).slice(0, 10)));
+        return new Map((data || []).map(r => [r.metodo + '|' + String(r.competencia).slice(0, 10), r.pago !== false]));
     } catch (e) {
         console.warn('Faturas pagas indisponíveis:', e.message || e);
-        return new Set();
+        return new Map();
     }
 }
