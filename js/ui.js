@@ -1102,7 +1102,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     });
     const soma = l => l.reduce((acc, t) => acc + valorDe(t), 0);
     const nomeAtual = tipoUI === 'saida' ? 'Pago' : 'Atual';
-    const grupos = [{ nome: nomeAtual, cor: corAtual, itens: atuais, total: soma(atuais), extraHTML: faturas.filter(f => f.paga).map(_htmlFaturaVirtual).join('') }];
+    const grupos = [{ nome: nomeAtual, cor: corAtual, itens: atuais, total: soma(atuais), extraHTML: faturas.filter(f => f.paga).map(f => _htmlFaturaVirtual(f)).join('') }];
     // A pagar = subgrupo da fatura de cada cartão em aberto + (fora dele) o que ainda não aconteceu
     const abertasFat = faturas.filter(f => !f.paga);
     const abertosSubFat = _lerAbertosSubgrupo(container);
@@ -1888,7 +1888,7 @@ function renderProximasAgrupado(abertos = {}) {
         : '';
     const htmlD = (despesas.length || faturas.length)
         ? grupo('Despesa', 'despesa', 'var(--despesa-text)', despesas.length + faturas.filter(f => !f.paga).length, soma(despesas),
-            faturas.map(_htmlFaturaVirtual).join('') + despesas.map(t => gerarHTMLTransacao(t, 'saida')).join(''))
+            faturas.map(f => _htmlFaturaVirtual(f)).join('') + despesas.map(t => gerarHTMLTransacao(t, 'saida')).join(''))
         : '';
     return htmlR + htmlD;
 }
