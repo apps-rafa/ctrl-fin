@@ -827,3 +827,5 @@
   .fatura-virtual .fv-valor { font-size: .9rem; font-weight: 700; } /* igual ao total do grupo */
   .fatura-virtual .fv-info b { font-size: .85rem; }
 }
+/* Linha "Fatura · vcto." dentro do subgrupo do cartão: vencimento ao lado do nome, sem repetir o valor */
+.fatura-virtual--compacta .fv-info { flex-direction: row; align-items: baseline; gap: .6rem; }
