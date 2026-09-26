@@ -202,7 +202,7 @@ function atualizarResumo() {
         detLinha.classList.toggle('vazio', !(fat > 0.004)); // mantém a altura pra alinhar com Receita
         const fmt = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
         const det = document.getElementById('saidasDetalhe');
-        if (det) det.textContent = fat > 0.004 ? mask(`pix ${fmt(estadoApp.resumo.saidasAvulsos)} · crédito ${fmt(fat)}`) : ' ';
+        if (det) det.textContent = fat > 0.004 ? mask(`avulsos ${fmt(estadoApp.resumo.saidasAvulsos)} · crédito ${fmt(fat)}`) : ' ';
     }
 
     if (balancoEl) {
@@ -1101,10 +1101,31 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     const soma = l => l.reduce((acc, t) => acc + valorDe(t), 0);
     const nomeAtual = tipoUI === 'saida' ? 'Pago' : 'Atual';
     const grupos = [{ nome: nomeAtual, cor: corAtual, itens: atuais, total: soma(atuais), extraHTML: faturas.filter(f => f.paga).map(_htmlFaturaVirtual).join('') }];
-    faturas.filter(f => !f.paga).forEach(f => grupos.push({
-        nome: `Fatura ${f.rot}`, cor: 'var(--primary)', itens: itensFatura.get(f.rot) || [], total: f.total, extraHTML: _htmlFaturaVirtual(f),
-    }));
-    grupos.push({ nome: rotuloPendente, cor: corPendente, itens: pendentes, total: soma(pendentes), extraHTML: '' });
+    // A pagar = subgrupo da fatura de cada cartão em aberto + (fora dele) o que ainda não aconteceu
+    const abertasFat = faturas.filter(f => !f.paga);
+    const abertosSubFat = _lerAbertosSubgrupo(container);
+    const subFaturaHTML = f => {
+        const its = _ordenarPorGrupo(itensFatura.get(f.rot) || [], `${tipoUI}:cronologica:sub:Fatura ${f.rot}`);
+        const nome = `Fatura ${f.rot}`;
+        return `
+        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" ${abertosSubFat[nome] ? 'open' : ''}>
+          <summary class="subgrupo-cab">
+            <span class="subgrupo-nome">${nome}</span>
+            <span class="subgrupo-espaco"></span>
+            <span class="subgrupo-contagem">${its.length}</span>
+            <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(f.total)}</span></span>
+          </summary>
+          ${_htmlFaturaVirtual(f)}
+          ${its.length ? _barraGrupo(_renderOrdemCriacaoToggle(`${tipoUI}:cronologica:sub:${nome}`)) : ''}
+          ${its.map(t => gerarHTMLTransacao(t, tipoUI)).join('')}
+        </details>`;
+    };
+    grupos.push({
+        nome: rotuloPendente, cor: corPendente, itens: pendentes,
+        total: soma(pendentes) + abertasFat.reduce((acc, f) => acc + f.total, 0),
+        extraHTML: abertasFat.map(subFaturaHTML).join(''),
+        extraContagem: abertasFat.reduce((acc, f) => acc + (itensFatura.get(f.rot) || []).length, 0),
+    });
     grupos.forEach(g => _ordenarPorGrupo(g.itens, `${tipoUI}:cronologica:${g.nome}`));
 
     const totalGeral = grupos.reduce((acc, g) => acc + g.total, 0);
@@ -1117,7 +1138,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     // Grupo vazio nunca abre — nem é clicável: sem <details>, é uma linha
     // estática (não tem nada pra mostrar, então não faz sentido nem deixar
     // "abrir" e ver "Nada aqui").
-    const grupoHTML = (nome, cor, itens, total, pct, extraHTML = '') => {
+    const grupoHTML = (nome, cor, itens, total, pct, extraHTML = '', extraContagem = 0) => {
         if (!itens.length && !extraHTML) return `
         <div class="rec-grupo rec-grupo--vazio" style="--cor-rec:${cor}">
           <span class="rec-grupo-nome">${nome}</span>
@@ -1129,7 +1150,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
           <summary>
             <span class="rec-grupo-nome">${nome}</span>
             <span class="rec-grupo-espaco"></span>
-            <span class="rec-grupo-contagem">${itens.length}</span>
+            <span class="rec-grupo-contagem">${itens.length + extraContagem}</span>
             <span class="rec-grupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalGeral ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
           </summary>
           <div class="rec-grupo-itens">
@@ -1146,7 +1167,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
                   style="--cor-rec:${g.cor}; flex-grow:${Math.max(pctDe(g), g.total > 0.004 ? 2 : 0)}"
                   title="${esc(g.nome)}: ${formatarPct(pctDe(g))}% · ${formatarMoeda(g.total)}" ${g.total > 0.004 ? '' : 'hidden'}></button>`).join('')}
         </div>
-        ${grupos.map(g => grupoHTML(g.nome, g.cor, g.itens, g.total, pctDe(g), g.extraHTML)).join('')}
+        ${grupos.map(g => grupoHTML(g.nome, g.cor, g.itens, g.total, pctDe(g), g.extraHTML, g.extraContagem || 0)).join('')}
     `;
     container.querySelectorAll('.subgrupo-organizador').forEach(_ajustarLabelsFiltro);
     container.onclick = async e => {
