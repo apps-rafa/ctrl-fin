@@ -199,10 +199,10 @@ function atualizarResumo() {
     const detLinha = document.getElementById('saidasDetalheLinha');
     if (detLinha) {
         const fat = estadoApp.resumo.saidasFatura || 0;
-        detLinha.hidden = !(fat > 0.004);
+        detLinha.classList.toggle('vazio', !(fat > 0.004)); // mantém a altura pra alinhar com Receita
         const fmt = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
         const det = document.getElementById('saidasDetalhe');
-        if (det) det.textContent = mask(`avulsos ${fmt(estadoApp.resumo.saidasAvulsos)} · fatura ${fmt(fat)}`);
+        if (det) det.textContent = fat > 0.004 ? mask(`pix ${fmt(estadoApp.resumo.saidasAvulsos)} · crédito ${fmt(fat)}`) : ' ';
     }
 
     if (balancoEl) {
