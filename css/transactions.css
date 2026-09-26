@@ -829,3 +829,6 @@
 }
 /* Linha "Fatura · vcto." dentro do subgrupo do cartão: vencimento ao lado do nome, sem repetir o valor */
 .fatura-virtual--compacta .fv-info { flex-direction: row; align-items: baseline; gap: .6rem; }
+/* Caixa da fatura dentro do subgrupo: mais baixa e alinhada à grade (sem sair das bordas do subgrupo) */
+.fatura-virtual--compacta { margin: .25rem 0; padding: .2rem .5rem; background: transparent; border-radius: var(--radius-xs); }
+.fatura-virtual--compacta .fv-info b { font-size: .75rem; }
