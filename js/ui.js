@@ -1015,7 +1015,7 @@ function _faturasAPagar() {
     const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
     const pagas = estadoApp.faturasPagas instanceof Map ? estadoApp.faturasPagas : new Map();
     return ((estadoApp.menus && (estadoApp.menus.metodosTodos || estadoApp.menus.metodos)) || [])
-        .filter(m => m.metodoKind === 'Crédito' && m.diaVencimento)
+        .filter(m => m.metodoKind === 'Crédito' && m.diaVencimento && itemAtivoEm(m, comp))
         .map(m => {
             const rot = rotuloMetodo(m);
             const total = (estadoApp.transacoes.saidas || []).filter(t => t.metodo === rot).reduce((a, t) => a + valorDe(t), 0)
@@ -1867,10 +1867,12 @@ function renderPendentesProximas(abertos = {}, termo = '') {
  *  cartão dentro (despesas + estornos/reembolsos que abatem a fatura),
  *  fechado por padrão. */
 function renderFaturasCartao(container, termo = '', soNaoRealizadas = false) {
-    const cartoes = ((estadoApp.menus && (estadoApp.menus.metodosTodos || estadoApp.menus.metodos)) || [])
-        .filter(m => m.metodoKind === 'Crédito');
-    if (!cartoes.length) return '';
     const mes = estadoApp.mesAtual || new Date();
+    const compMes = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}-01`;
+    // cartão desativado não tem fatura nos meses depois de ter sido desativado
+    const cartoes = ((estadoApp.menus && (estadoApp.menus.metodosTodos || estadoApp.menus.metodos)) || [])
+        .filter(m => m.metodoKind === 'Crédito' && itemAtivoEm(m, compMes));
+    if (!cartoes.length) return '';
     const ultimoDia = new Date(mes.getFullYear(), mes.getMonth() + 1, 0).getDate();
     const coresMet = (estadoApp.menus && estadoApp.menus.cores && estadoApp.menus.cores.metodo) || {};
     const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;

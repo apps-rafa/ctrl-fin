@@ -388,6 +388,7 @@ function renderizarItemsMenu(tipo, containerId, itens, grupo) {
   container.innerHTML = itens.map((item, i) => {
     const statusClass = item.status === 'Ativo' ? 'ativo' : 'inativo';
     const statusLabel = item.status === 'Ativo' ? '✓ Ativo' : '✗ Inativo';
+    const statusDesde = item.status !== 'Ativo' && item.desativadoEm ? `Inativo desde ${String(item.desativadoEm).slice(0, 10).split('-').reverse().join('/')}` : '';
 
     let titulo = item.nome;
     let sub = '';
@@ -457,7 +458,7 @@ function renderizarItemsMenu(tipo, containerId, itens, grupo) {
           <div class="item-nome">${titulo}</div>
           ${sub ? `<div class="item-descricao">${sub}</div>` : ''}
         </div>
-        <div class="item-status">${semEdicao ? 'fixo' : statusLabel}</div>
+        <div class="item-status" title="${statusDesde}">${semEdicao ? 'fixo' : statusLabel}</div>
         ${acoes}
       </div>
     `;

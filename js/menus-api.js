@@ -100,8 +100,16 @@ function mapearItemMenu(row) {
         diaFechamento: row.dia_fechamento || null,
         diaVencimento: row.dia_vencimento || null,
         melhorDiaCompra: row.melhor_dia_compra || null,
-        ordem: row.ordem ?? null   // posição manual na lista (menor = mais acima)
+        ordem: row.ordem ?? null,   // posição manual na lista (menor = mais acima)
+        desativadoEm: row.desativado_em || null   // quando ficou inativo (regras de inativo não valem pro passado)
     };
+}
+
+/** O item já valia nessa data? Ativo (ou sem data de desativação) vale sempre; inativo vale até o dia em que foi desativado.
+ *  Assim uma regra nova (fatura, sugestão...) nunca se aplica retroativamente a quem já estava desativado. */
+function itemAtivoEm(item, dataISO) {
+    if (!item || item.status === 'Ativo' || !item.desativadoEm) return true;
+    return String(dataISO).slice(0, 10) <= String(item.desativadoEm).slice(0, 10);
 }
 
 /** Rótulo mostrado no dropdown do formulário para um método */
@@ -328,7 +336,8 @@ async function salvarOrdemMenuAPI(atualizacoes) {
 
 async function _mudarStatusItem(linha, status, msgOk) {
     try {
-        const { error } = await sb.from('menu_itens').update({ status }).eq('id', linha);
+        // Guarda QUANDO foi desativado (e limpa ao reativar): o que é inativo só vale a partir dessa data
+        const { error } = await sb.from('menu_itens').update({ status, desativado_em: status === 'Inativo' ? new Date().toISOString() : null }).eq('id', linha);
         if (error) throw error;
         mostrarNotificacao(msgOk, 'sucesso');
         return true;
