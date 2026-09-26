@@ -1022,8 +1022,10 @@ function _faturasAPagar() {
                 - (estadoApp.transacoes.entradas || []).filter(t => t.metodo === rot).reduce((a, t) => a + valorDe(t), 0);
             if (!(total > 0.004)) return null;
             const venc = dataVencimento(comp, m.diaVencimento);
-            if (!venc || venc <= hoje) return null; // venceu: conta como paga automaticamente
-            return { rot, comp, venc, total, paga: pagas.has(rot + '|' + comp) };
+            if (!venc) return null;
+            const auto = venc <= hoje;               // venceu: conta como paga automaticamente (fica riscada)
+            const manual = pagas.has(rot + '|' + comp);
+            return { rot, banco: m.banco || '', comp, venc, total, auto, manual, paga: auto || manual };
         })
         .filter(Boolean);
 }
@@ -1031,12 +1033,17 @@ function _faturasAPagar() {
 function _htmlFaturaVirtual(f) {
     const esc = x => String(x).replace(/"/g, '&quot;');
     const dd = f.venc.slice(8, 10) + '/' + f.venc.slice(5, 7);
+    const banco = f.banco || String(f.rot).replace(/^Crédito\s+/i, '');
+    const nomeLongo = `Fatura CC ${banco}`;
+    const nomeCurto = `Fatura CC ${banco.length > 5 ? banco.slice(0, 4) + '.' : banco}`;
+    const detalhe = f.auto ? `vcto. ${dd} · paga` : (f.manual ? `vcto. ${dd} · marcada como paga` : `vcto. ${dd}`);
     return `
         <div class="fatura-virtual${f.paga ? ' paga' : ''}">
-          <span class="fv-emoji">💳</span>
-          <div class="fv-info"><b>Fatura ${f.rot}</b><span>vcto. ${dd}${f.paga ? ' · marcada como paga' : ''}</span></div>
-          <b class="fv-valor">${formatarMoeda(f.total)}</b>
-          <button type="button" class="mini-btn" data-fatura-pagar data-metodo="${esc(f.rot)}" data-comp="${f.comp}" data-paga="${f.paga ? 1 : 0}">${f.paga ? '↩ Desfazer' : '✓ Marcar como paga'}</button>
+          <div class="fv-info"><b><span class="fv-longo">${nomeLongo}</span><span class="fv-curto">${nomeCurto}</span></b><span>${detalhe}</span></div>
+          <div class="fv-lado">
+            <b class="fv-valor">${formatarMoeda(f.total)}</b>
+            <button type="button" class="fv-btn${f.paga ? ' on' : ''}" data-fatura-pagar data-metodo="${esc(f.rot)}" data-comp="${f.comp}" data-paga="${f.manual ? 1 : 0}" ${f.auto ? 'disabled title="Venceu — conta como paga"' : 'title="Marcar/desmarcar como paga"'}>${f.paga ? '✓ ' : ''}paga</button>
+          </div>
         </div>`;
 }
 
