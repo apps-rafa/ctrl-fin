@@ -122,6 +122,7 @@ async function carregarAbaMenus() {
           <dt>/pix</dt><dd>Total gasto no PIX no mês: quanto já foi pago e quanto ainda resta.</dd>
           <dt>/ultimos</dt><dd>Os 5 últimos lançamentos feitos no app.</dd>
           <dt>/lancamento</dt><dd>Explica como lançar por mensagem.</dd>
+          <dt>/pgtopadrao</dt><dd>Escolhe a forma de pagamento usada quando a mensagem não diz qual (ex.: "gastei 50 no mercado no pix" usa PIX).</dd>
           <dt>/backup</dt><dd>Manda agora um arquivo de backup dos seus dados (o automático sai todo domingo).</dd>
         </dl>
         <h3 class="dados-selecao-titulo">Lançar por mensagem</h3>

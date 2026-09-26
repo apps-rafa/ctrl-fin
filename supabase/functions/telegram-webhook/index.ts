@@ -140,6 +140,47 @@ interface RascunhoLancamento {
   parcelas?: number | null;
   /** Mês da fatura ('YYYY-MM-01') escolhido no mini app; sem ele vale data + fechamento. */
   competencia?: string | null;
+  /** De onde veio a forma de pagamento: dita no texto, ou o padrão do /pgtopadrao. */
+  metodoOrigem?: "texto" | "padrao" | null;
+}
+
+type MetodoMenu = { nome: string; metodo_kind: string | null; banco: string | null; dia_fechamento: number | null };
+
+function normalizarTexto(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+// Palavras que indicam o TIPO da forma de pagamento (texto já sem acento)
+const PALAVRAS_FORMA: { padrao: RegExp; kinds: string[] }[] = [
+  { padrao: /\bpix\b/, kinds: ["PIX", "PIX/Débito"] },
+  { padrao: /\b(credito|cartao)\b/, kinds: ["Crédito"] },
+  { padrao: /\bdebito\b/, kinds: ["PIX/Débito", "PIX"] },
+  { padrao: /\bdinheiro\b/, kinds: ["Dinheiro"] },
+];
+
+/** Forma de pagamento citada no texto ("no pix", "no crédito", "no nubank", "crédito nubank").
+ *  Considera só as formas ATIVAS passadas em `lista`; null se o texto não cita nenhuma. */
+function detectarMetodoNoTexto(texto: string, lista: MetodoMenu[]): MetodoMenu | null {
+  const t = normalizarTexto(texto);
+  const kinds = new Set<string>();
+  for (const p of PALAVRAS_FORMA) if (p.padrao.test(t)) p.kinds.forEach((k) => kinds.add(k));
+  const citado = (x: string | null) => !!x && new RegExp("(^|[^a-z0-9])" + escaparRegex(normalizarTexto(x)) + "([^a-z0-9]|$)").test(t);
+  const candidatos = kinds.size ? lista.filter((m) => m.metodo_kind && kinds.has(m.metodo_kind)) : lista;
+  const comBanco = candidatos.filter((m) => citado(m.banco));
+  if (comBanco.length) return comBanco[0];
+  if (kinds.size) return candidatos[0] ?? null; // só o tipo: primeira forma desse tipo
+  return lista.find((m) => citado(m.nome)) ?? null;
+}
+
+/** Resposta a um rascunho que fala SÓ de forma de pagamento ("paguei no pix", "crédito nubank")
+ *  troca a forma; qualquer outra coisa continua sendo descrição. */
+function interpretarRespostaForma(texto: string, lista: MetodoMenu[]): MetodoMenu | null {
+  const t = normalizarTexto(texto).trim();
+  if (!t || t.length > 40) return null;
+  let resto = t.replace(/\b(paguei|pago|pagar|pagamento|foi|no|na|em|com|via|de|do|da|pelo|pela|o|a|cartao|credito|debito|pix|dinheiro)\b/g, " ");
+  for (const m of lista) if (m.banco) resto = resto.replace(new RegExp("(^|[^a-z0-9])" + escaparRegex(normalizarTexto(m.banco)) + "([^a-z0-9]|$)", "g"), " ");
+  if (resto.replace(/[^a-z0-9]/g, "") !== "") return null;
+  return detectarMetodoNoTexto(texto, lista);
 }
 
 /** 'YYYY-MM-DD' de hoje em horário de Brasília (sem lib de timezone —
@@ -629,7 +670,7 @@ async function enviarRascunho(
     `Data: ${dataFmt}`,
     `Categoria: ${r.categoria}`,
     `Descrição: ${r.descricao || "(em branco — digite pra adicionar)"}`,
-    r.tipo === "saidas" ? `Forma de pgto.: ${r.metodo || "nenhuma cadastrada — ajuste no app"}` : null,
+    r.tipo === "saidas" ? `Forma de pgto.: ${r.metodo || "nenhuma cadastrada — ajuste no app"}${r.metodoOrigem === "padrao" ? " (padrão)" : ""}` : null,
     ehCreditoSaida ? `Mês da fatura: ${mesAbrevAno(compFatura)}` : null,
     ehCreditoSaida ? (r.parcelas && r.parcelas > 1 ? `Parcelas: ${r.parcelas}x de ${formatarMoedaBR(r.valor / r.parcelas)}` : "Parcelas: à vista") : null,
     "",
@@ -648,7 +689,7 @@ async function enviarRascunho(
         { text: "✅ Confirmar" },
         ...(listas ? [{ text: "✏️ Editar", web_app: { url: urlMiniApp(r, listas) } }] : []),
         { text: "❌ Cancelar" },
-      ]],
+      ], ...(r.tipo === "saidas" ? [[{ text: "💳 Forma de pgto." }]] : [])],
       resize_keyboard: true,
       // Teclado FIXO: no celular, tocar fora/na caixa de texto não o esconde.
       is_persistent: true,
@@ -665,7 +706,7 @@ async function enviarRascunho(
 const TEXTO_AJUDA_LANCAMENTO = [
   "✍️ Lançar por mensagem",
   "",
-  "Escreva como falaria: gastei 35,90 no mercado, recebi 200 de salário, vendi meu casaco por 200 reais, comprei um carro de 80000 parcelado em 10x.",
+  "Escreva como falaria: gastei 35,90 no mercado, recebi 200 de salário, vendi meu casaco por 200 reais, comprei um carro de 80000 parcelado em 10x. Diga a forma de pagamento se quiser: \"gastei 100 no mercado no pix\" (ou no crédito, no nubank...). Sem dizer, uso o padrão que você definir em /pgtopadrao.",
   "",
   "Eu monto um rascunho com valor, categoria e forma de pagamento e só grava depois que você tocar em ✅ Confirmar no teclado. Se responder qualquer outra coisa (sem ser os botões), eu entendo como a descrição do lançamento.",
 ].join("\n");
@@ -1072,6 +1113,76 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      // "/pgtopadrao": escolhe a forma de pagamento usada quando a mensagem não diz qual.
+      if (/^\/pgtopadrao(?:@\w+)?(?:\s|$)/i.test(texto)) {
+        const { data: tgP } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+        if (!tgP) {
+          await tg(token, "sendMessage", { chat_id: chatId, text: "Conta não vinculada — mande /start com o código do app primeiro." });
+          return json({ ok: true });
+        }
+        const listasP = await carregarListasUsuario(supabaseAdmin, tgP.user_id);
+        const { data: cfg } = await supabaseAdmin.from("telegram_config").select("metodo_padrao").eq("user_id", tgP.user_id).maybeSingle();
+        const linhasP = listasP.metodos.map((m) => [{ text: `⭐ ${rotuloMetodo(m)}` }]);
+        linhasP.push([{ text: "❌ Cancelar" }]);
+        await tg(token, "sendMessage", {
+          chat_id: chatId,
+          text: `Qual forma de pagamento usar quando eu não souber?\nAtual: ${cfg?.metodo_padrao || "Crédito (primeiro cartão)"}`,
+          reply_markup: { keyboard: linhasP, resize_keyboard: true, is_persistent: true, one_time_keyboard: false },
+        });
+        return json({ ok: true });
+      }
+
+      // Escolha no menu do /pgtopadrao ("⭐ <forma>")
+      if (texto.startsWith("⭐ ")) {
+        const { data: tgS } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+        if (tgS) {
+          const listasS = await carregarListasUsuario(supabaseAdmin, tgS.user_id);
+          const escolhida = listasS.metodos.find((m) => rotuloMetodo(m) === texto.slice(2).trim());
+          if (escolhida) {
+            await supabaseAdmin.from("telegram_config").upsert({ user_id: tgS.user_id, metodo_padrao: rotuloMetodo(escolhida) }, { onConflict: "user_id" });
+            await tg(token, "sendMessage", { chat_id: chatId, text: `✅ Forma de pagamento padrão: ${rotuloMetodo(escolhida)}`, reply_markup: { remove_keyboard: true } });
+            return json({ ok: true });
+          }
+        }
+      }
+
+      // Botão "💳 Forma de pgto." do rascunho: lista as formas ativas pra escolher
+      if (texto === "💳 Forma de pgto.") {
+        const { data: tgF } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+        if (tgF) {
+          const listasF = await carregarListasUsuario(supabaseAdmin, tgF.user_id);
+          const linhasF = listasF.metodos.map((m) => [{ text: `💳 ${rotuloMetodo(m)}` }]);
+          linhasF.push([{ text: "❌ Cancelar" }]);
+          await tg(token, "sendMessage", {
+            chat_id: chatId,
+            text: "Qual a forma de pagamento deste lançamento?",
+            reply_markup: { keyboard: linhasF, resize_keyboard: true, is_persistent: true, one_time_keyboard: false },
+          });
+          return json({ ok: true });
+        }
+      }
+
+      // Escolha no menu de forma de pagamento do rascunho ("💳 <forma>")
+      if (texto.startsWith("💳 ")) {
+        const { data: tgE } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+        if (tgE) {
+          const listasE = await carregarListasUsuario(supabaseAdmin, tgE.user_id);
+          const escolhidaE = listasE.metodos.find((m) => rotuloMetodo(m) === texto.slice(2).trim());
+          const { data: pendE } = escolhidaE
+            ? await supabaseAdmin.from("telegram_rascunhos").select("id, dados").eq("chat_id", chatId).eq("user_id", tgE.user_id).order("criado_em", { ascending: false }).limit(1).maybeSingle()
+            : { data: null };
+          if (escolhidaE && pendE) {
+            const novaE: RascunhoLancamento = {
+              ...(pendE.dados as RascunhoLancamento), metodo: rotuloMetodo(escolhidaE), metodoKind: escolhidaE.metodo_kind,
+              diaFechamento: escolhidaE.dia_fechamento, competencia: null, metodoOrigem: "texto",
+            };
+            await supabaseAdmin.from("telegram_rascunhos").update({ dados: novaE }).eq("id", pendE.id);
+            await enviarRascunho(token, chatId, novaE, supabaseAdmin, tgE.user_id);
+            return json({ ok: true });
+          }
+        }
+      }
+
       // "/lancamento": só explica como lançar por mensagem (mesma explicação
       // da aba Configurações > Notificações do app).
       if (/^\/lancamento(?:@\w+)?(?:\s|$)/i.test(texto)) {
@@ -1150,6 +1261,17 @@ Deno.serve(async (req: Request) => {
               .order("criado_em", { ascending: false }).limit(1).maybeSingle()
           : { data: null };
         if (pend) {
+          const listasResp = await carregarListasUsuario(supabaseAdmin, tgU!.user_id);
+          const formaResp = interpretarRespostaForma(texto, listasResp.metodos);
+          if (formaResp) {
+            const trocada: RascunhoLancamento = {
+              ...(pend.dados as RascunhoLancamento), metodo: rotuloMetodo(formaResp), metodoKind: formaResp.metodo_kind,
+              diaFechamento: formaResp.dia_fechamento, competencia: null, metodoOrigem: "texto",
+            };
+            await supabaseAdmin.from("telegram_rascunhos").update({ dados: trocada }).eq("id", pend.id);
+            await enviarRascunho(token, chatId, trocada, supabaseAdmin, tgU!.user_id);
+            return json({ ok: true });
+          }
           const nova: RascunhoLancamento = { ...(pend.dados as RascunhoLancamento), descricao: texto.charAt(0).toUpperCase() + texto.slice(1) };
           await supabaseAdmin.from("telegram_rascunhos").update({ dados: nova }).eq("id", pend.id);
           await enviarRascunho(token, chatId, nova, supabaseAdmin, tgU!.user_id);
@@ -1187,16 +1309,21 @@ Deno.serve(async (req: Request) => {
       // Crédito, depois Pix, depois Dinheiro (o caso comum de "20 no
       // mercado" sem dizer a forma é ter pago no cartão — Dinheiro só
       // entra por último, e só se estiver ativo pro usuário).
-      let metodoObj: { nome: string; metodo_kind: string | null; banco: string | null; dia_fechamento: number | null } | null = null;
+      let metodoObj: MetodoMenu | null = null;
+      let metodoOrigem: "texto" | "padrao" | null = null;
       if (tipo === "saidas") {
-        const alvo = texto.toLowerCase();
-        const lista = (metodosApp ?? []) as { nome: string; metodo_kind: string | null; banco: string | null; dia_fechamento: number | null }[];
-        metodoObj = lista.find((m) => alvo.includes(m.nome.toLowerCase()) || (m.banco && alvo.includes(m.banco.toLowerCase())))
+        const lista = (metodosApp ?? []) as MetodoMenu[];
+        const detectado = detectarMetodoNoTexto(texto, lista);
+        const { data: cfgM } = await supabaseAdmin.from("telegram_config").select("metodo_padrao").eq("user_id", tgUser.user_id).maybeSingle();
+        const padrao = !detectado && cfgM?.metodo_padrao ? lista.find((m) => rotuloMetodo(m) === cfgM.metodo_padrao) ?? null : null;
+        metodoObj = detectado
+          || padrao
           || lista.find((m) => m.metodo_kind === "Crédito")
           || lista.find((m) => m.metodo_kind === "PIX")
           || lista.find((m) => m.metodo_kind === "Dinheiro")
           || lista[0]
           || null;
+        metodoOrigem = detectado ? "texto" : padrao ? "padrao" : null;
         // Parcelado só existe no crédito (igual ao formulário do app).
         if (parcelas && metodoObj?.metodo_kind !== "Crédito") {
           metodoObj = lista.find((m) => m.metodo_kind === "Crédito") || metodoObj;
@@ -1215,6 +1342,7 @@ Deno.serve(async (req: Request) => {
         diaFechamento: metodoObj?.dia_fechamento ?? null,
         data: hojeBrasiliaISO(),
         parcelas: parcelasFinal,
+        metodoOrigem,
       };
 
       // Só 1 rascunho pendente por vez por chat — um novo texto substitui o anterior.
