@@ -22,6 +22,7 @@ async function carregarDados() {
         // Carregar saídas
         const saidas = await carregarTransacoes('saidas', mes, ano);
         estadoApp.transacoes.saidas = saidas;
+        estadoApp.faturasPagas = await carregarFaturasPagasAPI();
         
         // Calcular resumo
         calcularResumoMes();
@@ -260,4 +261,16 @@ async function recarregarDados() {
     atualizarUI();
     // Navegou de mês: o campo Data acompanha o mês em exibição (se intocado)
     if (typeof aplicarDataPadrao === 'function') aplicarDataPadrao(false);
+}
+
+/** Faturas de cartão que o usuário marcou como pagas ("metodo|YYYY-MM-01"). */
+async function carregarFaturasPagasAPI() {
+    try {
+        const { data, error } = await sb.from('faturas_pagas').select('metodo, competencia');
+        if (error) throw error;
+        return new Set((data || []).map(r => r.metodo + '|' + String(r.competencia).slice(0, 10)));
+    } catch (e) {
+        console.warn('Faturas pagas indisponíveis:', e.message || e);
+        return new Set();
+    }
 }
