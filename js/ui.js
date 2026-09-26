@@ -1087,25 +1087,37 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     const corPendente = 'var(--balanco-text)';
     const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
 
-    const atuais = [], pendentes = [];
-    transacoes.forEach(t => (_transacaoRealizada(t) ? atuais : pendentes).push(t));
-    _ordenarPorGrupo(atuais, `${tipoUI}:cronologica:Atual`);
-    _ordenarPorGrupo(pendentes, `${tipoUI}:cronologica:${rotuloPendente}`);
+    // Receitas: Atual | A receber.  Despesas (por caminho do dinheiro): Pago | Fatura de cada cartão em
+    // aberto (compras já feitas) | A pagar (o que ainda não aconteceu, inclusive compra de cartão futura).
+    const faturas = tipoUI === 'saida' ? _faturasAPagar() : [];
+    const faturaDe = new Map(faturas.map(f => [f.rot, f]));
+    const atuais = [], pendentes = [], itensFatura = new Map();
+    transacoes.forEach(t => {
+        const f = tipoUI === 'saida' ? faturaDe.get(t.metodo) : null;
+        if (!_transacaoRealizada(t)) pendentes.push(t);
+        else if (f && !f.paga) itensFatura.set(f.rot, [...(itensFatura.get(f.rot) || []), t]);
+        else atuais.push(t);
+    });
+    const soma = l => l.reduce((acc, t) => acc + valorDe(t), 0);
+    const nomeAtual = tipoUI === 'saida' ? 'Pago' : 'Atual';
+    const grupos = [{ nome: nomeAtual, cor: corAtual, itens: atuais, total: soma(atuais), extraHTML: faturas.filter(f => f.paga).map(_htmlFaturaVirtual).join('') }];
+    faturas.filter(f => !f.paga).forEach(f => grupos.push({
+        nome: `Fatura ${f.rot}`, cor: 'var(--primary)', itens: itensFatura.get(f.rot) || [], total: f.total, extraHTML: _htmlFaturaVirtual(f),
+    }));
+    grupos.push({ nome: rotuloPendente, cor: corPendente, itens: pendentes, total: soma(pendentes), extraHTML: '' });
+    grupos.forEach(g => _ordenarPorGrupo(g.itens, `${tipoUI}:cronologica:${g.nome}`));
 
-    const totalAtual = atuais.reduce((s, t) => s + valorDe(t), 0);
-    const totalPendente = pendentes.reduce((s, t) => s + valorDe(t), 0);
-    const totalGeral = totalAtual + totalPendente;
-    const pctAtual = totalGeral ? (totalAtual / totalGeral) * 100 : 0;
-    const pctPendente = totalGeral ? 100 - pctAtual : 0;
+    const totalGeral = grupos.reduce((acc, g) => acc + g.total, 0);
+    const pctDe = g => (totalGeral ? (g.total / totalGeral) * 100 : 0);
 
     const abertos = _lerAbertosRecGrupo(container);
     const abertosSub = _lerAbertosSubgrupo(container);
-    const ehDespesaCron = true; // Despesas e Receitas (Atual / A pagar | A receber)
+    const ehDespesaCron = true; // Despesas e Receitas
+    const esc = x => String(x).replace(/"/g, '&quot;');
     // Grupo vazio nunca abre — nem é clicável: sem <details>, é uma linha
     // estática (não tem nada pra mostrar, então não faz sentido nem deixar
     // "abrir" e ver "Nada aqui").
-    const faturasVirtuais = tipoUI === 'saida' ? _faturasAPagar() : [];
-    const grupoHTML = (nome, cor, itens, total, pct, extraHTML = '', extraContagem = 0) => {
+    const grupoHTML = (nome, cor, itens, total, pct, extraHTML = '') => {
         if (!itens.length && !extraHTML) return `
         <div class="rec-grupo rec-grupo--vazio" style="--cor-rec:${cor}">
           <span class="rec-grupo-nome">${nome}</span>
@@ -1113,11 +1125,11 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
           <span class="rec-grupo-contagem">0</span>
         </div>`;
         return `
-        <details class="rec-grupo" data-nome="${nome}" style="--cor-rec:${cor}" ${abertos[nome] ? 'open' : ''}>
+        <details class="rec-grupo" data-nome="${esc(nome)}" style="--cor-rec:${cor}" ${abertos[nome] ? 'open' : ''}>
           <summary>
             <span class="rec-grupo-nome">${nome}</span>
             <span class="rec-grupo-espaco"></span>
-            <span class="rec-grupo-contagem">${itens.length + extraContagem}</span>
+            <span class="rec-grupo-contagem">${itens.length}</span>
             <span class="rec-grupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalGeral ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
           </summary>
           <div class="rec-grupo-itens">
@@ -1129,16 +1141,12 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     };
 
     container.innerHTML = `
-        <div class="cron-barra" role="img" aria-label="${formatarPct(pctAtual)}% Atual, ${formatarPct(pctPendente)}% ${rotuloPendente}">
-          <button type="button" class="cron-barra-seg" data-cron-toggle="Atual"
-                  style="--cor-rec:${corAtual}; flex-grow:${Math.max(pctAtual, totalAtual ? 2 : 0)}"
-                  title="Atual: ${formatarPct(pctAtual)}% · ${formatarMoeda(totalAtual)}" ${totalAtual ? '' : 'hidden'}></button>
-          <button type="button" class="cron-barra-seg" data-cron-toggle="${rotuloPendente}"
-                  style="--cor-rec:${corPendente}; flex-grow:${Math.max(pctPendente, totalPendente ? 2 : 0)}"
-                  title="${rotuloPendente}: ${formatarPct(pctPendente)}% · ${formatarMoeda(totalPendente)}" ${totalPendente ? '' : 'hidden'}></button>
+        <div class="cron-barra" role="img" aria-label="${esc(grupos.map(g => `${formatarPct(pctDe(g))}% ${g.nome}`).join(', '))}">
+          ${grupos.map(g => `<button type="button" class="cron-barra-seg" data-cron-toggle="${esc(g.nome)}"
+                  style="--cor-rec:${g.cor}; flex-grow:${Math.max(pctDe(g), g.total > 0.004 ? 2 : 0)}"
+                  title="${esc(g.nome)}: ${formatarPct(pctDe(g))}% · ${formatarMoeda(g.total)}" ${g.total > 0.004 ? '' : 'hidden'}></button>`).join('')}
         </div>
-        ${grupoHTML('Atual', corAtual, atuais, totalAtual, pctAtual)}
-        ${grupoHTML(rotuloPendente, corPendente, pendentes, totalPendente, pctPendente, faturasVirtuais.map(_htmlFaturaVirtual).join(''), faturasVirtuais.filter(f => !f.paga).length)}
+        ${grupos.map(g => grupoHTML(g.nome, g.cor, g.itens, g.total, pctDe(g), g.extraHTML)).join('')}
     `;
     container.querySelectorAll('.subgrupo-organizador').forEach(_ajustarLabelsFiltro);
     container.onclick = async e => {
