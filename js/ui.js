@@ -1057,18 +1057,20 @@ async function _alternarFaturaPagaBtn(fatBtn) {
     return true;
 }
 
-function _htmlFaturaVirtual(f) {
+function _htmlFaturaVirtual(f, compacta = false) {
     const esc = x => String(x).replace(/"/g, '&quot;');
     const dd = f.venc.slice(8, 10) + '/' + f.venc.slice(5, 7);
     const banco = f.banco || String(f.rot).replace(/^Crédito\s+/i, '');
     const nomeLongo = `Fatura ${f.rot}`; // desktop: nome inteiro; o abreviado é só do celular
     const nomeCurto = `Fatura CC ${banco.length > 5 ? banco.slice(0, 4) + '.' : banco}`;
     const detalhe = `vcto. ${dd}`;
+    // Dentro do subgrupo do cartão: só "Fatura · vcto." + botão (o nome e o valor já estão no cabeçalho do subgrupo)
+    const nomeExibido = compacta ? '<span class="fv-longo">Fatura</span><span class="fv-curto">Fatura</span>' : `<span class="fv-longo">${nomeLongo}</span><span class="fv-curto">${nomeCurto}</span>`;
     return `
-        <div class="fatura-virtual${f.paga ? ' paga' : ''}">
-          <div class="fv-info"><b><span class="fv-longo">${nomeLongo}</span><span class="fv-curto">${nomeCurto}</span></b><span>${detalhe}</span></div>
+        <div class="fatura-virtual${f.paga ? ' paga' : ''}${compacta ? ' fatura-virtual--compacta' : ''}">
+          <div class="fv-info"><b>${nomeExibido}</b><span>${detalhe}</span></div>
           <div class="fv-lado">
-            <b class="fv-valor">${formatarMoeda(f.total)}</b>
+            ${compacta ? '' : `<b class="fv-valor">${formatarMoeda(f.total)}</b>`}
             <button type="button" class="fv-btn${f.paga ? ' on' : ''}" data-fatura-pagar data-metodo="${esc(f.rot)}" data-comp="${f.comp}" data-paga="${f.paga ? 1 : 0}" data-auto="${f.auto ? 1 : 0}" title="${f.auto ? 'Marcada automaticamente pelo vencimento — clique para alterar' : 'Marcar/desmarcar como paga'}">${f.paga ? '✓ ' : ''}paga</button>
           </div>
         </div>`;
@@ -1105,8 +1107,8 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     const abertasFat = faturas.filter(f => !f.paga);
     const abertosSubFat = _lerAbertosSubgrupo(container);
     const subFaturaHTML = f => {
-        const its = _ordenarPorGrupo(itensFatura.get(f.rot) || [], `${tipoUI}:cronologica:sub:Fatura ${f.rot}`);
-        const nome = `Fatura ${f.rot}`;
+        const its = _ordenarPorGrupo(itensFatura.get(f.rot) || [], `${tipoUI}:cronologica:sub:${f.rot}`);
+        const nome = f.rot; // o subgrupo leva o nome do cartão; "Fatura" fica na linha de dentro
         return `
         <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" ${abertosSubFat[nome] ? 'open' : ''}>
           <summary class="subgrupo-cab">
@@ -1115,7 +1117,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
             <span class="subgrupo-contagem">${its.length}</span>
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(f.total)}</span></span>
           </summary>
-          ${_htmlFaturaVirtual(f)}
+          ${_htmlFaturaVirtual(f, true)}
           ${its.length ? _barraGrupo(_renderOrdemCriacaoToggle(`${tipoUI}:cronologica:sub:${nome}`)) : ''}
           ${its.map(t => gerarHTMLTransacao(t, tipoUI)).join('')}
         </details>`;
