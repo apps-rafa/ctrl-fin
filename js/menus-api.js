@@ -80,8 +80,11 @@ async function garantirCategoriaReembolsoNoBanco() {
             );
         }
         // "Estorno" agora também é categoria de Despesa (é por ela que se lança)
-        const { data: est } = await sb.from('menu_itens').select('id')
+        const { data: est } = await sb.from('menu_itens').select('id, status')
             .eq('tipo', 'Categoria').eq('categoria_tipo', 'saidas').eq('nome', CATEGORIA_ESTORNO).limit(1);
+        if (est && est.length && est[0].status !== 'Ativo') {
+            await sb.from('menu_itens').update({ status: 'Ativo' }).eq('id', est[0].id);
+        }
         if (!est || !est.length) {
             await sb.from('menu_itens').insert({ tipo: 'Categoria', nome: CATEGORIA_ESTORNO, categoria_tipo: 'saidas',
                 cor: typeof corPadraoChip === 'function' ? corPadraoChip(CATEGORIA_ESTORNO) : null });

@@ -136,6 +136,8 @@
   const parcelasNumero = () => Math.max(1, parseInt($('parcelas').value, 10) || 1);
   const metodoAtual = () => metodos.find(m => m.rotulo === $('metodo').value) || null;
   const ehCredito = () => tipo === 'saidas' && !!metodoAtual() && metodoAtual().kind === 'Crédito';
+  // Despesa > categoria "Estorno": só cartão de crédito, tem mês da fatura mas não parcelas
+  const ehEstorno = () => tipo === 'saidas' && $('categoria').value === CAT_ESTORNO;
 
   /** Mesma regra do app (competenciaDe): a compra no/depois do dia de fechamento cai no mês seguinte. */
   function competenciaMes(dia, mes, fech) {
@@ -146,7 +148,7 @@
 
   function preencherCategorias(preferida) {
     const atual = preferida || $('categoria').value;
-    const l = cats[tipo];
+    const l = tipo === 'entradas' ? cats.entradas.filter(c => c !== CAT_ESTORNO) : cats[tipo];
     $('categoria').innerHTML = '<option value="">Selecione...</option>' + l.map(c => `<option>${c}</option>`).join('');
     if (l.includes(atual)) $('categoria').value = atual;
   }
@@ -156,13 +158,14 @@
     const sel = $('metodo');
     const atual = preferido !== undefined ? preferido : sel.value;
     const receita = tipo === 'entradas';
-    const estorno = $('categoria').value === CAT_ESTORNO;
+    const estorno = ehEstorno();
+    $('metodoGroup').hidden = receita; // receita não tem forma de pagamento
     sel.innerHTML = '<option value="">Selecione...</option>' + metodos.map(m => {
-      const bloq = receita && (estorno ? m.kind !== 'Crédito' : m.kind === 'Crédito');
+      const bloq = estorno && m.kind !== 'Crédito';
       return `<option value="${m.rotulo}"${bloq ? ' disabled' : ''}>${m.rotulo}</option>`;
     }).join('');
     const op = [...sel.options].find(o => o.value === atual);
-    sel.value = op && !op.disabled ? atual : '';
+    sel.value = !receita && op && !op.disabled ? atual : '';
   }
 
   function recalcularCompetencia() {
@@ -177,11 +180,12 @@
   function atualizarCampoParcelas() {
     const cred = ehCredito();
     $('competenciaGroup').hidden = !cred;
-    $('parceleGroup').hidden = !cred;
-    if (!cred) $('parcelas').value = parcelasTexto(1);
+    const parc = cred && !ehEstorno();
+    $('parceleGroup').hidden = !parc;
+    if (!parc) $('parcelas').value = parcelasTexto(1);
     const n = parcelasNumero();
     if (document.activeElement !== $('parcelas')) $('parcelas').value = parcelasTexto(n);
-    $('valorTotalGroup').hidden = !(cred && n > 1);
+    $('valorTotalGroup').hidden = !(parc && n > 1);
     $('valorTotal').value = fmt(numero($('valor').value) * n);
     if (cred) recalcularCompetencia();
   }
@@ -209,7 +213,7 @@
 
   // ---- interações
   document.querySelectorAll('.tipo-btn').forEach(b => b.addEventListener('click', () => { tipo = b.dataset.tipo; atualizarTipo(); }));
-  $('categoria').addEventListener('change', () => preencherMetodos());
+  $('categoria').addEventListener('change', () => { preencherMetodos(); atualizarCampoParcelas(); });
   $('metodo').addEventListener('change', () => { delete $('competencia').dataset.editado; atualizarCampoParcelas(); });
   $('competencia').addEventListener('change', () => { $('competencia').dataset.editado = '1'; });
   $('data').addEventListener('input', e => {
@@ -326,7 +330,7 @@
   $('formTransacao').addEventListener('submit', e => {
     e.preventDefault();
     const data = paraISO($('data').value);
-    const n = ehCredito() ? parcelasNumero() : 1;
+    const n = ehCredito() && !ehEstorno() ? parcelasNumero() : 1;
     const valorParcela = numero($('valor').value);
     if (!data) { aviso('Informe a data (dd/mm).'); return; }
     if (!(valorParcela > 0)) { aviso('Informe um valor maior que zero.'); return; }

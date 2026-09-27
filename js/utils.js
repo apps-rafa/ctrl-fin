@@ -477,8 +477,9 @@ function obterDadosFormulario() {
     const parcelas = parseInt(document.getElementById('parcelas')?.value, 10) || 1;
 
     const _met = typeof metodoSelecionado === 'function' ? metodoSelecionado() : null;
-    const ehMetodoCredito = !ehEntrada && !!_met && _met.metodoKind === 'Crédito';
-    const tipoRecorrencia = (ehMetodoCredito && parcelas > 1) ? 'Parcelada' : 'Pontual';
+    // Estorno (gravado como entrada no cartão) também tem mês da fatura, mas nunca parcelas
+    const ehMetodoCredito = (!ehEntrada || ehEstorno) && !!_met && _met.metodoKind === 'Crédito';
+    const tipoRecorrencia = (ehMetodoCredito && !ehEstorno && parcelas > 1) ? 'Parcelada' : 'Pontual';
     // Dia de vencimento de cada parcela: não se pergunta mais no formulário —
     // usa direto o dia já cadastrado no cartão (Método > Vencimento).
     const diaRecorrencia = ehMetodoCredito ? (_met.diaVencimento || '') : '';
@@ -496,7 +497,7 @@ function obterDadosFormulario() {
         formaPagamento: tipoRecorrencia === 'Parcelada' ? 'Parcelada' : 'À vista',
         tipoRecorrencia,
         diaRecorrencia,
-        parcelas,
+        parcelas: ehEstorno ? 1 : parcelas,
         competencia: compISO,
         descricao: document.querySelector(SELECTORS.descricao).value
     };

@@ -2130,10 +2130,12 @@ function atualizarCampoParcelas() {
     const ehCredito = !ehReceita && !_formEhEstorno() && !!metodoAtual && metodoAtual.metodoKind === 'Crédito';
 
     const set = (id, mostrar) => { const el = document.getElementById(id); if (el) el.hidden = !mostrar; };
+    // Estorno também tem mês da fatura (competência), mas nunca parcelas
+    const ehCreditoComp = !ehReceita && !!metodoAtual && metodoAtual.metodoKind === 'Crédito';
     // "Mês" (competência): preview de qual mês esse lançamento vai cair,
     // calculado a partir da data da compra + fechamento do cartão — só faz
     // sentido pra Crédito (outros métodos usam o mês da própria data).
-    set('competenciaGroup', ehCredito);
+    set('competenciaGroup', ehCreditoComp);
 
     const parcelasInput = document.getElementById('parcelas');
     if (!ehCredito && parcelasInput) parcelasInput.value = _parcelasTexto(1);
@@ -2148,7 +2150,7 @@ function atualizarCampoParcelas() {
     set('valorTotalGroup', parcelas > 1);
     atualizarValorTotal();
 
-    if (ehCredito && typeof recalcularCompetencia === 'function') recalcularCompetencia();
+    if (ehCreditoComp && typeof recalcularCompetencia === 'function') recalcularCompetencia();
 
     ajustarCamposSozinhos();
 }
