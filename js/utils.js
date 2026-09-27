@@ -467,7 +467,9 @@ function limparFormulario() {
  * lida daqui, não recalculada de novo); pro resto, o mês em exibição.
  */
 function obterDadosFormulario() {
-    const ehEntrada = document.querySelector(SELECTORS.tipoTransacao).value === 'entradas';
+    // Despesa > categoria "Estorno" grava como entrada no cartão (abate a fatura)
+    const ehEstorno = typeof _formEhEstorno === 'function' && _formEhEstorno();
+    const ehEntrada = ehEstorno || document.querySelector(SELECTORS.tipoTransacao).value === 'entradas';
     const mesExib = (typeof estadoApp !== 'undefined' && estadoApp.mesAtual)
         ? formatarDataISO(estadoApp.mesAtual) : hojeISO();
 
@@ -486,7 +488,7 @@ function obterDadosFormulario() {
     if (!compISO) compISO = mesExib.slice(0, 8) + '01';
 
     return {
-        tipo: document.querySelector(SELECTORS.tipoTransacao).value,
+        tipo: ehEstorno ? 'entradas' : document.querySelector(SELECTORS.tipoTransacao).value,
         data: dataISO,
         valor: valorCampoParaNumero(document.querySelector(SELECTORS.valor)),
         metodo: document.querySelector(SELECTORS.metodo).value,
