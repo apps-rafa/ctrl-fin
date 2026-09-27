@@ -1104,7 +1104,7 @@ function _htmlSubgrupoFatura(f, its, totalRef, tipoUI, abertosSub, estornos, for
     const nome = `Fatura ${f.rot}`;
     const cor = ((estadoApp.menus && estadoApp.menus.cores && estadoApp.menus.cores.metodo) || {})[f.rot] || corPadraoChip(f.rot);
     return `
-        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" style="--cor-rec:${cor}" ${forcarAberto || abertosSub[nome] ? 'open' : ''}>
+        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}"${forcarAberto ? ' data-auto="1"' : ''} style="--cor-rec:${cor}" ${forcarAberto || abertosSub[nome] ? 'open' : ''}>
           <summary class="subgrupo-cab">
             <span class="subgrupo-nome">${nome}</span>
             <span class="subgrupo-espaco"></span>
@@ -1279,10 +1279,17 @@ function _lerAbertosRecGrupo(container) {
 
 /** Mesma ideia de _lerAbertosRecGrupo, mas pros subgrupos (Categoria/Forma
  *  de pgto. dentro de "Pontual") — fechados por padrão, mas preservando o
- *  que o usuário já abriu manualmente ao trocar de submodo ou re-renderizar. */
+ *  que o usuário já abriu manualmente ao trocar de submodo ou re-renderizar.
+ *  Ignora os marcados `data-auto` (abertos sozinhos por serem o único
+ *  subgrupo do grupo, ver unicoSubgrupo/forcarAberto): sem isso, esse "aberto"
+ *  automático era lido como se o usuário tivesse escolhido abrir, e "vazava"
+ *  pro mesmo nome de subgrupo em outro grupo/mês onde ele NÃO é o único
+ *  (ex.: abrir Despesa de setembro, onde só há 1 forma, abria à toa a mesma
+ *  forma dentro de um grupo de agosto com várias). */
 function _lerAbertosSubgrupo(container) {
     const abertos = {};
     container?.querySelectorAll('details.subgrupo[data-nome]').forEach(d => {
+        if (d.dataset.auto === '1') return;
         abertos[d.dataset.nome] = d.open;
     });
     return abertos;
@@ -1354,7 +1361,7 @@ function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, 
         const aberto = unicoSubgrupo || (abertos && abertos[nome]);
         const cor = (dimCfg.corDe ? dimCfg.corDe(nome) : null) || corPadraoChip(nome);
         return `
-        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" style="--cor-rec:${cor}" ${aberto ? 'open' : ''}>
+        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}"${unicoSubgrupo ? ' data-auto="1"' : ''} style="--cor-rec:${cor}" ${aberto ? 'open' : ''}>
           <summary class="subgrupo-cab">
             <span class="subgrupo-nome">${nome}</span>
             <span class="subgrupo-espaco"></span>
@@ -2081,7 +2088,7 @@ function renderFaturasCartao(container, termo = '', soNaoRealizadas = false) {
                 const corSub = (cfg.corDe ? cfg.corDe(nome) : null) || corPadraoChip(nome);
                 const abertoSub = unicoSubgrupo || abertosSub[nome];
                 return `
-                <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" style="--cor-rec:${corSub}" ${abertoSub ? 'open' : ''}>
+                <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}"${unicoSubgrupo ? ' data-auto="1"' : ''} style="--cor-rec:${corSub}" ${abertoSub ? 'open' : ''}>
                   <summary class="subgrupo-cab">
                     <span class="subgrupo-nome">${nome}</span>
                     <span class="subgrupo-espaco"></span>
