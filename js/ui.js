@@ -1061,10 +1061,10 @@ function _htmlFaturaVirtual(f, compacta = false) {
     const nomeCurto = `Fatura CC ${banco.length > 5 ? banco.slice(0, 4) + '.' : banco}`;
     const detalhe = `vcto. ${dd}`;
     // Dentro do subgrupo do cartão: só "Fatura · vcto." + botão (o nome e o valor já estão no cabeçalho do subgrupo)
-    const nomeExibido = compacta ? '<span class="fv-longo">Fatura</span><span class="fv-curto">Fatura</span>' : `<span class="fv-longo">${nomeLongo}</span><span class="fv-curto">${nomeCurto}</span>`;
+    const nomeExibido = compacta ? `<span class="fv-longo">Vcto. ${dd}</span><span class="fv-curto">Vcto. ${dd}</span>` : `<span class="fv-longo">${nomeLongo}</span><span class="fv-curto">${nomeCurto}</span>`;
     return `
         <div class="fatura-virtual${f.paga ? ' paga' : ''}${compacta ? ' fatura-virtual--compacta' : ''}">
-          <div class="fv-info"><b>${nomeExibido}</b><span>${detalhe}</span></div>
+          <div class="fv-info"><b>${nomeExibido}</b>${compacta ? '' : `<span>${detalhe}</span>`}</div>
           <div class="fv-lado">
             ${compacta ? '' : `<b class="fv-valor">${formatarMoeda(f.total)}</b>`}
             <button type="button" class="fv-btn${f.paga ? ' on' : ''}" data-fatura-pagar data-metodo="${esc(f.rot)}" data-comp="${f.comp}" data-paga="${f.paga ? 1 : 0}" data-auto="${f.auto ? 1 : 0}" title="${f.auto ? 'Marcada automaticamente pelo vencimento — clique para alterar' : 'Marcar/desmarcar como paga'}">${f.paga ? '✓ ' : ''}paga</button>
@@ -1105,7 +1105,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     const abertosSubFat = _lerAbertosSubgrupo(container);
     const subFaturaHTML = f => {
         const its = _ordenarPorGrupo(itensFatura.get(f.rot) || [], `${tipoUI}:cronologica:sub:${f.rot}`);
-        const nome = f.rot; // o subgrupo leva o nome do cartão; "Fatura" fica na linha de dentro
+        const nome = `Fatura ${f.rot}`;
         return `
         <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" ${abertosSubFat[nome] ? 'open' : ''}>
           <summary class="subgrupo-cab">
@@ -1115,7 +1115,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(f.total)}</span></span>
           </summary>
           ${_htmlFaturaVirtual(f, true)}
-          ${its.map(t => gerarHTMLTransacao(t, tipoUI)).join('')}
+          ${its.map(t => gerarHTMLTransacao(t, tipoUI, { semMetodoChip: true })).join('')}
         </details>`;
     };
     const nItens = f => (itensFatura.get(f.rot) || []).length;
@@ -1146,8 +1146,9 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     // Despesas: o que está solto se divide em subgrupos por forma de pagamento (cada PIX, cada cartão);
     // compra de cartão que ainda não bateu na fatura fica em "<cartão> (por vir)".
     const corpoPorForma = (itens, nomeGrupo) => _renderItensSubagrupados(itens, tipoUI, {
-        chaveDe: t => (nomeGrupo === rotuloPendente && faturaDe.has(t.metodo) ? `${t.metodo} (por vir)` : t.metodo),
+        chaveDe: t => (nomeGrupo === rotuloPendente && faturaDe.has(t.metodo) ? 'Crédito' : t.metodo),
         semChave: 'Sem forma de pagamento',
+        campoChip: 'metodo',
     }, abertosSub, `${tipoUI}:cronologica:${nomeGrupo}`);
     const grupoHTML = (nome, cor, itens, total, pct, extraHTML = '', extraContagem = 0) => {
         if (!itens.length && !extraHTML) return `
@@ -1274,9 +1275,9 @@ const _SUBMODOS_POR_MODO = {
 function _dimensaoSubmodo(dim, ehDespesa) {
     switch (dim) {
         case 'categoria':
-            return { chaveDe: t => t.categoria, semChave: 'Sem categoria', emoji: '🏷️', label: 'Categoria' };
+            return { chaveDe: t => t.categoria, semChave: 'Sem categoria', emoji: '🏷️', label: 'Categoria', campoChip: 'categoria' };
         case 'metodo':
-            return { chaveDe: t => t.metodo, semChave: 'Sem forma de pagamento', emoji: '💳', label: 'Forma de pgto.' };
+            return { chaveDe: t => t.metodo, semChave: 'Sem forma de pagamento', emoji: '💳', label: 'Forma de pgto.', campoChip: 'metodo' };
         default:
             return null;
     }
@@ -1307,9 +1308,17 @@ function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo) 
             <span class="subgrupo-contagem">${its.length}</span>
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalGeral ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
           </summary>
-          ${its.map(t => gerarHTMLTransacao(t, tipoUI)).join('')}
+          ${its.map(t => gerarHTMLTransacao(t, tipoUI, _optsSemChipRedundante(its, dimCfg.campoChip))).join('')}
         </details>`;
     }).join('');
+}
+
+/** Chip repetido em TODO o grupo (ex.: "Crédito Bradesco" dentro do grupo do Crédito Bradesco) é ruído: esconde. */
+function _optsSemChipRedundante(itens, campo) {
+    if (!campo || !itens.length) return {};
+    const uniforme = itens.every(t => t[campo] && t[campo] === itens[0][campo]);
+    if (!uniforme) return {};
+    return campo === 'metodo' ? { semMetodoChip: true } : campo === 'categoria' ? { semCategoriaChip: true } : {};
 }
 
 /** Primeira linha DENTRO do grupo aberto: "Ordem de criação" (à esquerda,
