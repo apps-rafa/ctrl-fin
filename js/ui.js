@@ -203,7 +203,7 @@ function atualizarResumo() {
         pagoLinha.classList.toggle('vazio', !(cred > 0.004));
         const fmtP = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
         const detP = document.getElementById('saidasPagoDetalhe');
-        if (detP) detP.textContent = cred > 0.004 ? mask(`pix ${fmtP(estadoApp.resumo.saidasPagoPix)} · crédito ${fmtP(cred)}`) : '\u00a0';
+        if (detP) { const px = fmtP(estadoApp.resumo.saidasPagoPix), cr = fmtP(cred); _ajustarDetalhe(detP, cred > 0.004 ? [`pix ${px} + crédito ${cr}`, `pix ${px} + créd. ${cr}`, `pix ${px} + c.c. ${cr}`, `${px} + ${cr}`].map(mask) : null); }
     }
     const detLinha = document.getElementById('saidasDetalheLinha');
     if (detLinha) {
@@ -211,7 +211,7 @@ function atualizarResumo() {
         detLinha.classList.toggle('vazio', !(fat > 0.004)); // mantém a altura pra alinhar com Receita
         const fmt = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
         const det = document.getElementById('saidasDetalhe');
-        if (det) det.textContent = fat > 0.004 ? mask(`pendentes ${fmt(estadoApp.resumo.saidasAvulsos)} · crédito ${fmt(fat)}`) : ' ';
+        if (det) { const av = fmt(estadoApp.resumo.saidasAvulsos), fa = fmt(fat); _ajustarDetalhe(det, fat > 0.004 ? [`pendentes ${av} + crédito ${fa}`, `pend. ${av} + crédito ${fa}`, `pend. ${av} + créd. ${fa}`, `pend. ${av} + c.c. ${fa}`, `${av} + ${fa}`].map(mask) : null); }
     }
 
     if (balancoEl) {
@@ -1322,14 +1322,37 @@ function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, 
             <span class="subgrupo-contagem">${its.length}</span>
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalGeral ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
           </summary>
-          ${its.map(t => gerarHTMLTransacao(t, tipoUI, { ...baseOpts, ..._optsSemChipRedundante(its, dimCfg.campoChip) })).join('')}
+          ${its.map(t => gerarHTMLTransacao(t, tipoUI, { ...baseOpts, ..._optsSemChipRedundante(its, dimCfg.campoChip, nome) })).join('')}
         </details>`;
     }).join('');
 }
 
+/** Texto de detalhe do dashboard (ex.: "pendentes 10 + crédito 20"): usa a 1ª versão que cabe com respiro; senão a mais curta. */
+function _ajustarDetalhe(el, variantes) {
+    el._variantes = variantes;
+    const aplicar = () => {
+        const v = el._variantes;
+        if (!v) { el.textContent = '\u00a0'; return; }
+        el.style.whiteSpace = 'nowrap';
+        el.style.fontSize = '';
+        const caixa = (el.closest('.linha') || el.parentElement).clientWidth;
+        for (let k = 0; k < v.length; k++) {
+            el.textContent = v[k];
+            if (!caixa || el.getBoundingClientRect().width <= caixa - 14) return;
+        }
+        el.style.fontSize = '.54rem'; // caso extremo: só os valores, um pouco menores, ainda com respiro
+    };
+    el._reajustar = aplicar;
+    aplicar();
+    requestAnimationFrame(aplicar);
+}
+window.addEventListener('resize', () => document.querySelectorAll('.linha-detalhe i').forEach(e => e._reajustar && e._reajustar()));
+
 /** Chip repetido em TODO o grupo (ex.: "Crédito Bradesco" dentro do grupo do Crédito Bradesco) é ruído: esconde. */
-function _optsSemChipRedundante(itens, campo) {
+function _optsSemChipRedundante(itens, campo, nomeGrupo) {
     if (!campo || !itens.length) return {};
+    // Subgrupo genérico (ex.: "Crédito" reúne vários cartões): o chip do cartão específico continua
+    if (nomeGrupo !== undefined && itens[0][campo] !== nomeGrupo) return {};
     const uniforme = itens.every(t => t[campo] && t[campo] === itens[0][campo]);
     if (!uniforme) return {};
     return campo === 'metodo' ? { semMetodoChip: true } : campo === 'categoria' ? { semCategoriaChip: true } : {};
