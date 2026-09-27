@@ -959,6 +959,152 @@ async function executarBackup(
   }
 }
 
+/** Interpreta um texto como lançamento e manda o rascunho de volta pro chat —
+ *  mesma lógica usada tanto quando o TEXTO chega via Telegram (usuário digitou
+ *  ou o Atalho do SMS chamou este endpoint direto, ver "X-Sms-Forward-Secret"
+ *  em Deno.serve) quanto pelas respostas ao rascunho pendente (data/forma/
+ *  descrição). Extraída do handler de mensagem de texto pra ser chamada dos
+ *  dois lugares sem duplicar a regra toda de sugestão de categoria/forma. */
+async function processarTextoLivre(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  token: string,
+  chatId: number,
+  texto: string,
+): Promise<void> {
+  // Texto livre: tenta entender como um lançamento ("gastei 35,90 no
+  // mercado", "recebi 200 de salário"). Sem um valor em dinheiro no
+  // texto, não dá pra saber o que é — cai no "não entendi" de sempre.
+  const achado = interpretarSmsCartao(texto) ?? interpretarValorETipo(texto);
+  if (!achado) {
+    // Sem valor no texto e com rascunho esperando confirmação: o texto é
+    // a descrição — atualiza e repete o rascunho (com Confirmar/Cancelar).
+    const { data: tgU } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+    const { data: pend } = tgU
+      ? await supabaseAdmin.from("telegram_rascunhos").select("id, dados")
+          .eq("chat_id", chatId).eq("user_id", tgU.user_id)
+          .order("criado_em", { ascending: false }).limit(1).maybeSingle()
+      : { data: null };
+    if (pend) {
+      const dtResp = extrairData(texto);
+      if (dtResp.data && !dtResp.resto) {
+        const novaDt: RascunhoLancamento = { ...(pend.dados as RascunhoLancamento), data: dtResp.data, competencia: null };
+        await supabaseAdmin.from("telegram_rascunhos").update({ dados: novaDt }).eq("id", pend.id);
+        await enviarRascunho(token, chatId, novaDt, supabaseAdmin, tgU!.user_id);
+        return;
+      }
+      const listasResp = await carregarListasUsuario(supabaseAdmin, tgU!.user_id);
+      const formaResp = interpretarRespostaForma(texto, listasResp.metodos);
+      if (formaResp) {
+        const trocada: RascunhoLancamento = {
+          ...(pend.dados as RascunhoLancamento), metodo: rotuloMetodo(formaResp), metodoKind: formaResp.metodo_kind,
+          diaFechamento: formaResp.dia_fechamento, competencia: null, metodoOrigem: "texto",
+        };
+        await supabaseAdmin.from("telegram_rascunhos").update({ dados: trocada }).eq("id", pend.id);
+        await enviarRascunho(token, chatId, trocada, supabaseAdmin, tgU!.user_id);
+        return;
+      }
+      const nova: RascunhoLancamento = { ...(pend.dados as RascunhoLancamento), descricao: texto.charAt(0).toUpperCase() + texto.slice(1) };
+      await supabaseAdmin.from("telegram_rascunhos").update({ dados: nova }).eq("id", pend.id);
+      await enviarRascunho(token, chatId, nova, supabaseAdmin, tgU!.user_id);
+      return;
+    }
+    await tg(token, "sendMessage", {
+      chat_id: chatId,
+      text: "Não entendi. Pra lançar por aqui, manda algo tipo \"gastei 35,90 no mercado\" ou \"recebi 200 de salário\" — eu monto um rascunho e só grava depois de você confirmar no teclado. Também entendo os botões de Confirmar/Ignorar (quando chegam da Pluggy) e o comando /atualizar.",
+    });
+    return;
+  }
+
+  const { data: tgUser } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+  if (!tgUser) {
+    await tg(token, "sendMessage", {
+      chat_id: chatId,
+      text: "Pra lançar por aqui eu preciso que você vincule sua conta primeiro — gere o código em Configurações > Open Finance no app e toque no link.",
+    });
+    return;
+  }
+
+  const [{ data: categoriasApp }, { data: metodosApp }] = await Promise.all([
+    supabaseAdmin.from("menu_itens").select("nome, categoria_tipo").eq("tipo", "Categoria").eq("status", "Ativo").eq("user_id", tgUser.user_id),
+    supabaseAdmin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("tipo", "Método").eq("status", "Ativo").eq("user_id", tgUser.user_id).order("ordem"),
+  ]);
+
+  const { valor, tipo, resto, parcelas } = achado;
+  // "Estorno" (Despesa) sempre existe pro usuário (é criada/reativada em carregarListasUsuario).
+  const catsSugestao = [...(categoriasApp ?? [])];
+  const temCartaoTxt = ((metodosApp ?? []) as MetodoMenu[]).some((m) => m.metodo_kind === "Crédito");
+  if (!temCartaoTxt) { const ix = catsSugestao.findIndex((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && c.nome === "Estorno"); if (ix >= 0) catsSugestao.splice(ix, 1); }
+  else if (!catsSugestao.some((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && c.nome === "Estorno")) catsSugestao.push({ nome: "Estorno", categoria_tipo: "saidas" });
+  const cat = sugerirCategoriaTexto(texto, tipo, catsSugestao);
+  const categoria = cat.nome;
+
+  // Forma de pgto.: só faz sentido perguntar/usar em despesa — receita
+  // não pede método no formulário do app (só Estorno/Reembolso, caso
+  // raro demais pra tentar adivinhar por texto livre). Tenta achar o
+  // nome/banco de um método do usuário mencionado no texto; senão
+  // Crédito, depois Pix, depois Dinheiro (o caso comum de "20 no
+  // mercado" sem dizer a forma é ter pago no cartão — Dinheiro só
+  // entra por último, e só se estiver ativo pro usuário).
+  let metodoObj: MetodoMenu | null = null;
+  let metodoOrigem: "texto" | "padrao" | null = null;
+  if (tipo === "saidas") {
+    const lista = (metodosApp ?? []) as MetodoMenu[];
+    const detectado = detectarMetodoNoTexto(texto, lista);
+    const { data: cfgM } = await supabaseAdmin.from("telegram_config").select("metodo_padrao").eq("user_id", tgUser.user_id).maybeSingle();
+    const padrao = !detectado && cfgM?.metodo_padrao ? lista.find((m) => rotuloMetodo(m) === cfgM.metodo_padrao) ?? null : null;
+    metodoObj = detectado
+      || padrao
+      || lista.find((m) => m.metodo_kind === "Crédito")
+      || lista.find((m) => m.metodo_kind === "PIX")
+      || lista.find((m) => m.metodo_kind === "Dinheiro")
+      || lista[0]
+      || null;
+    metodoOrigem = detectado ? "texto" : padrao ? "padrao" : null;
+    // Parcelado só existe no crédito (igual ao formulário do app).
+    if (parcelas && metodoObj?.metodo_kind !== "Crédito") {
+      metodoObj = lista.find((m) => m.metodo_kind === "Crédito") || metodoObj;
+    }
+  }
+  // Estorno abate a fatura de um cartão: só aceita crédito e nunca é parcelado.
+  const ehEstornoTxt = tipo === "saidas" && categoria === "Estorno";
+  if (ehEstornoTxt && metodoObj?.metodo_kind !== "Crédito") {
+    metodoObj = ((metodosApp ?? []) as MetodoMenu[]).find((m) => m.metodo_kind === "Crédito") || metodoObj;
+  }
+  const parcelasFinal = tipo === "saidas" && !ehEstornoTxt && parcelas && metodoObj?.metodo_kind === "Crédito" ? parcelas : null;
+
+  // O bot nunca inventa descrição em texto livre: começa em branco, e o
+  // que o usuário responder (fora dos botões) vira a descrição. Já um
+  // SMS de cartão traz o nome do estabelecimento sem ambiguidade, então
+  // usa ele direto.
+  const descricao = achado.estabelecimento
+    ? achado.estabelecimento.charAt(0).toUpperCase() + achado.estabelecimento.slice(1).toLowerCase()
+    : "";
+
+  const rascunho: RascunhoLancamento = {
+    tipo, valor, descricao, categoria,
+    metodo: metodoObj ? rotuloMetodo(metodoObj) : null,
+    metodoKind: metodoObj?.metodo_kind ?? null,
+    diaFechamento: metodoObj?.dia_fechamento ?? null,
+    data: achado.data ?? hojeBrasiliaISO(),
+    parcelas: parcelasFinal,
+    metodoOrigem,
+  };
+
+  // Só 1 rascunho pendente por vez por chat — um novo texto substitui o anterior.
+  await supabaseAdmin.from("telegram_rascunhos").delete().eq("chat_id", chatId);
+  const { data: novoRascunho, error: erroRascunho } = await supabaseAdmin
+    .from("telegram_rascunhos")
+    .insert({ user_id: tgUser.user_id, chat_id: chatId, dados: rascunho })
+    .select("id").single();
+  if (erroRascunho || !novoRascunho) {
+    console.error(erroRascunho);
+    await tg(token, "sendMessage", { chat_id: chatId, text: "Deu erro ao montar o rascunho — tenta de novo." });
+    return;
+  }
+
+  await enviarRascunho(token, chatId, rascunho, supabaseAdmin, tgUser.user_id);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return json({ error: "Método não suportado" }, 405);
@@ -986,14 +1132,37 @@ Deno.serve(async (req: Request) => {
       return json({ error: String(e) }, 500);
     }
   }
-  if (req.headers.get("X-Telegram-Bot-Api-Secret-Token") !== webhookSecret) {
-    return json({ error: "Não autorizado" }, 401);
-  }
-
   const supabaseAdmin = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
+
+  // Encaminhamento de SMS (Atalho do iPhone) — chama esta função DIRETO, sem
+  // passar pelo Telegram: a API de bot não tem como "fingir" que foi o
+  // usuário quem mandou a mensagem (sendMessage sempre sai como o BOT
+  // falando, nunca populando o webhook), então o próprio Atalho bate aqui
+  // com {chat_id, texto} e a gente roda a mesma interpretação de texto livre
+  // e manda o rascunho de volta pro chat, como se o usuário tivesse digitado.
+  const segredoSms = req.headers.get("x-sms-forward-secret");
+  if (segredoSms) {
+    const { data: seg } = await supabaseAdmin.from("app_cron_segredo").select("valor").eq("nome", "sms_forward").maybeSingle();
+    if (!seg || segredoSms !== seg.valor) return json({ error: "Não autorizado" }, 401);
+    const corpo = await req.json().catch(() => ({}));
+    const chatIdSms = Number(corpo.chat_id);
+    const textoSms = String(corpo.texto ?? "").trim();
+    if (!chatIdSms || !textoSms) return json({ error: "chat_id/texto ausente" }, 400);
+    try {
+      await processarTextoLivre(supabaseAdmin, token, chatIdSms, textoSms);
+      return json({ ok: true });
+    } catch (e) {
+      console.error("Erro no encaminhamento de SMS:", e);
+      return json({ error: String(e) }, 500);
+    }
+  }
+
+  if (req.headers.get("X-Telegram-Bot-Api-Secret-Token") !== webhookSecret) {
+    return json({ error: "Não autorizado" }, 401);
+  }
 
   // deno-lint-ignore no-explicit-any
   let update: any;
@@ -1415,137 +1584,9 @@ Deno.serve(async (req: Request) => {
       }
 
       // Texto livre: tenta entender como um lançamento ("gastei 35,90 no
-      // mercado", "recebi 200 de salário"). Sem um valor em dinheiro no
-      // texto, não dá pra saber o que é — cai no "não entendi" de sempre.
-      const achado = interpretarSmsCartao(texto) ?? interpretarValorETipo(texto);
-      if (!achado) {
-        // Sem valor no texto e com rascunho esperando confirmação: o texto é
-        // a descrição — atualiza e repete o rascunho (com Confirmar/Cancelar).
-        const { data: tgU } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
-        const { data: pend } = tgU
-          ? await supabaseAdmin.from("telegram_rascunhos").select("id, dados")
-              .eq("chat_id", chatId).eq("user_id", tgU.user_id)
-              .order("criado_em", { ascending: false }).limit(1).maybeSingle()
-          : { data: null };
-        if (pend) {
-          const dtResp = extrairData(texto);
-          if (dtResp.data && !dtResp.resto) {
-            const novaDt: RascunhoLancamento = { ...(pend.dados as RascunhoLancamento), data: dtResp.data, competencia: null };
-            await supabaseAdmin.from("telegram_rascunhos").update({ dados: novaDt }).eq("id", pend.id);
-            await enviarRascunho(token, chatId, novaDt, supabaseAdmin, tgU!.user_id);
-            return json({ ok: true });
-          }
-          const listasResp = await carregarListasUsuario(supabaseAdmin, tgU!.user_id);
-          const formaResp = interpretarRespostaForma(texto, listasResp.metodos);
-          if (formaResp) {
-            const trocada: RascunhoLancamento = {
-              ...(pend.dados as RascunhoLancamento), metodo: rotuloMetodo(formaResp), metodoKind: formaResp.metodo_kind,
-              diaFechamento: formaResp.dia_fechamento, competencia: null, metodoOrigem: "texto",
-            };
-            await supabaseAdmin.from("telegram_rascunhos").update({ dados: trocada }).eq("id", pend.id);
-            await enviarRascunho(token, chatId, trocada, supabaseAdmin, tgU!.user_id);
-            return json({ ok: true });
-          }
-          const nova: RascunhoLancamento = { ...(pend.dados as RascunhoLancamento), descricao: texto.charAt(0).toUpperCase() + texto.slice(1) };
-          await supabaseAdmin.from("telegram_rascunhos").update({ dados: nova }).eq("id", pend.id);
-          await enviarRascunho(token, chatId, nova, supabaseAdmin, tgU!.user_id);
-          return json({ ok: true });
-        }
-        await tg(token, "sendMessage", {
-          chat_id: chatId,
-          text: "Não entendi. Pra lançar por aqui, manda algo tipo \"gastei 35,90 no mercado\" ou \"recebi 200 de salário\" — eu monto um rascunho e só grava depois de você confirmar no teclado. Também entendo os botões de Confirmar/Ignorar (quando chegam da Pluggy) e o comando /atualizar.",
-        });
-        return json({ ok: true });
-      }
-
-      const { data: tgUser } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
-      if (!tgUser) {
-        await tg(token, "sendMessage", {
-          chat_id: chatId,
-          text: "Pra lançar por aqui eu preciso que você vincule sua conta primeiro — gere o código em Configurações > Open Finance no app e toque no link.",
-        });
-        return json({ ok: true });
-      }
-
-      const [{ data: categoriasApp }, { data: metodosApp }] = await Promise.all([
-        supabaseAdmin.from("menu_itens").select("nome, categoria_tipo").eq("tipo", "Categoria").eq("status", "Ativo").eq("user_id", tgUser.user_id),
-        supabaseAdmin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("tipo", "Método").eq("status", "Ativo").eq("user_id", tgUser.user_id).order("ordem"),
-      ]);
-
-      const { valor, tipo, resto, parcelas } = achado;
-      // "Estorno" (Despesa) sempre existe pro usuário (é criada/reativada em carregarListasUsuario).
-      const catsSugestao = [...(categoriasApp ?? [])];
-      const temCartaoTxt = ((metodosApp ?? []) as MetodoMenu[]).some((m) => m.metodo_kind === "Crédito");
-      if (!temCartaoTxt) { const ix = catsSugestao.findIndex((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && c.nome === "Estorno"); if (ix >= 0) catsSugestao.splice(ix, 1); }
-      else if (!catsSugestao.some((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && c.nome === "Estorno")) catsSugestao.push({ nome: "Estorno", categoria_tipo: "saidas" });
-      const cat = sugerirCategoriaTexto(texto, tipo, catsSugestao);
-      const categoria = cat.nome;
-
-      // Forma de pgto.: só faz sentido perguntar/usar em despesa — receita
-      // não pede método no formulário do app (só Estorno/Reembolso, caso
-      // raro demais pra tentar adivinhar por texto livre). Tenta achar o
-      // nome/banco de um método do usuário mencionado no texto; senão
-      // Crédito, depois Pix, depois Dinheiro (o caso comum de "20 no
-      // mercado" sem dizer a forma é ter pago no cartão — Dinheiro só
-      // entra por último, e só se estiver ativo pro usuário).
-      let metodoObj: MetodoMenu | null = null;
-      let metodoOrigem: "texto" | "padrao" | null = null;
-      if (tipo === "saidas") {
-        const lista = (metodosApp ?? []) as MetodoMenu[];
-        const detectado = detectarMetodoNoTexto(texto, lista);
-        const { data: cfgM } = await supabaseAdmin.from("telegram_config").select("metodo_padrao").eq("user_id", tgUser.user_id).maybeSingle();
-        const padrao = !detectado && cfgM?.metodo_padrao ? lista.find((m) => rotuloMetodo(m) === cfgM.metodo_padrao) ?? null : null;
-        metodoObj = detectado
-          || padrao
-          || lista.find((m) => m.metodo_kind === "Crédito")
-          || lista.find((m) => m.metodo_kind === "PIX")
-          || lista.find((m) => m.metodo_kind === "Dinheiro")
-          || lista[0]
-          || null;
-        metodoOrigem = detectado ? "texto" : padrao ? "padrao" : null;
-        // Parcelado só existe no crédito (igual ao formulário do app).
-        if (parcelas && metodoObj?.metodo_kind !== "Crédito") {
-          metodoObj = lista.find((m) => m.metodo_kind === "Crédito") || metodoObj;
-        }
-      }
-      // Estorno abate a fatura de um cartão: só aceita crédito e nunca é parcelado.
-      const ehEstornoTxt = tipo === "saidas" && categoria === "Estorno";
-      if (ehEstornoTxt && metodoObj?.metodo_kind !== "Crédito") {
-        metodoObj = ((metodosApp ?? []) as MetodoMenu[]).find((m) => m.metodo_kind === "Crédito") || metodoObj;
-      }
-      const parcelasFinal = tipo === "saidas" && !ehEstornoTxt && parcelas && metodoObj?.metodo_kind === "Crédito" ? parcelas : null;
-
-      // O bot nunca inventa descrição em texto livre: começa em branco, e o
-      // que o usuário responder (fora dos botões) vira a descrição. Já um
-      // SMS de cartão traz o nome do estabelecimento sem ambiguidade, então
-      // usa ele direto.
-      const descricao = achado.estabelecimento
-        ? achado.estabelecimento.charAt(0).toUpperCase() + achado.estabelecimento.slice(1).toLowerCase()
-        : "";
-
-      const rascunho: RascunhoLancamento = {
-        tipo, valor, descricao, categoria,
-        metodo: metodoObj ? rotuloMetodo(metodoObj) : null,
-        metodoKind: metodoObj?.metodo_kind ?? null,
-        diaFechamento: metodoObj?.dia_fechamento ?? null,
-        data: achado.data ?? hojeBrasiliaISO(),
-        parcelas: parcelasFinal,
-        metodoOrigem,
-      };
-
-      // Só 1 rascunho pendente por vez por chat — um novo texto substitui o anterior.
-      await supabaseAdmin.from("telegram_rascunhos").delete().eq("chat_id", chatId);
-      const { data: novoRascunho, error: erroRascunho } = await supabaseAdmin
-        .from("telegram_rascunhos")
-        .insert({ user_id: tgUser.user_id, chat_id: chatId, dados: rascunho })
-        .select("id").single();
-      if (erroRascunho || !novoRascunho) {
-        console.error(erroRascunho);
-        await tg(token, "sendMessage", { chat_id: chatId, text: "Deu erro ao montar o rascunho — tenta de novo." });
-        return json({ ok: true });
-      }
-
-      await enviarRascunho(token, chatId, rascunho, supabaseAdmin, tgUser.user_id);
+      // mercado", "recebi 200 de salário"), SMS de cartão, ou resposta a um
+      // rascunho pendente (ver processarTextoLivre).
+      await processarTextoLivre(supabaseAdmin, token, chatId, texto);
       return json({ ok: true });
     }
 
