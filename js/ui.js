@@ -1449,7 +1449,8 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
 
     // Chip de método (visão "Por método" não mostra — já é a dimensão que agrupa)
     let metaChip = '';
-    if (!opts.semMetodoChip) {
+    // Receita não tem forma de pagamento: o chip (ex.: PIX) fica escondido; só estorno de cartão mostra o cartão
+    if (!opts.semMetodoChip && !(tipo === 'entrada' && !_ehEstornoCartao(trans))) {
         if (trans.metodo) {
             // Encolhe em telas estreitas (CSS troca qual span aparece) —
             // "Crédito Bradesco" -> "CC Bradesco" -> "CC Brad.".
