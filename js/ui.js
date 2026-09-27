@@ -209,10 +209,14 @@ function atualizarResumo() {
     const pagoLinha = document.getElementById('saidasPagoDetalheLinha');
     if (pagoLinha) {
         const cred = estadoApp.resumo.saidasPagoCredito || 0;
-        pagoLinha.classList.toggle('vazio', !(cred > 0.004));
+        const pix = estadoApp.resumo.saidasPagoPix || 0;
+        // Antes só aparecia com fatura paga no mês (cred > 0) — um mês só com PIX/dinheiro
+        // (sem fatura paga) tem o que mostrar (o próprio pix) e ficava sem quebra nenhuma.
+        const temQuebraPago = pix > 0.004 || cred > 0.004;
+        pagoLinha.classList.toggle('vazio', !temQuebraPago);
         const fmtP = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
         const detP = document.getElementById('saidasPagoDetalhe');
-        if (detP) { const px = fmtP(estadoApp.resumo.saidasPagoPix), cr = fmtP(cred); _ajustarDetalhe(detP, cred > 0.004 ? [`pix ${px} + crédito ${cr}`, `pix ${px} + créd. ${cr}`, `pix ${px} + c.c. ${cr}`, `${px} + ${cr}`].map(mask) : null); }
+        if (detP) { const px = fmtP(pix), cr = fmtP(cred); _ajustarDetalhe(detP, temQuebraPago ? [`pix ${px} + crédito ${cr}`, `pix ${px} + créd. ${cr}`, `pix ${px} + c.c. ${cr}`, `${px} + ${cr}`].map(mask) : null); }
     }
     const detLinha = document.getElementById('saidasDetalheLinha');
     if (detLinha) {
