@@ -151,7 +151,7 @@ function _renderExtratoFiltro(ano) {
     const opts = agrupar === 'categoria' ? { semCategoriaChip: true, semAcoes: true } : { semMetodoChip: true, semAcoes: true };
     const corpo = itens.map(t => gerarHTMLTransacao(t, t.tipoUI, opts)).join('');
     return `
-    <details class="rec-grupo anual-extrato" open style="--cor-rec:${cor}">
+    <details class="rec-grupo anual-extrato" style="--cor-rec:${cor}">
       <summary>
         <span class="rec-grupo-nome">${_esc(estadoAnual.filtro)} — ${_esc(periodo)}</span>
         <span class="rec-grupo-espaco"></span>
@@ -332,6 +332,8 @@ function _renderVisaoAnual() {
     const secR = _secaoTabela({ rotulo: 'Receitas', tipo: 'entradas', v: vR, meses, mesAtual, ultimoMes, dim });
     const temDados = !!(secD.html || secR.html);
     const saldoLinha = `<tr class="saldo"><th scope="row" class="anual-nome">Saldo (receitas − despesas)</th>${meses.map(i => `<td class="${saldos[i] >= 0 ? 'bom' : 'ruim'}${i === mesAtual ? ' atual' : ''}${dim(i)}">${(vR.totais[i] || vD.totais[i]) ? sinal(saldos[i]) + _fmtCel(saldos[i]) : '–'}</td>`).join('')}<td class="total ${sR - sD >= 0 ? 'bom' : 'ruim'}">${sinal(sR - sD)}${_fmtCel(sR - sD)}</td></tr>`;
+    // Sempre antes da nota "Valores em R$..." — ela deve ficar por último na página.
+    const extrato = _renderExtratoFiltro(ano);
 
     cont.innerHTML = `
         <div class="anual-filtros">
@@ -355,9 +357,9 @@ function _renderVisaoAnual() {
                 <tfoot>${saldoLinha}</tfoot>
             </table>
         </div>
+        ${extrato}
         <p class="menu-hint anual-nota">Valores em R$ (sem centavos), pelo mês da competência${(vD.temEstorno) ? '; estornos/reembolsos no cartão abatem a despesa' : ''}. No gráfico, a barra da esquerda é a receita e a da direita a despesa do mês, coloridas pela proporção de cada ${agrupar === 'categoria' ? 'categoria' : 'forma de pagamento'}. Meses passados sem lançamento não aparecem. Toque no nome de um mês para focar nele (toque de novo para voltar ao ano) e no nome de uma ${agrupar === 'categoria' ? 'categoria' : 'forma'} para filtrá-la.</p>`
-        : `<p class="empty-message">Nada lançado em ${ano}${estadoAnual.filtro ? ` para “${_esc(estadoAnual.filtro)}”` : ''}.</p>`}
-        ${_renderExtratoFiltro(ano)}`;
+        : `<p class="empty-message">Nada lançado em ${ano}${estadoAnual.filtro ? ` para “${_esc(estadoAnual.filtro)}”` : ''}.</p>${extrato}`}`;
 }
 
 /** Abre a página, carrega o ano e desenha. */

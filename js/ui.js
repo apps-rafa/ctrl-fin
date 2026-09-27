@@ -282,9 +282,12 @@ function atualizarResumo() {
 
     _atualizarAvisoDuplicatas();
 
-    // Depois do texto assentado (e do layout dos cards, que só é conhecido
-    // após o DOM aplicar), reavalia se algum valor precisa encolher.
-    requestAnimationFrame(ajustarFontesDashboard);
+    // Chamada direta (não requestAnimationFrame): getComputedStyle já força o
+    // layout synchronously, então não precisa esperar o próximo frame — com
+    // rAF, o texto pintava 1 frame com o tamanho errado (ex.: o da atualização
+    // anterior) antes de corrigir, um "flicker" visível a cada atualização do
+    // dashboard.
+    ajustarFontesDashboard();
 }
 
 /** Aviso "⚠️ Duplicatas" no card de Receita/Despesa do dashboard, só quando
@@ -1544,10 +1547,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
                 ${(estadoApp.conciliadas && estadoApp.conciliadas.has(trans.id) && trans.origem !== 'pluggy') ? '<span class="conc-selo" title="Conciliado com uma transação do banco (Open Finance)">🏦</span>' : ''}
                 ${parcelaTag}
                 ${quitarCheckbox}
-                ${metaChip}
-                ${catChip}
-                ${quandoTag}
-                ${quitadoTag}
+                ${(metaChip || catChip || quandoTag || quitadoTag) ? `<span class="despesa-badges">${metaChip}${catChip}${quandoTag}${quitadoTag}</span>` : ''}
                 ${descTxt}
             </div>
             <div class="despesa-actions">${acoes}</div>
