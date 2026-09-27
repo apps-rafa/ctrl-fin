@@ -69,7 +69,8 @@ const PALAVRAS_CHAVE_CATEGORIA: { padrao: RegExp; categoria: string }[] = [
   { padrao: /\bb[oô]nus\b|\bpremia[çc][aã]o\b/, categoria: "Bônus" },
   { padrao: /\bfreela|\bfreelance\b/, categoria: "Freelance" },
   { padrao: /\bracha|\brachei|\bracharam|\bdividi|\bdividiram/, categoria: "Racha" },
-  { padrao: /reembols|estorn/, categoria: "Reembolso" },
+  { padrao: /estorn/, categoria: "Estorno" },
+  { padrao: /reembols/, categoria: "Reembolso" },
 ];
 
 function sugerirCategoriaPorPalavraChave(texto: string): string | null {
@@ -189,11 +190,55 @@ function hojeBrasiliaISO(): string {
   return new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
+const MESES_EXTENSO = ["janeiro", "fevereiro", "marco", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+function somarDiasISO(iso: string, n: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Acha uma data escrita no texto — "hoje", "ontem", "anteontem", "25/09", "25/09/2026", "25 de setembro",
+ *  "dia 25" — e devolve o texto sem ela. Sem ano, vale o ano corrente (ou o anterior se ficaria muito no futuro). */
+function extrairData(texto: string, hoje = hojeBrasiliaISO()): { data: string | null; resto: string } {
+  const limpar = (trecho: string) => texto.replace(trecho, " ").replace(/\s+/g, " ").trim();
+  const montar = (dia: number, mes: number, ano: number | null): string | null => {
+    if (mes < 1 || mes > 12 || dia < 1) return null;
+    let a = ano ?? Number(hoje.slice(0, 4));
+    if (ano !== null && ano < 100) a = 2000 + ano;
+    if (dia > new Date(Date.UTC(a, mes, 0)).getUTCDate()) return null;
+    let iso = `${a}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+    if (ano === null && iso > somarDiasISO(hoje, 45)) iso = `${a - 1}${iso.slice(4)}`;
+    return iso;
+  };
+  let m: RegExpMatchArray | null;
+  if ((m = texto.match(/(?<![\p{L}])anteontem(?![\p{L}])/iu))) return { data: somarDiasISO(hoje, -2), resto: limpar(m[0]) };
+  if ((m = texto.match(/(?<![\p{L}])ontem(?![\p{L}])/iu))) return { data: somarDiasISO(hoje, -1), resto: limpar(m[0]) };
+  if ((m = texto.match(/(?<![\p{L}])hoje(?![\p{L}])/iu))) return { data: hoje, resto: limpar(m[0]) };
+  if ((m = texto.match(/(?<![\d\/.,-])(\d{1,2})[\/-](\d{1,2})(?:[\/-](\d{4}|\d{2}))?(?![\d\/.,-])/))) {
+    const iso = montar(Number(m[1]), Number(m[2]), m[3] ? Number(m[3]) : null);
+    if (iso) return { data: iso, resto: limpar(m[0]) };
+  }
+  const mesesRx = MESES_EXTENSO.map((x) => (x === "marco" ? "mar[cç]o" : x)).join("|");
+  if ((m = texto.match(new RegExp("(?<![\\d\\p{L}])(\\d{1,2})\\s+de\\s+(" + mesesRx + ")(?:\\s+de\\s+(\\d{4}))?(?![\\p{L}])", "iu")))) {
+    const mes = MESES_EXTENSO.indexOf(m[2].normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()) + 1;
+    const iso = montar(Number(m[1]), mes, m[3] ? Number(m[3]) : null);
+    if (iso) return { data: iso, resto: limpar(m[0]) };
+  }
+  if ((m = texto.match(/(?<![\p{L}])dia\s+(\d{1,2})(?![\d\/,.-])/iu))) {
+    const dia = Number(m[1]);
+    const [ay, am, ad] = hoje.split("-").map(Number);
+    const iso = dia <= ad ? montar(dia, am, ay) : montar(dia, am === 1 ? 12 : am - 1, am === 1 ? ay - 1 : ay);
+    if (iso) return { data: iso, resto: limpar(m[0]) };
+  }
+  return { data: null, resto: texto };
+}
+
 // Verbos (qualquer tempo: "vender", "vendi", "vendeu"...) que indicam ENTRADA de
 // dinheiro — só o radical, o resto da palavra é aceito. Os com lookahead só
 // valem em formas que não colidem com outras palavras (ex.: "entrada" de um
 // carro é despesa, "entrou" é receita).
-const VERBOS_RECEITA = /(?<![\p{L}])(?:receb|ganh|vend|rach|divid|reembols|estorn|devolv|devolu|deposit|lucr|fatur|resgat|arrecad|sal[aá]rio|freela|b[oô]nus|comiss[aã]o|cobr(?=ei|ou|ar|amos)|rend(?=er|eu|i(?![\p{L}])|endo)|entr(?=ou|ar|aram)|cai(?=u|r|ram)|sobr(?=ou|ar)|me pag(?=ou|aram))[\p{L}]*/giu;
+const VERBOS_RECEITA = /(?<![\p{L}])(?:receb|ganh|vend|rach|divid|reembols|devolv|devolu|deposit|lucr|fatur|resgat|arrecad|sal[aá]rio|freela|b[oô]nus|comiss[aã]o|cobr(?=ei|ou|ar|amos)|rend(?=er|eu|i(?![\p{L}])|endo)|entr(?=ou|ar|aram)|cai(?=u|r|ram)|sobr(?=ou|ar)|me pag(?=ou|aram))[\p{L}]*/giu;
 const VERBOS_DESPESA = /(?<![\p{L}])(?:gast|compr|pagu|pagar|pagamento)[\p{L}]*/giu;
 
 /** Interpreta uma mensagem de texto livre como um lançamento — "gastei
@@ -202,8 +247,9 @@ const VERBOS_DESPESA = /(?<![\p{L}])(?:gast|compr|pagu|pagar|pagamento)[\p{L}]*/
  *  não é um lançamento (retorna null e o bot cai no "não entendi"). O valor
  *  é sempre o TOTAL da compra; "parcelas" só vem preenchido em "10x"/"em 10
  *  vezes"/"10 parcelas". */
-function interpretarValorETipo(texto: string): { valor: number; tipo: "entradas" | "saidas"; resto: string; parcelas: number | null } | null {
-  let corpo = texto;
+function interpretarValorETipo(texto: string): { valor: number; tipo: "entradas" | "saidas"; resto: string; parcelas: number | null; data: string | null } | null {
+  const dt = extrairData(texto);
+  let corpo = dt.resto;
   let parcelas: number | null = null;
   const mp = corpo.match(/(?:parcelad[oa]s?\s+)?(?:em\s+)?(\d{1,2})\s*(?:x|vezes|parcelas?)(?![\p{L}])/iu);
   if (mp) {
@@ -229,7 +275,7 @@ function interpretarValorETipo(texto: string): { valor: number; tipo: "entradas"
     .replace(VERBOS_DESPESA, " ")
     .replace(/\s+/g, " ")
     .trim();
-  return { valor, tipo, resto, parcelas };
+  return { valor, tipo, resto, parcelas, data: dt.data };
 }
 
 interface ContaPluggy {
@@ -504,17 +550,21 @@ async function confirmarRascunhoNoBanco(
 ): Promise<{ erro: unknown }> {
   const ehCredito = d.metodoKind === "Crédito";
   const competencia = d.competencia || competenciaDe(d.data, ehCredito ? d.diaFechamento : null);
+  // Despesa > categoria "Estorno" = crédito na fatura do cartão (gravado como entrada, igual ao app).
+  const ehEstorno = d.tipo === "saidas" && d.categoria === "Estorno";
+  if (ehEstorno && !ehCredito) return { erro: new Error("Estorno exige um cartão de crédito") };
+  const tipoGravar = ehEstorno ? "entradas" : d.tipo;
 
   // Compra parcelada: uma linha por parcela, igual ao adicionarParceladoAPI do
   // app (grupo_id comum, centavos distribuídos, 1 mês entre parcelas).
-  const n = d.parcelas && d.parcelas > 1 && ehCredito && d.tipo === "saidas" ? d.parcelas : 0;
+  const n = d.parcelas && d.parcelas > 1 && ehCredito && d.tipo === "saidas" && !ehEstorno ? d.parcelas : 0;
   if (n) {
     const grupoId = crypto.randomUUID();
     const totalCent = Math.round(d.valor * 100);
     const base = Math.floor(totalCent / n);
     const resto = totalCent - base * n;
     const registros = Array.from({ length: n }, (_, i) => ({
-      tipo: d.tipo,
+      tipo: tipoGravar,
       data: addMeses(d.data, i),
       valor: (base + (i < resto ? 1 : 0)) / 100,
       metodo: d.metodo,
@@ -535,7 +585,7 @@ async function confirmarRascunhoNoBanco(
   }
 
   const { error } = await supabaseAdmin.from("transacoes").insert({
-    tipo: d.tipo,
+    tipo: tipoGravar,
     data: d.data,
     valor: d.valor,
     metodo: d.metodo, // receita também guarda a forma (opcional)
@@ -628,8 +678,15 @@ async function carregarListasUsuario(admin: ReturnType<typeof createClient>, use
     admin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("tipo", "Método").eq("status", "Ativo").eq("user_id", userId).order("ordem"),
   ]);
   const lista = (cats ?? []) as { nome: string; categoria_tipo: string | null }[];
+  // "Estorno" (Despesa) é fixa: todo usuário tem, sempre ativa.
+  if (!lista.some((c) => c.categoria_tipo === "saidas" && c.nome === "Estorno")) {
+    const { data: ex } = await admin.from("menu_itens").select("id").eq("tipo", "Categoria").eq("categoria_tipo", "saidas").eq("nome", "Estorno").eq("user_id", userId).maybeSingle();
+    if (ex) await admin.from("menu_itens").update({ status: "Ativo" }).eq("id", ex.id);
+    else await admin.from("menu_itens").insert({ tipo: "Categoria", nome: "Estorno", categoria_tipo: "saidas", cor: corPadraoChip("Estorno"), user_id: userId });
+    lista.push({ nome: "Estorno", categoria_tipo: "saidas" });
+  }
   return {
-    catsR: lista.filter((c) => c.categoria_tipo === "entradas").map((c) => c.nome),
+    catsR: lista.filter((c) => c.categoria_tipo === "entradas" && c.nome !== "Estorno").map((c) => c.nome),
     catsD: lista.filter((c) => c.categoria_tipo === "saidas").map((c) => c.nome),
     metodos: (mets ?? []) as ListasUsuario["metodos"],
   };
@@ -672,7 +729,7 @@ async function enviarRascunho(
     `Descrição: ${r.descricao || "(em branco — digite pra adicionar)"}`,
     r.tipo === "saidas" ? `Forma de pgto.: ${r.metodo || "nenhuma cadastrada — ajuste no app"}${r.metodoOrigem === "padrao" ? " (padrão)" : ""}` : null,
     ehCreditoSaida ? `Mês da fatura: ${mesAbrevAno(compFatura)}` : null,
-    ehCreditoSaida ? (r.parcelas && r.parcelas > 1 ? `Parcelas: ${r.parcelas}x de ${formatarMoedaBR(r.valor / r.parcelas)}` : "Parcelas: à vista") : null,
+    ehCreditoSaida && r.categoria !== "Estorno" ? (r.parcelas && r.parcelas > 1 ? `Parcelas: ${r.parcelas}x de ${formatarMoedaBR(r.valor / r.parcelas)}` : "Parcelas: à vista") : null,
     "",
     "Confirma?",
     "",
@@ -689,7 +746,11 @@ async function enviarRascunho(
         { text: "✅ Confirmar" },
         ...(listas ? [{ text: "✏️ Editar", web_app: { url: urlMiniApp(r, listas) } }] : []),
         { text: "❌ Cancelar" },
-      ], ...(r.tipo === "saidas" ? [[{ text: "💳 Forma de pgto." }]] : [])],
+      ], [
+        ...(r.tipo === "saidas" ? [{ text: "💳 Forma de pgto." }] : []),
+        { text: "🏷️ Categorias" },
+        { text: "📅 Data" },
+      ]],
       resize_keyboard: true,
       // Teclado FIXO: no celular, tocar fora/na caixa de texto não o esconde.
       is_persistent: true,
@@ -706,7 +767,7 @@ async function enviarRascunho(
 const TEXTO_AJUDA_LANCAMENTO = [
   "✍️ Lançar por mensagem",
   "",
-  "Escreva como falaria: gastei 35,90 no mercado, recebi 200 de salário, vendi meu casaco por 200 reais, comprei um carro de 80000 parcelado em 10x. Diga a forma de pagamento se quiser: \"gastei 100 no mercado no pix\" (ou no crédito, no nubank...). Sem dizer, uso o padrão que você definir em /pgtopadrao.",
+  "Escreva como falaria: gastei 35,90 no mercado, recebi 200 de salário, vendi meu casaco por 200 reais, comprei um carro de 80000 parcelado em 10x. Diga a forma de pagamento se quiser: \"gastei 100 no mercado no pix\" (ou no crédito, no nubank...). Sem dizer, uso o padrão que você definir em /pgtopadrao. Diga a data se não for hoje: \"ontem uber 10 reais\", \"25/09 uber 10 reais\". Estorno também: \"estorno 50 uber\" (abate a fatura do cartão).",
   "",
   "Eu monto um rascunho com valor, categoria e forma de pagamento e só grava depois que você tocar em ✅ Confirmar no teclado. Se responder qualquer outra coisa (sem ser os botões), eu entendo como a descrição do lançamento.",
 ].join("\n");
@@ -1146,12 +1207,75 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      // Botões "🏷️ Categorias" e "📅 Data" do rascunho, e as escolhas nos menus deles.
+      if (texto === "🏷️ Categorias" || texto === "📅 Data" || texto.startsWith("🏷️ ") || /^📅 (Hoje|Ontem|Anteontem)$/.test(texto)) {
+        const { data: tgC } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+        const { data: pendC } = tgC
+          ? await supabaseAdmin.from("telegram_rascunhos").select("id, dados").eq("chat_id", chatId).eq("user_id", tgC.user_id).order("criado_em", { ascending: false }).limit(1).maybeSingle()
+          : { data: null };
+        if (tgC && pendC) {
+          const dadosC = pendC.dados as RascunhoLancamento;
+          const listasC = await carregarListasUsuario(supabaseAdmin, tgC.user_id);
+          const menu = (rotulos: string[]) => {
+            const linhasM: { text: string }[][] = [];
+            for (let i = 0; i < rotulos.length; i += 2) linhasM.push(rotulos.slice(i, i + 2).map((text) => ({ text })));
+            // sem item sozinho na última linha
+            if (linhasM.length > 1 && linhasM[linhasM.length - 1].length === 1) linhasM[linhasM.length - 2].push(...linhasM.pop()!);
+            linhasM.push([{ text: "❌ Cancelar" }]);
+            return { keyboard: linhasM, resize_keyboard: true, is_persistent: true, one_time_keyboard: false };
+          };
+          if (texto === "🏷️ Categorias") {
+            const cats = dadosC.tipo === "entradas" ? listasC.catsR : listasC.catsD;
+            await tg(token, "sendMessage", { chat_id: chatId, text: "Qual a categoria deste lançamento?", reply_markup: menu(cats.map((c) => `🏷️ ${c}`)) });
+            return json({ ok: true });
+          }
+          if (texto === "📅 Data") {
+            await tg(token, "sendMessage", {
+              chat_id: chatId,
+              text: "Qual a data? Toque numa opção ou digite (ex.: 25/09, 25/09/2026, dia 25).",
+              reply_markup: { keyboard: [[{ text: "📅 Hoje" }, { text: "📅 Ontem" }, { text: "📅 Anteontem" }], [{ text: "❌ Cancelar" }]], resize_keyboard: true, is_persistent: true, one_time_keyboard: false },
+            });
+            return json({ ok: true });
+          }
+          if (texto.startsWith("📅 ")) {
+            const dias = { Hoje: 0, Ontem: -1, Anteontem: -2 } as Record<string, number>;
+            const novaD: RascunhoLancamento = { ...dadosC, data: somarDiasISO(hojeBrasiliaISO(), dias[texto.slice(2).trim()] ?? 0), competencia: null };
+            await supabaseAdmin.from("telegram_rascunhos").update({ dados: novaD }).eq("id", pendC.id);
+            await enviarRascunho(token, chatId, novaD, supabaseAdmin, tgC.user_id);
+            return json({ ok: true });
+          }
+          // "🏷️ <categoria>"
+          const nomeCat = texto.slice(texto.indexOf(" ") + 1).trim();
+          const catsAtuais = dadosC.tipo === "entradas" ? listasC.catsR : listasC.catsD;
+          if (catsAtuais.includes(nomeCat)) {
+            let novaC: RascunhoLancamento = { ...dadosC, categoria: nomeCat };
+            if (dadosC.tipo === "saidas" && nomeCat === "Estorno") {
+              // Estorno abate a fatura de um cartão: troca pra crédito e tira as parcelas
+              let credito = novaC.metodoKind === "Crédito" ? null : listasC.metodos.find((m) => m.metodo_kind === "Crédito");
+              if (novaC.metodoKind !== "Crédito" && !credito) {
+                await tg(token, "sendMessage", { chat_id: chatId, text: "Estorno precisa de um cartão de crédito cadastrado (no app, em Configurações)." });
+                await enviarRascunho(token, chatId, dadosC, supabaseAdmin, tgC.user_id);
+                return json({ ok: true });
+              }
+              if (credito) novaC = { ...novaC, metodo: rotuloMetodo(credito), metodoKind: credito.metodo_kind, diaFechamento: credito.dia_fechamento, competencia: null, metodoOrigem: "texto" };
+              novaC.parcelas = null;
+              credito = null;
+            }
+            await supabaseAdmin.from("telegram_rascunhos").update({ dados: novaC }).eq("id", pendC.id);
+            await enviarRascunho(token, chatId, novaC, supabaseAdmin, tgC.user_id);
+            return json({ ok: true });
+          }
+        }
+      }
+
       // Botão "💳 Forma de pgto." do rascunho: lista as formas ativas pra escolher
       if (texto === "💳 Forma de pgto.") {
         const { data: tgF } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
         if (tgF) {
           const listasF = await carregarListasUsuario(supabaseAdmin, tgF.user_id);
-          const linhasF = listasF.metodos.map((m) => [{ text: `💳 ${rotuloMetodo(m)}` }]);
+          const { data: pendF } = await supabaseAdmin.from("telegram_rascunhos").select("dados").eq("chat_id", chatId).eq("user_id", tgF.user_id).order("criado_em", { ascending: false }).limit(1).maybeSingle();
+          const soCredito = (pendF?.dados as RascunhoLancamento | undefined)?.categoria === "Estorno" && (pendF?.dados as RascunhoLancamento).tipo === "saidas";
+          const linhasF = listasF.metodos.filter((m) => !soCredito || m.metodo_kind === "Crédito").map((m) => [{ text: `💳 ${rotuloMetodo(m)}` }]);
           linhasF.push([{ text: "❌ Cancelar" }]);
           await tg(token, "sendMessage", {
             chat_id: chatId,
@@ -1171,6 +1295,11 @@ Deno.serve(async (req: Request) => {
           const { data: pendE } = escolhidaE
             ? await supabaseAdmin.from("telegram_rascunhos").select("id, dados").eq("chat_id", chatId).eq("user_id", tgE.user_id).order("criado_em", { ascending: false }).limit(1).maybeSingle()
             : { data: null };
+          const dE = pendE?.dados as RascunhoLancamento | undefined;
+          if (escolhidaE && dE && dE.categoria === "Estorno" && dE.tipo === "saidas" && escolhidaE.metodo_kind !== "Crédito") {
+            await tg(token, "sendMessage", { chat_id: chatId, text: "Estorno só aceita cartão de crédito — escolha um cartão." });
+            return json({ ok: true });
+          }
           if (escolhidaE && pendE) {
             const novaE: RascunhoLancamento = {
               ...(pendE.dados as RascunhoLancamento), metodo: rotuloMetodo(escolhidaE), metodoKind: escolhidaE.metodo_kind,
@@ -1261,6 +1390,13 @@ Deno.serve(async (req: Request) => {
               .order("criado_em", { ascending: false }).limit(1).maybeSingle()
           : { data: null };
         if (pend) {
+          const dtResp = extrairData(texto);
+          if (dtResp.data && !dtResp.resto) {
+            const novaDt: RascunhoLancamento = { ...(pend.dados as RascunhoLancamento), data: dtResp.data, competencia: null };
+            await supabaseAdmin.from("telegram_rascunhos").update({ dados: novaDt }).eq("id", pend.id);
+            await enviarRascunho(token, chatId, novaDt, supabaseAdmin, tgU!.user_id);
+            return json({ ok: true });
+          }
           const listasResp = await carregarListasUsuario(supabaseAdmin, tgU!.user_id);
           const formaResp = interpretarRespostaForma(texto, listasResp.metodos);
           if (formaResp) {
@@ -1329,7 +1465,12 @@ Deno.serve(async (req: Request) => {
           metodoObj = lista.find((m) => m.metodo_kind === "Crédito") || metodoObj;
         }
       }
-      const parcelasFinal = tipo === "saidas" && parcelas && metodoObj?.metodo_kind === "Crédito" ? parcelas : null;
+      // Estorno abate a fatura de um cartão: só aceita crédito e nunca é parcelado.
+      const ehEstornoTxt = tipo === "saidas" && categoria === "Estorno";
+      if (ehEstornoTxt && metodoObj?.metodo_kind !== "Crédito") {
+        metodoObj = ((metodosApp ?? []) as MetodoMenu[]).find((m) => m.metodo_kind === "Crédito") || metodoObj;
+      }
+      const parcelasFinal = tipo === "saidas" && !ehEstornoTxt && parcelas && metodoObj?.metodo_kind === "Crédito" ? parcelas : null;
 
       // O bot nunca inventa descrição: começa em branco; o que o usuário
       // responder (fora dos botões) vira a descrição.
@@ -1340,7 +1481,7 @@ Deno.serve(async (req: Request) => {
         metodo: metodoObj ? rotuloMetodo(metodoObj) : null,
         metodoKind: metodoObj?.metodo_kind ?? null,
         diaFechamento: metodoObj?.dia_fechamento ?? null,
-        data: hojeBrasiliaISO(),
+        data: achado.data ?? hojeBrasiliaISO(),
         parcelas: parcelasFinal,
         metodoOrigem,
       };

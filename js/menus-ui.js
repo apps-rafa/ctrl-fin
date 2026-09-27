@@ -425,7 +425,9 @@ function renderizarItemsMenu(tipo, containerId, itens, grupo) {
     // (editar o nome ainda é permitido).
     const ehDinheiro = tipo === 'Método' && (item.metodoKind === 'Dinheiro' || item.nome === 'Dinheiro');
     const ehPixBase = tipo === 'Método' && (item.metodoKind === 'PIX' || item.metodoKind === 'PIX/Débito') && !item.banco;
-    const semEdicao = ehDinheiro;
+    // "Estorno" de Despesa é fixo: sempre existe (um cartão de crédito precisa dele), sem renomear/desativar
+    const ehEstornoDespesa = tipo === 'Categoria' && item.categoriaTipo === 'saidas' && item.nome === CATEGORIA_ESTORNO;
+    const semEdicao = ehDinheiro || ehEstornoDespesa;
     const semRemocao = ehDinheiro || ehPixBase
         || (tipo === 'Categoria' && item.categoriaTipo === 'entradas'
             && (item.nome === CATEGORIA_ESTORNO || item.nome === CATEGORIA_REEMBOLSO || item.nome === CATEGORIA_DINHEIRO_RECEITA))
@@ -446,9 +448,9 @@ function renderizarItemsMenu(tipo, containerId, itens, grupo) {
       <div class="item-actions">
         ${semEdicao ? '' : `<button class="btn-icon" data-act="editar" data-tipo="${tipo}" data-id="${item.linha}" title="Editar">✏️</button>`}
         ${semRemocao ? '' : `<button class="btn-icon btn-danger" data-act="remover" data-id="${item.linha}" title="Remover">🗑️</button>`}
-        <button class="btn-icon ${item.status === 'Ativo' ? 'btn-warning' : 'btn-success'}"
+        ${ehEstornoDespesa ? '' : `<button class="btn-icon ${item.status === 'Ativo' ? 'btn-warning' : 'btn-success'}"
                 data-act="${item.status === 'Ativo' ? 'desativar' : 'ativar'}" data-id="${item.linha}"
-                title="${item.status === 'Ativo' ? 'Desativar' : 'Ativar'}">${item.status === 'Ativo' ? '⊘' : '↻'}</button>
+                title="${item.status === 'Ativo' ? 'Desativar' : 'Ativar'}">${item.status === 'Ativo' ? '⊘' : '↻'}</button>`}
         ${swatch}
       </div>`;
 
