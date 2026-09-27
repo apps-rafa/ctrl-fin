@@ -413,17 +413,18 @@ interface EscolhaUltima {
 
 const LIMITE_ESCOLHAS = 12;
 
-/** Botões 1..n do teclado, em linhas de até 4 sem sobrar um sozinho (5 -> 3+2, 7 -> 4+3, 9 -> 3+3+3). */
-function tecladoNumeros(n: number): { text: string }[][] {
+/** Botões inline 1..n (grudados na mensagem), em linhas de até 4 sem sobrar
+ *  um sozinho (5 -> 3+2, 7 -> 4+3, 9 -> 3+3+3). callback_data "escolhatx:<n>". */
+function botoesInlineNumeros(n: number): { text: string; callback_data: string }[][] {
   const linhas = Math.ceil(n / 4);
   const base = Math.floor(n / linhas);
   let extra = n % linhas;
   let k = 1;
-  const out: { text: string }[][] = [];
+  const out: { text: string; callback_data: string }[][] = [];
   for (let i = 0; i < linhas; i++) {
     const tam = base + (extra > 0 ? 1 : 0);
     if (extra > 0) extra--;
-    out.push(Array.from({ length: tam }, () => ({ text: String(k++) })));
+    out.push(Array.from({ length: tam }, () => { const num = k++; return { text: String(num), callback_data: `escolhatx:${num}` }; }));
   }
   return out;
 }
@@ -495,7 +496,7 @@ async function executarAtualizacaoPluggy(
     const { data: tgU } = await admin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
     if (tgU && escolhas.length) {
       await admin.from("telegram_ultimas").upsert({ chat_id: chatId, user_id: tgU.user_id, itens: escolhas, criado_em: new Date().toISOString() });
-      teclado = { keyboard: [...tecladoNumeros(escolhas.length), [{ text: "❌ Cancelar" }]], resize_keyboard: true, is_persistent: true, one_time_keyboard: false };
+      teclado = { inline_keyboard: [...botoesInlineNumeros(escolhas.length), [{ text: "❌ Cancelar", callback_data: "cancelar" }]] };
     }
     await tg(token, "sendMessage", {
       chat_id: chatId,
@@ -1273,66 +1274,19 @@ Deno.serve(async (req: Request) => {
           return json({ ok: true });
         }
 
-        // Regra: todo botão do bot fica no TECLADO (embaixo, onde se digita),
-        // e todo menu termina com "Cancelar". Cada conta é um botão com o
-        // nome completo ("1. Bradesco: Cartão de crédito VISA ..."); o toque
-        // volta como texto e é reconhecido logo abaixo (sem guardar estado).
-        const botoes: { text: string }[][] = contas.map((c, i) => [{ text: rotuloBotaoConta(c, i) }]);
-        botoes.push([{ text: BOTAO_TODAS_CONTAS }]);
-        botoes.push([{ text: "❌ Cancelar" }]);
+        // Botões INLINE (grudados na mensagem) — cada conta com o nome
+        // completo ("1. Bradesco: Cartão de crédito VISA ..."); o toque
+        // chega como callback_query "atualizarconta:<id>"/"atualizarconta:todas"
+        // (ver Deno.serve), sem precisar guardar estado.
+        const botoes = contas.map((c, i) => [{ text: rotuloBotaoConta(c, i), callback_data: `atualizarconta:${c.id}` }]);
+        botoes.push([{ text: BOTAO_TODAS_CONTAS, callback_data: "atualizarconta:todas" }]);
+        botoes.push([{ text: "❌ Cancelar", callback_data: "cancelar" }]);
         await tg(token, "sendMessage", {
           chat_id: chatId,
           text: "Qual conta você quer atualizar?",
-          reply_markup: { keyboard: botoes, resize_keyboard: true, is_persistent: true, one_time_keyboard: false },
+          reply_markup: { inline_keyboard: botoes },
         });
         return json({ ok: true });
-      }
-
-      // Toque num botão do menu do /atualizar (chega como texto exato).
-      if (texto === BOTAO_TODAS_CONTAS || /^\d+\.\s/.test(texto)) {
-        const { data: tgUserA } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
-        if (tgUserA) {
-          const { contas } = await carregarContasPluggy(supabaseAdmin, tgUserA.user_id);
-          const alvo = texto === BOTAO_TODAS_CONTAS ? contas : contas.filter((c, i) => rotuloBotaoConta(c, i) === texto);
-          if (alvo.length) {
-            await tg(token, "sendMessage", {
-              chat_id: chatId,
-              text: `🔄 Atualizando ${texto === BOTAO_TODAS_CONTAS ? `${alvo.length} conta(s)` : tituloContaPluggyDetalhado(alvo[0])}...`,
-              reply_markup: { remove_keyboard: true },
-            });
-            await executarAtualizacaoPluggy(supabaseAdmin, token, chatId, alvo);
-            return json({ ok: true });
-          }
-        }
-      }
-
-      // Toque num número da lista do /atualizar: prepara o lançamento daquela transação.
-      if (/^([1-9]|1[0-2])$/.test(texto)) {
-        const { data: ult } = await supabaseAdmin.from("telegram_ultimas").select("user_id, itens, criado_em").eq("chat_id", chatId).maybeSingle();
-        const itens = (ult?.itens ?? []) as EscolhaUltima[];
-        const escolha = ult && Date.now() - new Date(ult.criado_em).getTime() < 60 * 60 * 1000 ? itens[Number(texto) - 1] : null;
-        if (ult && escolha) {
-          await supabaseAdmin.from("telegram_ultimas").delete().eq("chat_id", chatId);
-          const listas = await carregarListasUsuario(supabaseAdmin, ult.user_id);
-          const { data: conta } = await supabaseAdmin.from("pluggy_contas").select("metodo_id").eq("id", escolha.conta_id).maybeSingle();
-          const { data: met } = conta?.metodo_id
-            ? await supabaseAdmin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("id", conta.metodo_id).maybeSingle()
-            : { data: null };
-          const cats = [...listas.catsR.map((nome) => ({ nome, categoria_tipo: "entradas" })), ...listas.catsD.map((nome) => ({ nome, categoria_tipo: "saidas" }))];
-          const rascunho: RascunhoLancamento = {
-            tipo: escolha.tipo, valor: escolha.valor, descricao: escolha.descricao,
-            categoria: sugerirCategoriaTexto(escolha.descricao, escolha.tipo, cats).nome,
-            metodo: met ? rotuloMetodo(met) : null, metodoKind: met?.metodo_kind ?? null, diaFechamento: met?.dia_fechamento ?? null,
-            data: escolha.data, parcelas: null,
-          };
-          const { data: novoR, error: errR } = await supabaseAdmin
-            .from("telegram_rascunhos").insert({ user_id: ult.user_id, chat_id: chatId, dados: rascunho })
-            .select("id").single();
-          if (!errR && novoR) {
-            await enviarRascunho(token, chatId, novoR.id, rascunho, supabaseAdmin, ult.user_id, `🏦 Transação nº ${texto} do banco`);
-            return json({ ok: true });
-          }
-        }
       }
 
       // "/pgtopadrao": escolhe a forma de pagamento usada quando a mensagem não diz qual.
@@ -1344,28 +1298,16 @@ Deno.serve(async (req: Request) => {
         }
         const listasP = await carregarListasUsuario(supabaseAdmin, tgP.user_id);
         const { data: cfg } = await supabaseAdmin.from("telegram_config").select("metodo_padrao").eq("user_id", tgP.user_id).maybeSingle();
-        const linhasP = listasP.metodos.map((m) => [{ text: `⭐ ${rotuloMetodo(m)}` }]);
-        linhasP.push([{ text: "❌ Cancelar" }]);
+        // Botões INLINE — callback_data leva o índice (mesma ordem da consulta,
+        // "order(ordem)") pra reidentificar a forma escolhida sem guardar estado.
+        const linhasP = listasP.metodos.map((m, i) => [{ text: `⭐ ${rotuloMetodo(m)}`, callback_data: `pgtopadrao:${i}` }]);
+        linhasP.push([{ text: "❌ Cancelar", callback_data: "cancelar" }]);
         await tg(token, "sendMessage", {
           chat_id: chatId,
           text: `Qual forma de pagamento usar quando eu não souber?\nAtual: ${cfg?.metodo_padrao || "Crédito (primeiro cartão)"}`,
-          reply_markup: { keyboard: linhasP, resize_keyboard: true, is_persistent: true, one_time_keyboard: false },
+          reply_markup: { inline_keyboard: linhasP },
         });
         return json({ ok: true });
-      }
-
-      // Escolha no menu do /pgtopadrao ("⭐ <forma>")
-      if (texto.startsWith("⭐ ")) {
-        const { data: tgS } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
-        if (tgS) {
-          const listasS = await carregarListasUsuario(supabaseAdmin, tgS.user_id);
-          const escolhida = listasS.metodos.find((m) => rotuloMetodo(m) === texto.slice(2).trim());
-          if (escolhida) {
-            await supabaseAdmin.from("telegram_config").upsert({ user_id: tgS.user_id, metodo_padrao: rotuloMetodo(escolhida) }, { onConflict: "user_id" });
-            await tg(token, "sendMessage", { chat_id: chatId, text: `✅ Forma de pagamento padrão: ${rotuloMetodo(escolhida)}`, reply_markup: { remove_keyboard: true } });
-            return json({ ok: true });
-          }
-        }
       }
 
       // "/lancamento": só explica como lançar por mensagem (mesma explicação
@@ -1392,16 +1334,6 @@ Deno.serve(async (req: Request) => {
       const cmd = texto.match(/^\/(resumo|diario|credito|pix|ultimos)(?:@\w+)?(?:\s|$)/i);
       if (cmd) {
         await responderComandoConsulta(supabaseAdmin, token, chatId, cmd[1].toLowerCase());
-        return json({ ok: true });
-      }
-
-      // "❌ Cancelar" digitado — só fecha os menus de teclado fixo (escolha de
-      // conta do /atualizar, /pgtopadrao). Rascunhos de lançamento não usam
-      // mais teclado fixo — são os botões INLINE (grudados na mensagem, ver
-      // enviarRascunho), cancelados via callback_query "nlcancelar:<id>".
-      if (texto === "❌ Cancelar") {
-        await supabaseAdmin.from("telegram_ultimas").delete().eq("chat_id", chatId);
-        await tg(token, "sendMessage", { chat_id: chatId, text: "❌ Cancelado.", reply_markup: { remove_keyboard: true } });
         return json({ ok: true });
       }
 
@@ -1496,6 +1428,65 @@ Deno.serve(async (req: Request) => {
           text: `🔄 Atualizando ${contaId ? tituloContaPluggyDetalhado(alvo[0]) : `${alvo.length} conta(s)`}...`,
         });
         await executarAtualizacaoPluggy(supabaseAdmin, token, chatId, alvo);
+        return json({ ok: true });
+      }
+
+      // Toque num número da lista de transações do /atualizar (ver
+      // botoesInlineNumeros/executarAtualizacaoPluggy): prepara o lançamento
+      // daquela transação como um rascunho novo.
+      if (acao === "escolhatx" && chatId) {
+        const { data: ult } = await supabaseAdmin.from("telegram_ultimas").select("user_id, itens, criado_em").eq("chat_id", chatId).maybeSingle();
+        const itens = (ult?.itens ?? []) as EscolhaUltima[];
+        const n = Number(idStr);
+        const escolha = ult && Date.now() - new Date(ult.criado_em).getTime() < 60 * 60 * 1000 ? itens[n - 1] : null;
+        if (!ult || !escolha) {
+          await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Essa lista já expirou — rode /atualizar de novo" });
+          return json({ ok: true });
+        }
+        const listas = await carregarListasUsuario(supabaseAdmin, ult.user_id);
+        const { data: conta } = await supabaseAdmin.from("pluggy_contas").select("metodo_id").eq("id", escolha.conta_id).maybeSingle();
+        const { data: met } = conta?.metodo_id
+          ? await supabaseAdmin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("id", conta.metodo_id).maybeSingle()
+          : { data: null };
+        const cats = [...listas.catsR.map((nome) => ({ nome, categoria_tipo: "entradas" })), ...listas.catsD.map((nome) => ({ nome, categoria_tipo: "saidas" }))];
+        const rascunho: RascunhoLancamento = {
+          tipo: escolha.tipo, valor: escolha.valor, descricao: escolha.descricao,
+          categoria: sugerirCategoriaTexto(escolha.descricao, escolha.tipo, cats).nome,
+          metodo: met ? rotuloMetodo(met) : null, metodoKind: met?.metodo_kind ?? null, diaFechamento: met?.dia_fechamento ?? null,
+          data: escolha.data, parcelas: null,
+        };
+        const { data: novoR, error: errR } = await supabaseAdmin
+          .from("telegram_rascunhos").insert({ user_id: ult.user_id, chat_id: chatId, dados: rascunho })
+          .select("id").single();
+        if (errR || !novoR) {
+          await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Deu erro — tenta de novo" });
+          return json({ ok: true });
+        }
+        await tg(token, "answerCallbackQuery", { callback_query_id: cq.id });
+        await enviarRascunho(token, chatId, novoR.id, rascunho, supabaseAdmin, ult.user_id, `🏦 Transação nº ${n} do banco`);
+        return json({ ok: true });
+      }
+
+      // Escolha no menu inline do /pgtopadrao — idStr é o índice na mesma
+      // lista (ordenada por "ordem") que gerou os botões.
+      if (acao === "pgtopadrao" && chatId) {
+        const { data: tgS } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+        if (!tgS) {
+          await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Conta não vinculada" });
+          return json({ ok: true });
+        }
+        const listasS = await carregarListasUsuario(supabaseAdmin, tgS.user_id);
+        const escolhida = listasS.metodos[Number(idStr)];
+        if (!escolhida) {
+          await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Essa opção já não existe mais" });
+          return json({ ok: true });
+        }
+        await supabaseAdmin.from("telegram_config").upsert({ user_id: tgS.user_id, metodo_padrao: rotuloMetodo(escolhida) }, { onConflict: "user_id" });
+        await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Salvo ✅" });
+        await tg(token, "editMessageText", {
+          chat_id: chatId, message_id: cq.message.message_id,
+          text: `✅ Forma de pagamento padrão: ${rotuloMetodo(escolhida)}`,
+        });
         return json({ ok: true });
       }
 
