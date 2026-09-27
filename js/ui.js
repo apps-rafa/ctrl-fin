@@ -196,6 +196,15 @@ function atualizarResumo() {
     setTxt('saidasAtual', estadoApp.resumo.saidasAtual);
     setTxt('saidasAPagar', estadoApp.resumo.saidasAPagar);
     // Quebra do "a pagar": lançamentos por vir x fatura em aberto (só aparece quando há fatura)
+    // Quebra do "pago": PIX/dinheiro x faturas de cartão já pagas ou vencidas
+    const pagoLinha = document.getElementById('saidasPagoDetalheLinha');
+    if (pagoLinha) {
+        const cred = estadoApp.resumo.saidasPagoCredito || 0;
+        pagoLinha.classList.toggle('vazio', !(cred > 0.004));
+        const fmtP = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
+        const detP = document.getElementById('saidasPagoDetalhe');
+        if (detP) detP.textContent = cred > 0.004 ? mask(`pix ${fmtP(estadoApp.resumo.saidasPagoPix)} · crédito ${fmtP(cred)}`) : '\u00a0';
+    }
     const detLinha = document.getElementById('saidasDetalheLinha');
     if (detLinha) {
         const fat = estadoApp.resumo.saidasFatura || 0;
