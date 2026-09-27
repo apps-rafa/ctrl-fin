@@ -523,18 +523,6 @@ function renderListaPorModo(container, transacoes, tipoUI, modo, msgVazia) {
                 renderListaPorModo(container, transacoes, tipoUI, modo, msgVazia);
                 return;
             }
-            const ordemBtn = e.target.closest('[data-ordem-criacao-toggle]');
-            if (ordemBtn) {
-                e.preventDefault(); // está dentro do <summary> — sem isso, o clique também abre/fecha o <details>
-                const chave = ordemBtn.dataset.ordemCriacaoToggle;
-                _ordemCriacaoGrupo[chave] = !_ordemCriacaoGrupo[chave];
-                // Sobe pro <details> mais próximo (subgrupo, se o clique foi
-                // num subgrupo; senão o rec-grupo de fora) — sempre abre.
-                const det = ordemBtn.closest('details.subgrupo, details.rec-grupo');
-                if (det) det.open = true;
-                renderListaPorModo(container, transacoes, tipoUI, modo, msgVazia);
-                return;
-            }
             if (onClickConteudo) onClickConteudo(e);
         };
     }
@@ -964,7 +952,6 @@ function _renderListaAgrupadaPorTotal(container, transacoes, tipoUI, msgVazia, {
         const pct = totalGeral ? (total / totalGeral) * 100 : 0;
         const corpoItens = _corpoGrupoComSubmodo(itens, tipoUI, modo, nome, ehDespesa, abertosSub, gerarOpts);
         const submenuHTML = _renderOrganizadorInline(tipoUI, modo, nome, ehDespesa);
-        const ordemCriacaoHTML = _renderOrdemCriacaoToggle(`${tipoUI}:${modo}:${nome}`);
         return `
         <details class="rec-grupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" style="--cor-rec:${c}" ${abertos[nome] ? 'open' : ''}>
           <summary>
@@ -974,7 +961,7 @@ function _renderListaAgrupadaPorTotal(container, transacoes, tipoUI, msgVazia, {
             <span class="rec-grupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalGeral ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
           </summary>
           <div class="rec-grupo-itens">
-            ${_barraGrupo(ordemCriacaoHTML + submenuHTML)}
+            ${_barraGrupo(submenuHTML)}
             ${corpoItens}
           </div>
         </details>`;
@@ -1106,13 +1093,14 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     transacoes.forEach(t => {
         const f = tipoUI === 'saida' ? faturaDe.get(t.metodo) : null;
         if (!_transacaoRealizada(t)) pendentes.push(t);
-        else if (f && !f.paga) itensFatura.set(f.rot, [...(itensFatura.get(f.rot) || []), t]);
+        else if (f) itensFatura.set(f.rot, [...(itensFatura.get(f.rot) || []), t]);
         else atuais.push(t);
     });
     const soma = l => l.reduce((acc, t) => acc + valorDe(t), 0);
     const nomeAtual = tipoUI === 'saida' ? 'Pago' : 'Atual';
-    const grupos = [{ nome: nomeAtual, cor: corAtual, itens: atuais, total: soma(atuais), extraHTML: faturas.filter(f => f.paga).map(f => _htmlFaturaVirtual(f)).join('') }];
+    const grupos = [];
     // A pagar = subgrupo da fatura de cada cartão em aberto + (fora dele) o que ainda não aconteceu
+    const pagasFat = faturas.filter(f => f.paga);
     const abertasFat = faturas.filter(f => !f.paga);
     const abertosSubFat = _lerAbertosSubgrupo(container);
     const subFaturaHTML = f => {
@@ -1127,15 +1115,21 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(f.total)}</span></span>
           </summary>
           ${_htmlFaturaVirtual(f, true)}
-          ${its.length ? _barraGrupo(_renderOrdemCriacaoToggle(`${tipoUI}:cronologica:sub:${nome}`)) : ''}
           ${its.map(t => gerarHTMLTransacao(t, tipoUI)).join('')}
         </details>`;
     };
+    const nItens = f => (itensFatura.get(f.rot) || []).length;
+    grupos.push({
+        nome: nomeAtual, cor: corAtual, itens: atuais,
+        total: soma(atuais) + pagasFat.reduce((acc, f) => acc + f.total, 0),
+        extraHTML: pagasFat.map(subFaturaHTML).join(''),
+        extraContagem: pagasFat.reduce((acc, f) => acc + nItens(f), 0),
+    });
     grupos.push({
         nome: rotuloPendente, cor: corPendente, itens: pendentes,
         total: soma(pendentes) + abertasFat.reduce((acc, f) => acc + f.total, 0),
         extraHTML: abertasFat.map(subFaturaHTML).join(''),
-        extraContagem: abertasFat.reduce((acc, f) => acc + (itensFatura.get(f.rot) || []).length, 0),
+        extraContagem: abertasFat.reduce((acc, f) => acc + nItens(f), 0),
     });
     grupos.forEach(g => _ordenarPorGrupo(g.itens, `${tipoUI}:cronologica:${g.nome}`));
 
@@ -1166,7 +1160,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
           </summary>
           <div class="rec-grupo-itens">
             ${extraHTML}
-            ${!itens.length ? '' : _barraGrupo(_renderOrdemCriacaoToggle(`${tipoUI}:cronologica:${nome}`) + (ehDespesaCron ? _renderOrganizadorInline(tipoUI, 'cronologica', nome, tipoUI === 'saida') : ''))}
+            ${!itens.length ? '' : _barraGrupo(ehDespesaCron && nome !== nomeAtual ? _renderOrganizadorInline(tipoUI, 'cronologica', nome, tipoUI === 'saida') : '')}
             ${ehDespesaCron ? _corpoGrupoComSubmodo(itens, tipoUI, 'cronologica', nome, true, abertosSub) : itens.map(t => gerarHTMLTransacao(t, tipoUI)).join('')}
           </div>
         </details>`;
@@ -1213,16 +1207,6 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
             if (det) det.open = !det.open;
             return;
         }
-        const ordemBtn = e.target.closest('[data-ordem-criacao-toggle]');
-        if (ordemBtn) {
-            e.preventDefault(); // está dentro do <summary> — sem isso, o clique também abre/fecha o <details>
-            const chave = ordemBtn.dataset.ordemCriacaoToggle;
-            _ordemCriacaoGrupo[chave] = !_ordemCriacaoGrupo[chave];
-            const det = ordemBtn.closest('details.rec-grupo');
-            if (det) det.open = true;
-            renderListaCronologica(container, transacoes, tipoUI, msgVazia);
-            return;
-        }
         onListaTransacaoClick(e);
     };
 }
@@ -1266,31 +1250,9 @@ function _setSubModoGrupo(tipoUI, modo, grupoChave, valor) {
     _subModoGrupo[`${tipoUI}:${modo}:${grupoChave}`] = valor;
 }
 
-// Dentro de QUALQUER grupo/subgrupo das listas de Despesas/Receitas
-// (Por recorrência, Por método, Por categoria, Cronológica — e os
-// subgrupos de dentro de cada um), o usuário pode trocar a ordem
-// cronológica (padrão, pela data do lançamento) pela ordem em que os
-// lançamentos foram CRIADOS (id maior = criado depois). Chave livre —
-// cada chamador monta a sua (tipoUI+modo+nome do grupo/subgrupo) — ->
-// bool. Desativado por padrão.
-const _ordemCriacaoGrupo = {};
-function _ordemCriacaoAtiva(chave) { return !!_ordemCriacaoGrupo[chave]; }
-/** Ordena `itens` conforme o toggle da chave — cronológica (padrão) ou
- *  por ordem de criação (id, mais recém-criado primeiro). */
-function _ordenarPorGrupo(itens, chave) {
-    return itens.sort(_ordemCriacaoAtiva(chave) ? (a, b) => (b.id || 0) - (a.id || 0) : _porDataDesc);
-}
-/** Botão "Ordenar por criação" reutilizado por todo grupo/subgrupo — o
- *  texto encolhe em níveis conforme o espaço aperta (mesma ideia das
- *  sub-abas de Configuração: cheio -> abreviado -> só emoji), já que ele
- *  divide a linha do cabeçalho com o nome do grupo, a contagem e o total. */
-function _renderOrdemCriacaoToggle(chave) {
-    const ativo = _ordemCriacaoAtiva(chave);
-    return `<span role="button" tabindex="0" class="ordem-criacao-btn${ativo ? ' active' : ''}"
-                    data-ordem-criacao-toggle="${String(chave).replace(/"/g, '&quot;')}"
-                    title="Ordenar pela ordem em que os lançamentos foram criados, em vez de cronológica">
-              <span class="ordcri-emoji">🕓</span><span class="ordcri-full">Ordem de criação</span><span class="ordcri-media">Ordem de criação</span><span class="ordcri-curto">Por criação</span><span class="ordcri-min">Criação</span>
-            </span>`;
+/** Ordem dos lançamentos dentro de um grupo/subgrupo: sempre cronológica (mais recente primeiro). */
+function _ordenarPorGrupo(itens) {
+    return itens.sort(_porDataDesc);
 }
 
 // Quais dimensões aparecem como opção de submodo, conforme o modo (top)
@@ -1339,7 +1301,6 @@ function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo) 
             <span class="subgrupo-contagem">${its.length}</span>
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalGeral ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
           </summary>
-          ${_barraGrupo(_renderOrdemCriacaoToggle(`${chavePrefixo}:sub:${nome}`))}
           ${its.map(t => gerarHTMLTransacao(t, tipoUI)).join('')}
         </details>`;
     }).join('');
@@ -1853,16 +1814,6 @@ async function _onCliqueProximas(e) {
         refazer();
         return;
     }
-    const ordemBtn = e.target.closest('[data-ordem-criacao-toggle]');
-    if (ordemBtn) {
-        e.preventDefault(); // está dentro do <summary> — sem isso, o clique também abre/fecha o <details>
-        const chave = ordemBtn.dataset.ordemCriacaoToggle;
-        _ordemCriacaoGrupo[chave] = !_ordemCriacaoGrupo[chave];
-        const det = ordemBtn.closest('details.subgrupo, details.fatura-item, details.rec-grupo');
-        if (det) det.open = true;
-        refazer();
-        return;
-    }
     onListaTransacaoClick(e);
 }
 
@@ -2026,7 +1977,6 @@ function renderFaturasCartao(container, termo = '', soNaoRealizadas = false) {
                     <span class="subgrupo-contagem">${its.length}</span>
                     <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(totalSub)}</span>${total ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pctSub)}%</span>` : ''}</span>
                   </summary>
-                  ${_barraGrupo(_renderOrdemCriacaoToggle(`${chaveFatura}:sub:${nome}`))}
                   ${its.map(t => gerarHTMLTransacao(t, tipoUiDe(t), { semMetodoChip: true })).join('')}
                 </details>`;
             }).join('');
@@ -2062,7 +2012,7 @@ function renderFaturasCartao(container, termo = '', soNaoRealizadas = false) {
             ${confereBadge}
             <span class="fatura-total">${formatarMoeda(total)}</span>
           </summary>
-          <div class="fatura-itens">${confereLinha}${_barraGrupo(_renderOrdemCriacaoToggle(chaveFatura) + organizadorHTML)}${itensHTML}</div>
+          <div class="fatura-itens">${confereLinha}${_barraGrupo(organizadorHTML)}${itensHTML}</div>
         </details>`;
     }).filter(Boolean).join('');
 
