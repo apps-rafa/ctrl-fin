@@ -394,52 +394,13 @@
     color: var(--text);
 }
 
-/* Toggle "Ordenar por criação" — ao lado do nome de QUALQUER grupo/
-   subgrupo (Por recorrência, Por método, Por categoria, Cronológica, e os
-   subgrupos de dentro de cada um). O texto encolhe em níveis conforme o
-   espaço aperta na linha do cabeçalho (que já divide espaço com o nome, a
-   contagem e o total) — só o emoji sobra no aperto extremo, nunca quebra
-   linha nem estoura a caixa. */
-.ordem-criacao-btn {
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    gap: .3rem;
-    min-width: 0;
-    padding: .25rem .55rem;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--surface-2);
-    color: var(--text-muted);
-    font-size: .7rem;
-    font-weight: var(--font-weight-semibold);
-    cursor: pointer;
-    white-space: nowrap;
-    line-height: 1.1;
-}
-.ordem-criacao-btn:hover { border-color: var(--primary); color: var(--primary); }
-.ordem-criacao-btn.active {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: var(--primary-contrast);
-}
-.ordem-criacao-btn .ordcri-media,
-.ordem-criacao-btn .ordcri-curto,
-.ordem-criacao-btn .ordcri-min { display: none; }
 @media (max-width: 900px) {
-    .ordem-criacao-btn .ordcri-full { display: none; }
-    .ordem-criacao-btn .ordcri-media { display: inline; }
 }
 @media (max-width: 640px) {
-    .ordem-criacao-btn .ordcri-media { display: none; }
-    .ordem-criacao-btn .ordcri-curto { display: inline; }
 }
 @media (max-width: 480px) {
-    .ordem-criacao-btn .ordcri-curto { display: none; }
-    .ordem-criacao-btn .ordcri-min { display: inline; }
 }
 @media (max-width: 360px) {
-    .ordem-criacao-btn .ordcri-min { display: none; }
 }
 
 /* Cartãozinho de cada subgrupo (categoria/forma de pgto.) dentro de um
@@ -719,8 +680,6 @@
     .fatura-nome, .fatura-total { font-size: .74rem; }
     .rec-grupo-total, .subgrupo-total, .fatura-total { white-space: nowrap; }
     .rec-grupo-contagem, .subgrupo-contagem { font-size: .6rem; padding: .02rem .32rem; }
-    .ordem-criacao-btn, .ordem-criacao-btn span { font-size: .58rem; }
-    .ordem-criacao-btn { padding: .12rem .38rem; gap: .2rem; }
     .despesa-dia, .despesa-dow, .despesa-valor, .despesa-valor .valor-meta { font-size: .76rem; }
 }
 
@@ -756,9 +715,6 @@
 
 /* "Ordem de criação" e o filtro na barra do grupo: mesma altura */
 .grupo-barra { align-items: stretch; }
-.grupo-barra > .ordem-criacao-btn,
-.grupo-barra > .subgrupo-organizador { box-sizing: border-box; height: 1.7rem; }
-.grupo-barra > .ordem-criacao-btn { padding-top: 0; padding-bottom: 0; }
 
 /* Chip de método (Crédito Bradesco, PIX Mercado Pago...): encolhe em telas
    estreitas em vez de estourar/cortar a linha do lançamento. */
@@ -835,3 +791,5 @@
 /* Caixas tracejadas (fatura e "Carregar mais") alinhadas ao conteúdo dos lançamentos, não às bordas do grupo */
 .rec-grupo-itens .fatura-virtual, .subgrupo .fatura-virtual { margin-left: .8rem; margin-right: .8rem; }
 .rec-grupo-itens .lista-mais-btn, .subgrupo .lista-mais-btn { width: calc(100% - 1.6rem); box-sizing: border-box; margin-left: .8rem; margin-right: .8rem; }
+
+.grupo-barra > .subgrupo-organizador { box-sizing: border-box; height: 1.7rem; }
