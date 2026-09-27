@@ -5,7 +5,7 @@
  * for criada, mudada ou removida, atualize o item correspondente aqui (mesmo PR).
  *
  * Formato: cada seção tem vários itens { t: título, r: resumo (sempre visível), m: complemento (HTML,
- * abre/fecha em "Ler mais") }. Só HTML simples nos textos (b, em, ul/li, br).
+ * (mostrado logo abaixo do resumo) }. Só HTML simples nos textos (b, em, ul/li, br).
  */
 
 const DOCS_SECOES = [
@@ -193,48 +193,96 @@ const DOCS_SECOES = [
   },
 ];
 
-/** Monta o HTML da página de documentação. */
-function renderDocs(filtro = '') {
+/** Assunto aberto (um por vez; null = página em branco). */
+let _docsAberta = null;
+
+/** HTML de um item: resumo + complemento, tudo visível. */
+function _htmlDocItem(it) {
+  return `
+    <article class="doc-item">
+      <h4>${it.t}</h4>
+      <p>${it.r}</p>
+      ${it.m ? `<div class="doc-extra">${it.m}</div>` : ''}
+    </article>`;
+}
+
+/** Índice de assuntos: cada linha ocupa 100% da largura e os assuntos se distribuem por igual
+ *  (nunca sobra um sozinho na última linha): usa o menor número de linhas em que tudo cabe. */
+function _montarIndiceDocs() {
+  const nav = document.getElementById('docsIndice');
+  if (!nav) return;
+  nav.innerHTML = DOCS_SECOES.map(s =>
+    `<button type="button" class="docs-chip${_docsAberta === s.id ? ' active' : ''}" data-doc-assunto="${s.id}" aria-pressed="${_docsAberta === s.id}">${s.emoji} ${s.titulo}</button>`).join('');
+  // mede o tamanho natural de cada chip (linha única sem esticar)
+  nav.style.cssText = 'flex-direction:row;flex-wrap:wrap;align-items:flex-start';
+  const chips = [...nav.children];
+  const largura = nav.clientWidth;
+  if (!largura) return; // página escondida: refaz ao abrir
+  const gap = 6;
+  const nat = chips.map(c => c.getBoundingClientRect().width);
+  const n = chips.length;
+  const custo = (i, j) => nat.slice(i, j).reduce((x, y) => x + y, 0) + gap * (j - i - 1); // largura da linha com os chips i..j-1
+  // Partição em r linhas (ordem mantida) que minimiza a linha mais larga; usa o menor r em que tudo cabe.
+  const particionar = r => {
+    const dp = Array.from({ length: r + 1 }, () => Array(n + 1).fill(Infinity));
+    const corte = Array.from({ length: r + 1 }, () => Array(n + 1).fill(0));
+    dp[0][0] = 0;
+    for (let l = 1; l <= r; l++) for (let j = l; j <= n; j++) for (let i = l - 1; i < j; i++) {
+      const v = Math.max(dp[l - 1][i], custo(i, j));
+      if (v < dp[l][j]) { dp[l][j] = v; corte[l][j] = i; }
+    }
+    const fins = []; let j = n;
+    for (let l = r; l >= 1; l--) { const i = corte[l][j]; fins.unshift([i, j]); j = i; }
+    return { pior: dp[r][n], fins };
+  };
+  let res = null;
+  for (let r = 1; r <= n; r++) { const p = particionar(r); if (p.pior <= largura || r === n) { res = p; break; } }
+  nav.style.cssText = '';
+  nav.innerHTML = '';
+  res.fins.forEach(([i, j]) => {
+    const linha = document.createElement('div');
+    linha.className = 'docs-linha';
+    chips.slice(i, j).forEach(c => linha.appendChild(c));
+    nav.appendChild(linha);
+  });
+}
+
+/** Mostra o assunto aberto (ou os resultados da busca); sem nenhum dos dois, a página fica em branco. */
+function renderDocs() {
   const alvo = document.getElementById('docsConteudo');
   if (!alvo) return;
-  const q = String(filtro || '').trim().toLowerCase();
-  const texto = it => (it.t + ' ' + it.r + ' ' + it.m.replace(/<[^>]+>/g, ' ')).toLowerCase();
-  const secoes = DOCS_SECOES
-    .map(s => ({ ...s, itens: q ? s.itens.filter(it => texto(it).includes(q)) : s.itens }))
-    .filter(s => s.itens.length);
-  if (!secoes.length) { alvo.innerHTML = '<p class="empty-message">Nada encontrado.</p>'; return; }
-  const indice = secoes.map(s => `<a href="#doc-${s.id}" data-doc-ancora="${s.id}">${s.emoji} ${s.titulo}</a>`).join('');
-  alvo.innerHTML = `
-    <nav class="docs-indice" aria-label="Seções">${indice}</nav>
-    ${secoes.map(s => `
-      <section class="docs-secao" id="doc-${s.id}">
-        <h3>${s.emoji} ${s.titulo}</h3>
-        ${s.itens.map(it => `
-          <article class="doc-item">
-            <h4>${it.t}</h4>
-            <p>${it.r}</p>
-            ${it.m ? `<button type="button" class="doc-mais" aria-expanded="false">Ler mais</button><div class="doc-extra" hidden>${it.m}</div>` : ''}
-          </article>`).join('')}
-      </section>`).join('')}`;
+  const q = String(document.getElementById('docsBusca')?.value || '').trim().toLowerCase();
+  if (q) {
+    const texto = it => (it.t + ' ' + it.r + ' ' + it.m.replace(/<[^>]+>/g, ' ')).toLowerCase();
+    const achados = DOCS_SECOES.map(s => ({ ...s, itens: s.itens.filter(it => texto(it).includes(q)) })).filter(s => s.itens.length);
+    alvo.innerHTML = achados.length
+      ? achados.map(s => `<section class="docs-secao"><h3>${s.emoji} ${s.titulo}</h3>${s.itens.map(_htmlDocItem).join('')}</section>`).join('')
+      : '<p class="empty-message">Nada encontrado.</p>';
+  } else {
+    const s = DOCS_SECOES.find(x => x.id === _docsAberta);
+    alvo.innerHTML = s ? `<section class="docs-secao"><h3>${s.emoji} ${s.titulo}</h3>${s.itens.map(_htmlDocItem).join('')}</section>` : '';
+  }
+  _montarIndiceDocs();
 }
 
 function iniciarDocs() {
-  const linkRodape = document.getElementById('linkDocs');
-  linkRodape?.addEventListener('click', e => { e.preventDefault(); if (typeof mudarAba === 'function') mudarAba('docs'); });
-  document.getElementById('docsFechar')?.addEventListener('click', () => { if (typeof mudarAba === 'function') mudarAba('docs'); });
-  const busca = document.getElementById('docsBusca');
-  busca?.addEventListener('input', () => renderDocs(busca.value));
-  document.getElementById('docsConteudo')?.addEventListener('click', e => {
-    const ancora = e.target.closest('[data-doc-ancora]');
-    if (ancora) { e.preventDefault(); document.getElementById('doc-' + ancora.dataset.docAncora)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
-    const btn = e.target.closest('.doc-mais');
-    if (!btn) return;
-    const extra = btn.nextElementSibling;
-    const abrir = extra.hidden;
-    extra.hidden = !abrir;
-    btn.setAttribute('aria-expanded', String(abrir));
-    btn.textContent = abrir ? 'Ler menos' : 'Ler mais';
+  document.getElementById('linkDocs')?.addEventListener('click', e => {
+    e.preventDefault();
+    if (typeof mudarAba === 'function') mudarAba('docs');
+    _docsAberta = null; // sempre abre em branco
+    const busca = document.getElementById('docsBusca'); if (busca) busca.value = '';
+    renderDocs();
   });
+  document.getElementById('docsFechar')?.addEventListener('click', () => { if (typeof mudarAba === 'function') mudarAba('docs'); });
+  document.getElementById('docsBusca')?.addEventListener('input', renderDocs);
+  document.getElementById('docsIndice')?.addEventListener('click', e => {
+    const btn = e.target.closest('[data-doc-assunto]');
+    if (!btn) return;
+    _docsAberta = _docsAberta === btn.dataset.docAssunto ? null : btn.dataset.docAssunto; // interruptor: não acumula
+    const busca = document.getElementById('docsBusca'); if (busca) busca.value = '';
+    renderDocs();
+  });
+  window.addEventListener('resize', () => { if (document.getElementById('docs')?.classList.contains('active')) _montarIndiceDocs(); });
   renderDocs();
 }
 
