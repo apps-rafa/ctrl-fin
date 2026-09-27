@@ -80,7 +80,9 @@ function _pluggyCredAplicarModoUI() {
     if (secEl) secEl.readOnly = !liberado;
     if (aviso) aviso.hidden = !(temCredencial && _pluggyCredEditando);
     if (btnCancelar) btnCancelar.hidden = !(temCredencial && _pluggyCredEditando);
-    if (btnRemover) btnRemover.hidden = !temCredencial;
+    // Ao lado de "Editar" (travado), nunca junto de "Salvar"/"Fechar sem
+    // alterações" (editando) — a linha de ações mostra sempre só 2 botões.
+    if (btnRemover) btnRemover.hidden = !(temCredencial && !_pluggyCredEditando);
     if (btnPrincipal) btnPrincipal.textContent = !temCredencial ? 'Salvar' : (_pluggyCredEditando ? 'Salvar' : 'Editar');
 }
 
