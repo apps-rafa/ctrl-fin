@@ -463,8 +463,15 @@ function _renderGrupoDuplicatas(transacoes, tipoUI, aberto) {
  *  fechando, em vez de filtrar). O grupo "Duplicatas" vem sempre no topo
  *  de VERDADE — num container fixo próprio, ACIMA dos filtros (modo-lista),
  *  não dentro da lista — ver #duplicatasEntradas/#duplicatasSaidas. */
+/** Estorno/reembolso lançado num cartão de crédito (Receita com forma de pgto. Crédito): pertence à fatura, não à Receita. */
+function _ehEstornoCartao(t) {
+    const m = (estadoApp.menus && (estadoApp.menus.metodosTodos || estadoApp.menus.metodos)) || [];
+    return m.some(x => x.metodoKind === 'Crédito' && rotuloMetodo(x) === t.metodo);
+}
+
 function renderListaPorModo(container, transacoes, tipoUI, modo, msgVazia) {
     if (!container) return;
+    if (tipoUI === 'entrada' && transacoes) transacoes = transacoes.filter(t => !_ehEstornoCartao(t));
     const dupContainer = document.getElementById(tipoUI === 'entrada' ? 'duplicatasEntradas' : 'duplicatasSaidas');
     let abertoDuplicatas = dupContainer?.querySelector('details.rec-grupo[data-nome="__duplicatas__"]')?.open;
     if (_forcarAbrirDuplicatas[tipoUI]) {
@@ -1090,6 +1097,11 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     const faturas = tipoUI === 'saida' ? _faturasAPagar() : [];
     const faturaDe = new Map(faturas.map(f => [f.rot, f]));
     const atuais = [], pendentes = [], itensFatura = new Map();
+    const estornos = new Set(); // créditos na fatura: aparecem dentro do subgrupo do cartão, com sinal de entrada
+    if (tipoUI === 'saida') (estadoApp.transacoes.entradas || []).forEach(t => {
+        const f = faturaDe.get(t.metodo);
+        if (f && _transacaoRealizada(t)) { estornos.add(t); itensFatura.set(f.rot, [...(itensFatura.get(f.rot) || []), t]); }
+    });
     transacoes.forEach(t => {
         const f = tipoUI === 'saida' ? faturaDe.get(t.metodo) : null;
         if (!_transacaoRealizada(t)) pendentes.push(t);
@@ -1115,7 +1127,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(f.total)}</span>${totalRef ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct((f.total / totalRef) * 100)}%</span>` : ''}</span>
           </summary>
           ${_htmlFaturaVirtual(f, true)}
-          ${its.map(t => gerarHTMLTransacao(t, tipoUI, { semMetodoChip: true })).join('')}
+          ${its.map(t => gerarHTMLTransacao(t, estornos.has(t) ? 'entrada' : tipoUI, { semMetodoChip: true })).join('')}
         </details>`;
     };
     const totalPagoGrupo = soma(atuais) + pagasFat.reduce((acc, f) => acc + f.total, 0);
@@ -1169,8 +1181,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
           </summary>
           <div class="rec-grupo-itens">
             ${extraHTML}
-            ${!itens.length || tipoUI === 'saida' ? '' : _barraGrupo(_renderOrganizadorInline(tipoUI, 'cronologica', nome, false))}
-            ${tipoUI === 'saida' ? corpoPorForma(itens, nome) : _corpoGrupoComSubmodo(itens, tipoUI, 'cronologica', nome, false, abertosSub)}
+            ${tipoUI === 'saida' ? corpoPorForma(itens, nome) : itens.map(t => gerarHTMLTransacao(t, tipoUI, { semMetodoChip: true })).join('')}
           </div>
         </details>`;
     };
