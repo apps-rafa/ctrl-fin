@@ -32,7 +32,7 @@ async function _buscarTransacoesDoAno(ano) {
     const todas = [];
     for (let ini = 0; ; ini += 1000) {
         const { data, error } = await sb.from('transacoes')
-            .select('id, tipo, valor, categoria, metodo, competencia')
+            .select('id, tipo, valor, categoria, metodo, competencia, data, descricao')
             .gte('competencia', `${ano}-01-01`).lt('competencia', `${ano + 1}-01-01`)
             .order('id').range(ini, ini + 999);
         if (error) throw error;
@@ -104,6 +104,62 @@ function _visao(ano, tipo) {
     const totais = Array(12).fill(0);
     linhas.forEach(l => l.meses.forEach((v, i) => { totais[i] += v; }));
     return { todas: base.linhas, linhas, totais, temEstorno: base.temEstorno };
+}
+
+/** Lançamentos individuais (não agregados) que batem com o filtro atual —
+ *  vira o "extrato" mostrado abaixo da tabela: com um mês em foco, só os
+ *  daquele mês; sem foco, o ano inteiro. Mesma regra de estorno do
+ *  _calcularAno: não entra na lista (ele abate a fatura do cartão, não é
+ *  um lançamento "da forma/categoria" em si). */
+function _transacoesDoFiltro(ano) {
+    if (!estadoAnual.filtro) return [];
+    const { agrupar, foco } = estadoAnual;
+    const metodos = (estadoApp.menus && estadoApp.menus.metodos) || [];
+    const rotulosCredito = new Set(metodos
+        .filter(m => m.metodoKind === 'Crédito')
+        .map(m => (typeof rotuloMetodo === 'function' ? rotuloMetodo(m) : m.nome)));
+    const itens = [];
+    for (const t of estadoAnual.porAno[ano] || []) {
+        const mes = parseInt(String(t.competencia).slice(5, 7), 10) - 1;
+        if (!(mes >= 0 && mes < 12)) continue;
+        if (foco !== null && foco !== undefined && mes !== foco) continue;
+        const nomeLinha = agrupar === 'categoria' ? (t.categoria || '(sem categoria)') : _chaveMetodoAnual(t.metodo);
+        if (nomeLinha !== estadoAnual.filtro) continue;
+        const estorno = t.tipo === 'entradas' && rotulosCredito.has(t.metodo);
+        if (estorno) continue;
+        itens.push({ ...t, tipoUI: t.tipo === 'entradas' ? 'entrada' : 'saida' });
+    }
+    return itens.sort((a, b) => String(b.data).localeCompare(String(a.data)));
+}
+
+/** Extrato (grupo colapsável, igual aos das outras abas) com os lançamentos
+ *  individuais do filtro escolhido — só aparece com um filtro ativo. O
+ *  chip da própria dimensão do filtro (categoria ou forma) some de cada
+ *  linha, já que é igual em todo mundo aqui (mesma ideia do "sem chip
+ *  redundante" das outras listas). Total sem máscara do "olho": gerarHTMLTransacao
+ *  (dos itens abaixo) nunca mascara valor nenhum, igual em toda lista do
+ *  app fora do dashboard — misturar um total mascarado com linhas
+ *  reveladas embaixo dele seria pior que não mascarar nada aqui. */
+function _renderExtratoFiltro(ano) {
+    if (!estadoAnual.filtro || typeof gerarHTMLTransacao !== 'function') return '';
+    const itens = _transacoesDoFiltro(ano);
+    if (!itens.length) return '';
+    const { foco, agrupar } = estadoAnual;
+    const periodo = foco !== null && foco !== undefined ? MESES_ANUAL_LONGO[foco] : String(ano);
+    const totalAbs = itens.reduce((a, t) => a + Math.abs(Number(t.valor) || 0), 0);
+    const cor = _corDoNomeAnual(estadoAnual.filtro, itens[0].tipoUI === 'entrada' ? 'entradas' : 'saidas');
+    const opts = agrupar === 'categoria' ? { semCategoriaChip: true, semAcoes: true } : { semMetodoChip: true, semAcoes: true };
+    const corpo = itens.map(t => gerarHTMLTransacao(t, t.tipoUI, opts)).join('');
+    return `
+    <details class="rec-grupo anual-extrato" open style="--cor-rec:${cor}">
+      <summary>
+        <span class="rec-grupo-nome">${_esc(estadoAnual.filtro)} — ${_esc(periodo)}</span>
+        <span class="rec-grupo-espaco"></span>
+        <span class="rec-grupo-contagem">${itens.length}</span>
+        <span class="rec-grupo-total"><span class="tot-valor">${formatarMoeda(totalAbs)}</span></span>
+      </summary>
+      <div class="rec-grupo-itens">${corpo}</div>
+    </details>`;
 }
 
 function _corDoNomeAnual(nome, tipo) {
@@ -300,7 +356,8 @@ function _renderVisaoAnual() {
             </table>
         </div>
         <p class="menu-hint anual-nota">Valores em R$ (sem centavos), pelo mês da competência${(vD.temEstorno) ? '; estornos/reembolsos no cartão abatem a despesa' : ''}. No gráfico, a barra da esquerda é a receita e a da direita a despesa do mês, coloridas pela proporção de cada ${agrupar === 'categoria' ? 'categoria' : 'forma de pagamento'}. Meses passados sem lançamento não aparecem. Toque no nome de um mês para focar nele (toque de novo para voltar ao ano) e no nome de uma ${agrupar === 'categoria' ? 'categoria' : 'forma'} para filtrá-la.</p>`
-        : `<p class="empty-message">Nada lançado em ${ano}${estadoAnual.filtro ? ` para “${_esc(estadoAnual.filtro)}”` : ''}.</p>`}`;
+        : `<p class="empty-message">Nada lançado em ${ano}${estadoAnual.filtro ? ` para “${_esc(estadoAnual.filtro)}”` : ''}.</p>`}
+        ${_renderExtratoFiltro(ano)}`;
 }
 
 /** Abre a página, carrega o ano e desenha. */
