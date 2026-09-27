@@ -12,10 +12,13 @@
 // o item lá (DELETE /items/{itemId}) pra não reimportar nada no futuro —
 // melhor esforço, não bloqueia a exclusão local se falhar.
 //
-// Segredos usados: PLUGGY_CLIENT_ID, PLUGGY_CLIENT_SECRET.
+// Segredos usados: PLUGGY_CLIENT_ID/PLUGGY_CLIENT_SECRET só como fallback pra
+// quem não cadastrou credencial própria em Configurações > Open Finance >
+// Dados cadastrais (ver _shared/pluggy.ts).
 // Ver plano da integração: memória "app-financeiro-pluggy-integracao".
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getPluggyApiKey } from "../_shared/pluggy.ts";
 
 const PLUGGY_API_URL = "https://api.pluggy.ai";
 
@@ -29,24 +32,6 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-async function getPluggyApiKey(): Promise<string> {
-  const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
-  const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
-  if (!clientId || !clientSecret) {
-    throw new Error("PLUGGY_CLIENT_ID/PLUGGY_CLIENT_SECRET não configurados nos secrets da função");
-  }
-  const resp = await fetch(`${PLUGGY_API_URL}/auth`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clientId, clientSecret }),
-  });
-  if (!resp.ok) {
-    throw new Error(`Pluggy /auth falhou (${resp.status}): ${await resp.text()}`);
-  }
-  const data = await resp.json();
-  return data.apiKey as string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -106,7 +91,7 @@ Deno.serve(async (req: Request) => {
       .neq("id", contaId);
     if (!outrasContasDoItem) {
       try {
-        const apiKey = await getPluggyApiKey();
+        const apiKey = await getPluggyApiKey(supabaseClient, user.id);
         await fetch(`${PLUGGY_API_URL}/items/${conta.item_id}`, {
           method: "DELETE",
           headers: { "X-API-KEY": apiKey },

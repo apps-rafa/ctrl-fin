@@ -1306,3 +1306,24 @@ summary [role="button"] { font-family: Arial; text-align: center; }
 /* Respiro entre as contas conectadas/desconectadas do Open Finance */
 .pluggy-contas-grupo > .menu-item + .menu-item { margin-top: .6rem; }
 .pluggy-contas-grupo > .pluggy-contas-grupo-titulo + .menu-item { margin-top: .4rem; }
+
+/* Botão "Dados cadastrais" (credencial própria da Pluggy) no topo da sub-aba
+   Open Finance + status ao lado — ver js/pluggy-credenciais.js. */
+.pluggy-cred-aviso {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  flex-wrap: wrap;
+  margin-bottom: .6rem;
+}
+.pluggy-cred-status { color: var(--text-muted); font-size: .78rem; }
+
+/* Página "Dados cadastrais" (id="pluggyCred", ver index.html) */
+.pluggy-cred-passos { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: .4rem; font-size: .82rem; color: var(--text); }
+.pluggy-cred-passos li { line-height: 1.4; }
+.pluggy-cred-secret-linha { display: flex; gap: .4rem; }
+.pluggy-cred-secret-linha input { flex: 1; min-width: 0; }
+.pluggy-cred-acoes { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; margin-top: .3rem; }
+.pluggy-cred-msg { min-height: 1.2em; font-size: .82rem; margin: 0; }
+.pluggy-cred-msg.ok { color: var(--receita-text); }
+.pluggy-cred-msg.erro { color: var(--danger); }
