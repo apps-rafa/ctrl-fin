@@ -1435,7 +1435,10 @@ Deno.serve(async (req: Request) => {
       ]);
 
       const { valor, tipo, resto, parcelas } = achado;
-      const cat = sugerirCategoriaTexto(texto, tipo, categoriasApp ?? []);
+      // "Estorno" (Despesa) sempre existe pro usuário (é criada/reativada em carregarListasUsuario).
+      const catsSugestao = [...(categoriasApp ?? [])];
+      if (!catsSugestao.some((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && c.nome === "Estorno")) catsSugestao.push({ nome: "Estorno", categoria_tipo: "saidas" });
+      const cat = sugerirCategoriaTexto(texto, tipo, catsSugestao);
       const categoria = cat.nome;
 
       // Forma de pgto.: só faz sentido perguntar/usar em despesa — receita
