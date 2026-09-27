@@ -441,7 +441,7 @@ let _abaAnterior = null; // memória de 1 nível: a aba que estava aberta antes 
 function fecharAbas() {
     _abaAnterior = null;
     document.body.classList.remove('aba-por-cima');
-    document.body.classList.remove('modo-anual', 'modo-docs', 'modo-pluggy-cred');
+    document.body.classList.remove('modo-anual', 'modo-docs');
     if (typeof _sairDoModoEdicaoSeAtivo === 'function') _sairDoModoEdicaoSeAtivo();
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('[data-tab], #btnConfig').forEach(b => b.classList.remove('active'));
@@ -474,8 +474,7 @@ function mudarAba(novaAba) {
     // Visão anual é página única: esconde o resto do app; qualquer outra aba a fecha
     document.body.classList.toggle('modo-anual', novaAba === 'anual');
     document.body.classList.toggle('modo-docs', novaAba === 'docs'); // Documentação também é página única
-    document.body.classList.toggle('modo-pluggy-cred', novaAba === 'pluggyCred'); // Dados cadastrais da Pluggy, idem
-    if (novaAba === 'anual' || novaAba === 'docs' || novaAba === 'pluggyCred') window.scrollTo(0, 0);
+    if (novaAba === 'anual' || novaAba === 'docs') window.scrollTo(0, 0);
 
     // Trocar pra outra aba com uma edição em andamento em "Adicionar"
     // cancela essa edição sozinho (sem "×" dedicado, ver _sairDoModoEdicaoSeAtivo).
@@ -511,8 +510,6 @@ function mudarAba(novaAba) {
         atualizarProximasTransacoes();
     } else if (novaAba === 'anual') {
         if (typeof carregarVisaoAnual === 'function') carregarVisaoAnual(true);
-    } else if (novaAba === 'pluggyCred') {
-        if (typeof carregarPluggyCredenciais === 'function') carregarPluggyCredenciais();
     } else if (novaAba === 'lixeira') {
         if (typeof carregarLixeira === 'function') carregarLixeira();
     } else if (novaAba === 'menus') {
