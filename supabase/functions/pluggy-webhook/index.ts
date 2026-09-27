@@ -9,13 +9,18 @@
 //
 // Roda com a service role key (não há sessão de usuário num webhook) —
 // por isso resolve o usuário só a partir do itemId (que só existe em
-// pluggy_contas de usuários reais), nunca de nada vindo do payload.
+// pluggy_contas de usuários reais), nunca de nada vindo do payload. A API
+// key da Pluggy usada depois é a do PRÓPRIO dono da conta (ver
+// _shared/pluggy.ts), não necessariamente a global.
 //
-// Segredos usados: PLUGGY_CLIENT_ID, PLUGGY_CLIENT_SECRET, PLUGGY_WEBHOOK_SECRET.
+// Segredos usados: PLUGGY_WEBHOOK_SECRET (sempre) e, só como fallback pra
+// quem não cadastrou credencial própria em Configurações > Open Finance >
+// Dados cadastrais, PLUGGY_CLIENT_ID/PLUGGY_CLIENT_SECRET.
 // Ver plano da integração: memória "app-financeiro-pluggy-integracao".
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { avisarErroTelegram, notificarTelegramNovas } from "../_shared/telegram.ts";
+import { getPluggyApiKey } from "../_shared/pluggy.ts";
 
 const PLUGGY_API_URL = "https://api.pluggy.ai";
 const DIAS_HISTORICO_PRIMEIRA_SYNC = 30;
@@ -162,24 +167,6 @@ async function conciliarComExistentes(
     console.error("Conciliação automática indisponível:", e);
   }
   return conciliados;
-}
-
-async function getPluggyApiKey(): Promise<string> {
-  const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
-  const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
-  if (!clientId || !clientSecret) {
-    throw new Error("PLUGGY_CLIENT_ID/PLUGGY_CLIENT_SECRET não configurados nos secrets da função");
-  }
-  const resp = await fetch(`${PLUGGY_API_URL}/auth`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clientId, clientSecret }),
-  });
-  if (!resp.ok) {
-    throw new Error(`Pluggy /auth falhou (${resp.status}): ${await resp.text()}`);
-  }
-  const data = await resp.json();
-  return data.apiKey as string;
 }
 
 async function pluggyGet(path: string, apiKey: string) {
@@ -402,7 +389,7 @@ Deno.serve(async (req: Request) => {
       .eq("status", "Ativo")
       .eq("user_id", userId);
 
-    const apiKey = await getPluggyApiKey();
+    const apiKey = await getPluggyApiKey(supabaseAdmin, userId);
     const aprendidas = await carregarCategoriasAprendidas(supabaseAdmin, userId);
     let novasNoTotal = 0;
 

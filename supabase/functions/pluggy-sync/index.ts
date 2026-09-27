@@ -6,10 +6,13 @@
 // uma linha já revisada — upsert com "on conflict do nothing" pela chave
 // (user_id, pluggy_transaction_id).
 //
-// Segredos usados: PLUGGY_CLIENT_ID, PLUGGY_CLIENT_SECRET.
+// Segredos usados: PLUGGY_CLIENT_ID/PLUGGY_CLIENT_SECRET só como fallback pra
+// quem não cadastrou credencial própria em Configurações > Open Finance >
+// Dados cadastrais (ver _shared/pluggy.ts).
 // Ver plano da integração: memória "app-financeiro-pluggy-integracao".
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getPluggyApiKey } from "../_shared/pluggy.ts";
 
 const PLUGGY_API_URL = "https://api.pluggy.ai";
 const DIAS_HISTORICO_PRIMEIRA_SYNC = 30;
@@ -56,24 +59,6 @@ async function guardarFaturasBanco(
   } catch (e) {
     console.error(`Faturas indisponíveis (conta ${contaId}):`, e);
   }
-}
-
-async function getPluggyApiKey(): Promise<string> {
-  const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
-  const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
-  if (!clientId || !clientSecret) {
-    throw new Error("PLUGGY_CLIENT_ID/PLUGGY_CLIENT_SECRET não configurados nos secrets da função");
-  }
-  const resp = await fetch(`${PLUGGY_API_URL}/auth`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clientId, clientSecret }),
-  });
-  if (!resp.ok) {
-    throw new Error(`Pluggy /auth falhou (${resp.status}): ${await resp.text()}`);
-  }
-  const data = await resp.json();
-  return data.apiKey as string;
 }
 
 async function pluggyGet(path: string, apiKey: string) {
@@ -311,7 +296,7 @@ Deno.serve(async (req: Request) => {
       const { data: todasContas } = await supabaseClient
         .from("pluggy_contas").select("id, account_id, tipo_conta").in("status", ["ativo", "erro"]);
       if (todasContas?.length) {
-        const chave = await getPluggyApiKey();
+        const chave = await getPluggyApiKey(supabaseClient, user.id);
         for (const c of todasContas) {
           try {
             const acc = await pluggyGet(`/accounts/${c.account_id}`, chave);
@@ -368,7 +353,7 @@ Deno.serve(async (req: Request) => {
       if (ptid) transacaoIdPorPluggyId.set(ptid, t.id);
     }
 
-    const apiKey = await getPluggyApiKey();
+    const apiKey = await getPluggyApiKey(supabaseClient, user.id);
 
     // "Sincronizar agora" pede pra Pluggy buscar dados novos na instituição
     // NA HORA (PATCH /items/{id}), em vez de só ler o que ela já tinha

@@ -621,7 +621,15 @@ body.modo-docs .mini-resumo,
 body.modo-docs .dashboard,
 body.modo-docs .tabs,
 body.modo-docs .busca-global,
-body.modo-docs #resultadoBusca { display: none !important; }
+body.modo-docs #resultadoBusca,
+body.modo-pluggy-cred .month-bar,
+body.modo-pluggy-cred .saldo-contas,
+body.modo-pluggy-cred .saldo-contas-lista,
+body.modo-pluggy-cred .mini-resumo,
+body.modo-pluggy-cred .dashboard,
+body.modo-pluggy-cred .tabs,
+body.modo-pluggy-cred .busca-global,
+body.modo-pluggy-cred #resultadoBusca { display: none !important; }
 /* ícone aceso quando a página está ativa */
 #btnAnual.active, body.modo-anual #btnAnual { background: var(--primary); color: var(--primary-contrast, #fff); border-color: var(--primary); box-shadow: 0 0 0 2px rgba(129,140,248,.45), 0 0 12px rgba(129,140,248,.55); }
 
@@ -632,12 +640,12 @@ body.modo-docs #resultadoBusca { display: none !important; }
 #duplicatasEntradas:not(:empty), #duplicatasSaidas:not(:empty) { margin-bottom: .8rem; }
 
 /* Visão anual: sem a faixa vazia entre o cabeçalho e o conteúdo */
-body.modo-anual main.main, body.modo-docs main.main { padding-top: 0; }
-body.modo-anual .area-conteudo, body.modo-docs .area-conteudo { border-top: 0; }
+body.modo-anual main.main, body.modo-docs main.main, body.modo-pluggy-cred main.main { padding-top: 0; }
+body.modo-anual .area-conteudo, body.modo-docs .area-conteudo, body.modo-pluggy-cred .area-conteudo { border-top: 0; }
 
 /* Menos espaço no topo no desktop (o padding do main é grande) */
 main.main { padding-top: var(--spacing-md); }
-body.modo-anual main.main { padding-top: 0; }
+body.modo-anual main.main, body.modo-pluggy-cred main.main { padding-top: 0; }
 
 /* Barra de busca alinhada com as colunas do "Lançamento | Próximos" + botão Recém-lançados */
 .busca-global { display: grid; grid-template-columns: 2fr 2fr 150px; gap: var(--spacing-md); align-items: stretch; }
