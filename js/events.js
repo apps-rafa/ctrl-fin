@@ -441,7 +441,7 @@ let _abaAnterior = null; // memória de 1 nível: a aba que estava aberta antes 
 function fecharAbas() {
     _abaAnterior = null;
     document.body.classList.remove('aba-por-cima');
-    document.body.classList.remove('modo-anual');
+    document.body.classList.remove('modo-anual', 'modo-docs');
     if (typeof _sairDoModoEdicaoSeAtivo === 'function') _sairDoModoEdicaoSeAtivo();
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('[data-tab], #btnConfig').forEach(b => b.classList.remove('active'));
@@ -473,7 +473,8 @@ function mudarAba(novaAba) {
     console.log(`📑 Mudando para aba: ${novaAba}`);
     // Visão anual é página única: esconde o resto do app; qualquer outra aba a fecha
     document.body.classList.toggle('modo-anual', novaAba === 'anual');
-    if (novaAba === 'anual') window.scrollTo(0, 0);
+    document.body.classList.toggle('modo-docs', novaAba === 'docs'); // Documentação também é página única
+    if (novaAba === 'anual' || novaAba === 'docs') window.scrollTo(0, 0);
 
     // Trocar pra outra aba com uma edição em andamento em "Adicionar"
     // cancela essa edição sozinho (sem "×" dedicado, ver _sairDoModoEdicaoSeAtivo).

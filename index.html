@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="css/menus.css">
     <link rel="stylesheet" href="css/responsive.css">
     <link rel="stylesheet" href="css/anual.css">
+    <link rel="stylesheet" href="css/docs.css">
     <link rel="stylesheet" href="css/theme.css">
     <script>
         // Aplica o tema antes de renderizar (evita flash)
@@ -228,6 +229,18 @@
                 </div>
             </section>
 
+            <!-- Tab: Documentação (explica todas as funcionalidades; conteúdo em js/docs.js) -->
+            <section id="docs" class="tab-content">
+                <div class="docs-container">
+                    <div class="docs-topo">
+                        <h2>📖 Documentação</h2>
+                        <button type="button" id="docsFechar" class="docs-fechar">✕ Fechar</button>
+                    </div>
+                    <input type="search" id="docsBusca" class="docs-busca" placeholder="🔎 Buscar na documentação..." autocomplete="off" aria-label="Buscar na documentação">
+                    <div id="docsConteudo"></div>
+                </div>
+            </section>
+
             <!-- Tab: Lixeira (lançamentos excluídos nos últimos 30 dias) -->
             <section id="lixeira" class="tab-content">
                 <div class="proximas-container">
@@ -342,7 +355,7 @@
 
         <!-- Footer -->
         <footer class="footer">
-            <p>App Financeiro v2.0 | Desenvolvido com ❤️</p>
+            <p>Este app foi desenvolvido pelo Claude &bull; <a href="#" id="linkDocs">Documentação</a></p>
         </footer>
     </div>
 
@@ -364,6 +377,7 @@
     <script src="js/dados.js"></script>
     <script src="js/pluggy.js"></script>
     <script src="js/anual.js"></script>
+    <script src="js/docs.js"></script>
     <script src="js/events.js"></script>
     <script src="js/main.js"></script>
 </body>
