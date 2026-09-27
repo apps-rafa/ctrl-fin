@@ -223,7 +223,7 @@ function _renderComparacaoMeses(vD, vR, ref) {
             <button type="button" class="anual-toggle" data-anual-cmp-inverter title="Trocar A e B">⇅</button>
         </div>
         ${corpo ? `<div class="anual-tabela-wrap"><table class="anual-tabela anual-tabela-cmp">
-            <thead><tr><th class="anual-nome">${estadoAnual.agrupar === 'categoria' ? 'Categoria' : 'Forma de pgto.'}</th><th>${MESES_ANUAL[c.a]}</th><th>${MESES_ANUAL[c.b]}</th><th>Diferença</th><th>%</th></tr></thead>
+            <thead><tr><th class="anual-nome">${estadoAnual.agrupar === 'categoria' ? 'Categoria' : 'Forma de pagamento'}</th><th>${MESES_ANUAL[c.a]}</th><th>${MESES_ANUAL[c.b]}</th><th>Diferença</th><th>%</th></tr></thead>
             <tbody>${corpo}</tbody>
         </table></div>` : '<p class="empty-message">Nada lançado nesses meses.</p>'}
     </div>`;
@@ -291,7 +291,7 @@ function _renderVisaoAnual() {
             <table class="anual-tabela">
                 <thead>
                     ${_linhaGrafico(vR.linhas, vD.linhas, meses, mesAtual, dim)}
-                    <tr><th class="anual-nome">${agrupar === 'categoria' ? 'Categoria' : 'Forma de pgto.'}</th>
+                    <tr><th class="anual-nome">${agrupar === 'categoria' ? 'Categoria' : 'Forma de pagamento'}</th>
                     ${meses.map(i => `<th class="mes${i === mesAtual ? ' atual' : ''}${dim(i)}"><button type="button" data-foco-mes="${i}" title="Focar em ${MESES_ANUAL_LONGO[i]}">${MESES_ANUAL[i]}</button></th>`).join('')}
                     <th class="total">Total</th></tr>
                 </thead>

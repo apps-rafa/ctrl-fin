@@ -42,6 +42,14 @@
     .summary-card.saidas       { grid-column: 2; grid-row: 1; }
     .summary-card.balanco      { grid-column: 1; grid-row: 2; }
     .summary-card.gasto-diario { grid-column: 2; grid-row: 2; }
+    /* Nesse layout Balanço fica embaixo de Receita e Gasto diário embaixo de
+       Despesa — o VALOR alinha à direita pra "casar" com o total (também à
+       direita) do card de cima; o título continua à esquerda. */
+    .summary-card.balanco .amount,
+    .summary-card.gasto-diario .amount,
+    .summary-card.gasto-diario .sub {
+        text-align: right;
+    }
 }
 
 /* Grade 2x2: Receitas | Despesas ; Balanço | Gasto diário */
