@@ -18,3 +18,10 @@
 .doc-extra ul { margin: .3rem 0 .3rem 1.1rem; padding: 0; }
 .doc-extra li { margin: .15rem 0; }
 footer.footer a { color: inherit; font-weight: 600; text-decoration: underline; }
+.doc-link { color: var(--primary); font-weight: 600; text-decoration: underline; }
+.doc-detalhes { margin-top: .45rem; padding: .15rem .6rem; border: 1px solid var(--primary); background: transparent; color: var(--primary); border-radius: 999px; font-size: .72rem; font-weight: 700; cursor: pointer; }
+.doc-detalhes[aria-expanded="true"] { background: var(--primary); color: var(--primary-contrast, #fff); }
+.doc-detalhes-corpo { margin-top: .5rem; padding: .5rem .65rem; border-left: 3px solid var(--primary); background: var(--surface-2); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: .78rem; line-height: 1.55; }
+.doc-detalhes-corpo p { margin: .2rem 0 .35rem; color: var(--text); }
+.doc-detalhes-corpo ul, .doc-detalhes-corpo ol { margin: .25rem 0 .35rem 1.1rem; padding: 0; }
+.doc-detalhes-corpo li { margin: .2rem 0; }

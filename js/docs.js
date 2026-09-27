@@ -5,7 +5,7 @@
  * for criada, mudada ou removida, atualize o item correspondente aqui (mesmo PR).
  *
  * Formato: cada seção tem vários itens { t: título, r: resumo (sempre visível), m: complemento (HTML,
- * (mostrado logo abaixo do resumo) }. Só HTML simples nos textos (b, em, ul/li, br).
+ * (mostrado logo abaixo do resumo), d?: detalhes extras (botão "+ detalhes"; ou use DOCS_DETALHES pelo título). Use {ver:id} para linkar outro assunto. }. Só HTML simples nos textos (b, em, ul/li, br).
  */
 
 const DOCS_SECOES = [
@@ -26,16 +26,16 @@ const DOCS_SECOES = [
     id: 'mes', emoji: '📆', titulo: 'Mês e dashboard',
     itens: [
       { t: 'Barra de meses', r: 'Escolha o mês que quer ver; tudo no app (dashboard, listas, próximos) acompanha esse mês.',
-        m: 'As setas ▲ rolam os meses; o botão 🏠 volta ao mês atual. O mês de um lançamento é a sua <b>competência</b> (para cartão de crédito, o mês da fatura — veja "Cartão de crédito e faturas"). Pontinhos indicam meses com lançamentos.' },
+        m: 'As setas ▲ rolam os meses; o botão 🏠 volta ao mês atual. O mês de um lançamento é a sua <b>competência</b> (para cartão de crédito, o mês da fatura — veja {ver:cartao}). Pontinhos indicam meses com lançamentos.' },
       { t: 'Card de Receita', r: 'Mostra o que já entrou (atual) e o que ainda vai entrar (a receber), com o total do mês.',
-        m: '"Atual" = receitas com data até hoje; "a receber" = receitas com data futura. Clicar no card abre a lista de Receitas. Estornos de cartão <b>não</b> entram aqui (abatem a fatura).' },
+        m: '"Atual" = receitas com data até hoje; "a receber" = receitas com data futura. Clicar no card abre a lista de Receitas. Estornos de cartão <b>não</b> entram aqui (abatem a fatura — veja {ver:cartao}).' },
       { t: 'Card de Despesa', r: 'Mostra o que já foi pago e o que ainda falta pagar no mês, seguindo o caminho do dinheiro.',
-        m: '<ul><li><b>pago</b>: PIX/dinheiro com data até hoje + faturas de cartão já vencidas ou marcadas como pagas. Embaixo, a quebra "pix X + crédito Y".</li><li><b>a pagar</b>: lançamentos futuros + faturas de cartão em aberto. Embaixo, "pendentes X + crédito Y".</li></ul>Se o texto ficar comprido, ele se abrevia sozinho ("pend.", "créd.", "c.c.") e, no extremo, mostra só os valores. Clicar no card abre a lista de Despesas.' },
+        m: '<ul><li><b>pago</b>: PIX/dinheiro com data até hoje + faturas de cartão já vencidas ou marcadas como pagas. Embaixo, a quebra "pix X + crédito Y".</li><li><b>a pagar</b>: lançamentos futuros + faturas de cartão em aberto. Embaixo, "pendentes X + crédito Y".</li></ul>Se o texto ficar comprido, ele se abrevia sozinho ("pend.", "créd.", "c.c.") e, no extremo, mostra só os valores. Clicar no card abre a lista de Despesas. Detalhes de como as faturas entram nas contas: {ver:cartao}; as regras completas estão em {ver:regras}.' },
       { t: 'Balanço e gasto diário', r: 'Balanço = receitas − despesas do mês. Gasto diário = quanto ainda pode gastar por dia até o fim do mês.',
         m: 'O gasto diário divide o balanço pelos dias que restam no mês (contando hoje).' },
       { t: 'Mini-resumo ao rolar', r: 'Ao rolar a página, os totais ficam numa faixa compacta no topo, com atalhos para + Lançamento, Próximos e Lixeira.',
         m: 'Assim você não perde os números nem os atalhos enquanto navega nas listas.' },
-      { t: 'Saldo em contas', r: 'Com Open Finance conectado, mostra o saldo atual das suas contas bancárias, logo abaixo do calendário.',
+      { t: 'Saldo em contas', r: 'Com o {ver:openfinance} conectado, mostra o saldo atual das suas contas bancárias, logo abaixo do calendário.',
         m: 'É o saldo de hoje no banco (não depende do mês escolhido). Toque para ver o detalhe por conta.' },
     ],
   },
@@ -49,9 +49,9 @@ const DOCS_SECOES = [
       { t: 'Despesa no cartão de crédito', r: 'No crédito aparecem "Mês" (fatura) e "Parcelas". Parcelas 1x = compra à vista.',
         m: 'O <b>Mês</b> é calculado pela data da compra e pelo fechamento do cartão (compra no dia do fechamento ou depois cai na fatura seguinte) e você pode ajustar. Com mais de 1 parcela, o app cria uma linha por mês (centavos distribuídos), todas ligadas ao mesmo parcelamento; o valor total aparece ao lado.' },
       { t: 'Estorno', r: 'Estorno é uma categoria de Despesa, só para cartão de crédito: abate o valor da fatura.',
-        m: 'Ao escolher a categoria <b>Estorno</b>, só os cartões de crédito ficam disponíveis, aparece o mês da fatura e some o parcelamento. Por dentro ele é gravado como crédito no cartão, então dashboard, fatura e visão anual continuam corretos. A categoria só existe a partir do primeiro cartão cadastrado e é fixa (não dá para renomear, desativar nem remover).' },
+        m: 'Ao escolher a categoria <b>Estorno</b>, só os cartões de crédito ficam disponíveis, aparece o mês da fatura e some o parcelamento. Por dentro ele é gravado como crédito no cartão, então dashboard, fatura e {ver:anual} continuam corretos. A categoria só existe a partir do primeiro cartão cadastrado e é fixa (não dá para renomear, desativar nem remover).' },
       { t: 'Editar e excluir', r: 'Toque num lançamento para editar; ao salvar você volta para a tela em que estava.',
-        m: 'Se o lançamento veio da busca ou dos Recém-lançados, a busca volta exatamente como estava. Parcelas que não são a primeira abrem o lançamento original (o parcelamento é editado nele). Excluir manda para a Lixeira.' },
+        m: 'Se o lançamento veio da busca ou dos Recém-lançados, a busca volta exatamente como estava. Parcelas que não são a primeira abrem o lançamento original (o parcelamento é editado nele). Excluir manda para a {ver:lixeira}.' },
       { t: 'Parcelamento: quitar', r: 'Em uma parcela, o marcador "quitar" encerra o parcelamento a partir daquele mês.',
         m: 'As parcelas dali em diante deixam de contar. Cada parcela mostra "k/n" (ex.: 3/12) e o valor da parcela / valor total da compra.' },
       { t: 'Duplicatas', r: 'Quando o app percebe lançamentos parecidos, mostra um grupo "Duplicatas" acima da lista para você revisar.',
@@ -65,7 +65,7 @@ const DOCS_SECOES = [
         m: 'Cada grupo mostra contagem, total e % do total de receitas. Clique na barra para abrir/fechar o grupo correspondente.' },
       { t: 'Grupos da Despesa', r: 'Pago e A pagar, seguindo o caminho do dinheiro; cada cartão tem sua própria "Fatura" dentro.',
         m: '<ul><li><b>Pago</b>: PIX/dinheiro até hoje + faturas pagas.</li><li><b>A pagar</b>: faturas em aberto (compras já feitas) + o que ainda não aconteceu, inclusive compra de cartão futura, agrupada em "Crédito".</li></ul>Dentro de cada grupo os lançamentos se dividem em subgrupos por forma de pagamento, cada um com contagem, total e %.' },
-      { t: 'Fatura do cartão', r: 'Subgrupo "Fatura <cartão>" com o box de vencimento, o botão "paga" e as compras do cartão.',
+      { t: 'Fatura do cartão', r: 'Subgrupo "Fatura &lt;cartão&gt;" com o box de vencimento, o botão "paga" e as compras do cartão.',
         m: 'O botão <b>paga</b> marca/desmarca a fatura como paga. Ela é marcada automaticamente pelo vencimento (vencida = paga, riscada), mas você pode alterar à mão e isso vale mais que a data. O vencimento cai em dia útil. Estornos aparecem dentro da fatura com "+".' },
       { t: 'Filtros: Categoria e Forma de pgto.', r: 'O funil dentro de cada grupo reorganiza os itens por categoria ou por forma de pagamento.',
         m: 'Na Despesa é possível filtrar por categoria; na Receita, também. O chip que já é igual ao do filtro some (sem repetição), inclusive filtro dentro de filtro. Nas Receitas não há filtro por forma de pagamento.' },
@@ -78,8 +78,8 @@ const DOCS_SECOES = [
   {
     id: 'cartao', emoji: '💳', titulo: 'Cartão de crédito e faturas',
     itens: [
-      { t: 'Competência (mês da fatura)', r: 'Uma compra no crédito pertence ao mês da fatura, não ao mês da data da compra.',
-        m: 'Regra: compra no dia do fechamento ou depois cai na fatura do mês seguinte. O fechamento e o vencimento são configurados em Configurações > Formas de pgto.' },
+      { t: 'Competência (mês da fatura)', r: 'Uma compra no crédito pertence ao mês da fatura, não ao mês da data da compra (usado em {ver:mes} e {ver:anual}).',
+        m: 'Regra: compra no dia do fechamento ou depois cai na fatura do mês seguinte. O fechamento e o vencimento são configurados em {ver:config} > Formas de pgto. Veja também {ver:lancar} e {ver:regras}.' },
       { t: 'Fatura em aberto x paga', r: 'Fatura em aberto entra em "a pagar"; fatura paga (ou vencida) entra em "pago".',
         m: 'Só contam as compras já feitas (data até hoje); compras futuras do cartão ficam soltas em "A pagar" até chegarem. A marcação automática usa o vencimento; a manual prevalece e é guardada.' },
       { t: 'Cartão desativado', r: 'Cartão inativo não tem fatura nos meses depois de desativado, mas mantém a dos meses em que foi usado.',
@@ -92,7 +92,7 @@ const DOCS_SECOES = [
     id: 'proximos', emoji: '⏰', titulo: 'Próximos',
     itens: [
       { t: 'O que aparece', r: 'O que ainda vai acontecer no mês: receitas a receber e despesas (faturas em aberto + lançamentos futuros).',
-        m: 'A fatura de cada cartão aparece igual a "A pagar": subgrupo com vencimento, botão "paga" e as compras. O total e a contagem da Despesa incluem as faturas em aberto.' },
+        m: 'A fatura de cada cartão aparece igual a "A pagar" (veja {ver:listas} e {ver:cartao}): subgrupo com vencimento, botão "paga" e as compras. O total e a contagem da Despesa incluem as faturas em aberto.' },
     ],
   },
   {
@@ -101,7 +101,7 @@ const DOCS_SECOES = [
       { t: 'Busca universal', r: 'Procura em todo o app, de qualquer tela, no mês em exibição; resultado separado em Receitas e Despesas.',
         m: 'Aceita dicas: <em>&gt;100</em> (maior que), <em>&lt;50</em>, <em>100-200</em> (faixa), um ano (<em>2026</em>), mês (<em>jan</em>) e frases exatas entre aspas. "Buscar em todos os meses" amplia para o histórico inteiro. Estornos de cartão aparecem em Despesas, com "+".' },
       { t: 'Recém-lançados', r: 'Os últimos lançamentos criados, de qualquer mês, 5 por vez.',
-        m: 'Útil para conferir o que acabou de entrar (inclusive pelo Telegram ou pelo banco) e corrigir rápido.' },
+        m: 'Útil para conferir o que acabou de entrar (inclusive pelo {ver:telegram} ou pelo {ver:openfinance}) e corrigir rápido.' },
     ],
   },
   {
@@ -117,7 +117,7 @@ const DOCS_SECOES = [
       { t: 'Abrir a visão anual', r: 'Botão 📈 no cabeçalho: uma página que compara mês a mês o ano inteiro.',
         m: 'Ao abrir, o resto do app se esconde; clicar no 📈 de novo volta. As setas ◂ ▸ trocam o ano.' },
       { t: 'Agrupar por Categoria ou Forma de pgto.', r: 'Escolha como enxergar o ano: por categoria (🏷️) ou por forma de pagamento (💳).',
-        m: 'Cada categoria/forma tem a sua cor (a mesma escolhida em Configurações; receita e despesa têm cores próprias).' },
+        m: 'Cada categoria/forma tem a sua cor (a mesma escolhida em {ver:config}; receita e despesa têm cores próprias).' },
       { t: 'Cartões-resumo', r: 'No topo, quatro cartões: receitas no ano, despesas no ano, saldo do ano e despesa média por mês.',
         m: 'Ao focar num mês, os cartões mostram as receitas, as despesas e o saldo daquele mês e a variação da despesa em relação ao mês anterior. Verde é bom e vermelho é ruim, conforme o tipo (mais receita é bom; mais despesa é ruim).' },
       { t: 'Gráfico e tabela', r: 'O gráfico é a primeira linha da tabela: duas barras por mês (receita e despesa), empilhadas por categoria/forma.',
@@ -164,7 +164,7 @@ const DOCS_SECOES = [
   {
     id: 'telegram', emoji: '🤖', titulo: 'Bot do Telegram',
     itens: [
-      { t: 'Vincular', r: 'Em Configurações > Notificações, gere o código e toque no link para vincular o bot à sua conta.',
+      { t: 'Vincular', r: 'Em {ver:config} > Notificações, gere o código e toque no link para vincular o bot à sua conta.',
         m: 'Depois de vinculado, o bot também avisa quando chega lançamento novo do banco e manda um backup semanal (domingo) e alertas de erro.' },
       { t: 'Lançar por mensagem', r: 'Escreva como falaria: "gastei 35,90 no mercado", "recebi 200 de salário", "comprei um carro de 80000 em 10x".',
         m: 'O bot entende valor, tipo, categoria (pelo texto), forma de pagamento (ex.: "no pix", "no nubank") e parcelas. Monta um rascunho e só grava após ✅ Confirmar. Qualquer outra resposta vira a <b>descrição</b>.' },
@@ -188,21 +188,165 @@ const DOCS_SECOES = [
       { t: 'Estorno e reembolso', r: 'Estorno (cartão) abate a fatura e não é receita; Reembolso é receita comum.',
         m: 'Estorno só em cartão de crédito; Reembolso não tem forma de pagamento.' },
       { t: 'Vencimento em dia útil', r: 'Vencimentos que caem em fim de semana ou feriado são levados para o dia útil.',
-        m: 'Usa os feriados cadastrados em Configurações.' },
+        m: 'Usa os feriados cadastrados em {ver:config}.' },
     ],
   },
 ];
 
+/** Detalhes extras ("+ detalhes") dos itens mais complexos, indexados pelo título do item. Também aceitam {ver:id}. */
+const DOCS_DETALHES = {
+  'Card de Despesa': `
+    <p><b>Exemplo.</b> Em setembro você tem: R$ 300 de PIX já pago, R$ 200 de PIX marcado para o dia 30 (futuro) e uma fatura do Nubank de R$ 1.000 que vence dia 27.</p>
+    <ul>
+      <li>Antes do dia 27: <b>pago</b> = 300; <b>a pagar</b> = 200 + 1.000 = 1.200 ("pendentes 200 + crédito 1.000").</li>
+      <li>Depois do dia 27 (ou ao marcar a fatura como paga): <b>pago</b> = 300 + 1.000 = 1.300 ("pix 300 + crédito 1.000"); <b>a pagar</b> = 200.</li>
+    </ul>
+    <p>O número grande embaixo é a soma dos dois. O detalhe só aparece quando existe fatura de cartão no mês. Compras de cartão com data futura ainda não bateram na fatura: contam em "pendentes".</p>`,
+  'Grupos da Despesa': `
+    <p>A lista de Despesas mostra dois grupos:</p>
+    <ul>
+      <li><b>Pago</b>: PIX/dinheiro com data até hoje, mais um subgrupo "Fatura &lt;cartão&gt;" para cada fatura já vencida ou marcada como paga.</li>
+      <li><b>A pagar</b>: um subgrupo "Fatura &lt;cartão&gt;" por cartão em aberto (com as compras já feitas) e, fora deles, tudo o que ainda não aconteceu, dividido por forma de pagamento. Compras de cartão futuras aparecem juntas em "Crédito", com o chip do cartão.</li>
+    </ul>
+    <p>Cada subgrupo mostra contagem, total e % em relação ao total do grupo (Pago e A pagar fecham 100%). Veja como a fatura é montada em {ver:cartao}.</p>`,
+  'Fatura do cartão': `
+    <ul>
+      <li>O cabeçalho mostra nome, quantidade de itens, total da fatura e a % dentro do grupo.</li>
+      <li>O box abaixo mostra "Vcto. dd/mm" e o botão <b>paga</b>. Fatura paga (marcada ou vencida) fica com o texto riscado, mas o botão continua funcionando.</li>
+      <li>A marcação automática segue o vencimento (levado para o dia útil, conforme os feriados de {ver:config}); se você marcar ou desmarcar à mão, sua escolha passa a valer para aquele mês.</li>
+      <li>As compras listadas são as já feitas (data até hoje). Estornos entram com "+" e reduzem o total.</li>
+    </ul>`,
+  'Competência (mês da fatura)': `
+    <p><b>Exemplo</b> com fechamento no dia 15:</p>
+    <ul>
+      <li>Compra em 14/09 → fatura de setembro.</li>
+      <li>Compra em 15/09 (ou depois) → fatura de outubro.</li>
+    </ul>
+    <p>Em compras parceladas, a 1ª parcela usa esse mês e cada parcela seguinte cai um mês depois. No formulário o campo "Mês" já vem calculado, mas você pode trocar. É a competência que decide em que mês o lançamento aparece nas listas, no dashboard e na {ver:anual}.</p>`,
+  'Fatura em aberto x paga': `
+    <p>A fatura de um mês é a soma das compras do cartão já feitas (data até hoje) menos os estornos. Ela só existe enquanto o total for maior que zero.</p>
+    <ul>
+      <li><b>Em aberto</b>: entra em "a pagar", aparece em "A pagar" e em {ver:proximos}.</li>
+      <li><b>Paga</b>: entra em "pago" e aparece no grupo "Pago".</li>
+    </ul>
+    <p>Quem decide é o vencimento (automático) ou o botão "paga" (manual, que prevalece). Um cartão desativado deixa de gerar faturas depois da data em que foi desativado.</p>`,
+  'Despesa no cartão de crédito': `
+    <ul>
+      <li>O campo <b>Valor</b> é o valor de cada parcela; o valor total da compra aparece ao lado ("R$ 15 / 45").</li>
+      <li>Ao criar, o app gera uma linha por parcela, com o mesmo agrupamento, e distribui os centavos que sobram nas primeiras parcelas.</li>
+      <li>Cada parcela mostra "k/n". Só a 1ª parcela edita o parcelamento; nas outras, o app abre o lançamento original.</li>
+      <li>O marcador "quitar" numa parcela encerra o parcelamento a partir daquele mês.</li>
+      <li>Parcelas dependem do cartão de crédito escolhido: em PIX ou dinheiro o campo não aparece.</li>
+    </ul>`,
+  'Estorno': `
+    <ul>
+      <li>Escolha Despesa, categoria <b>Estorno</b> e um cartão de crédito; informe o valor devolvido e o mês da fatura.</li>
+      <li>Ele reduz o total da fatura daquele cartão e aparece dentro dela, com "+".</li>
+      <li>Nos cálculos ele nunca é receita: não entra no card de Receita nem em "Receitas" da {ver:anual} (por categoria, vira a linha "(−) Estornos no cartão").</li>
+      <li>Reembolso (dinheiro que volta por PIX etc.) é diferente: é uma receita comum, sem forma de pagamento.</li>
+      <li>A categoria só aparece a partir do primeiro cartão de crédito ativo.</li>
+    </ul>`,
+  'Caminho do dinheiro (Despesa)': `
+    <p>A despesa é contada pelo momento em que o dinheiro sai do seu bolso, e não pela data da compra.</p>
+    <ul>
+      <li>PIX e dinheiro: saem na data do lançamento. Data até hoje = pago; data futura = a pagar.</li>
+      <li>Cartão de crédito: a compra vira parte da fatura; o dinheiro sai quando a fatura é paga. Até lá conta como "a pagar" (fatura em aberto).</li>
+      <li>Compra de cartão com data futura ainda nem entrou na fatura: conta como pendente.</li>
+    </ul>
+    <p>Por isso o total do mês não muda quando você paga a fatura: só muda de "a pagar" para "pago".</p>`,
+  'Filtros: Categoria e Forma de pgto.': `
+    <ul>
+      <li>O ícone de funil de cada grupo tira o filtro; os botões ao lado reorganizam os itens.</li>
+      <li>Filtro por Categoria e por Forma de pgto. se combinam: dentro de uma forma você pode filtrar por categoria (e vice-versa) sem chips repetidos.</li>
+      <li>Em Receitas o filtro por forma de pagamento não existe, porque receita não tem forma.</li>
+      <li>O filtro escolhido vale enquanto você está na tela; ao reabrir a aba, volta à ordem cronológica.</li>
+    </ul>`,
+  'Busca universal': `
+    <ul>
+      <li><em>&gt;100</em>: valor maior que 100; <em>&lt;50</em>: menor que 50; <em>100-200</em>: entre 100 e 200.</li>
+      <li><em>2026</em> ou <em>jan</em>: filtra por ano ou mês; <em>"frase exata"</em> procura o trecho inteiro.</li>
+      <li>A busca olha categoria, forma de pagamento, descrição, valor e data.</li>
+      <li>"Buscar em todos os meses" amplia o resultado para o histórico inteiro; resultados são agrupados em Receitas e Despesas, cada um com "Carregar mais 5".</li>
+      <li>Editar um resultado e salvar devolve você à mesma busca.</li>
+    </ul>`,
+  'Comparar meses': `
+    <ul>
+      <li>Escolha o mês A e o mês B; o ⇅ troca os dois de lugar.</li>
+      <li>Para cada categoria/forma aparecem os valores de A e B, a diferença e a variação em %.</li>
+      <li>As linhas ficam ordenadas pela maior diferença. Receitas e despesas são comparadas separadamente, e a cor da variação depende do tipo (mais despesa = vermelho).</li>
+    </ul>`,
+  'Gráfico e tabela': `
+    <ul>
+      <li>Duas barras por mês: receita (esquerda) e despesa (direita), na mesma escala; a barra do mês atual tem contorno.</li>
+      <li>Cada barra é empilhada por categoria/forma: o maior valor do mês fica na base e a cor é a escolhida em {ver:config}.</li>
+      <li>Abaixo, a tabela: uma linha por categoria/forma, valores mensais, total do ano e uma linha final de saldo.</li>
+      <li>Ordem das linhas: maior total do ano; ao focar num mês, maior valor daquele mês.</li>
+      <li>Meses passados sem lançamento ficam escondidos; os de hoje em diante aparecem para planejamento.</li>
+    </ul>`,
+  'Forma de pagamento da conta': `
+    <ul>
+      <li>Na lista de contas conectadas, escolha para cada uma a forma de pagamento correspondente (ex.: cartão da Nubank → "Crédito Nubank").</li>
+      <li>Sem a forma escolhida ("Selecione...") a sincronização é bloqueada, com um aviso dizendo quais contas faltam.</li>
+      <li>Uma conta ligada a um cartão de crédito gera lançamentos no cartão (entram nas faturas); uma conta corrente gera lançamentos de PIX/débito.</li>
+      <li>Você também escolhe quais contas participam da sincronização.</li>
+    </ul>`,
+  'Sincronizar e revisar': `
+    <ol>
+      <li>Escolha o período e toque em sincronizar: as transações novas chegam numa <b>fila de revisão</b> (nada entra nas suas listas ainda).</li>
+      <li>Para cada item, confira categoria e descrição (o app sugere pela descrição do banco e aprende com as suas escolhas anteriores).</li>
+      <li>Itens iguais a lançamentos que você já fez aparecem marcados como possíveis duplicatas.</li>
+      <li>Ignore o que não quer; marque os prontos e toque em importar.</li>
+    </ol>
+    <p>Depois de importado, o lançamento é igual a qualquer outro (pode ser editado ou excluído). Veja também {ver:lixeira}.</p>`,
+  'Lançar por mensagem': `
+    <ul>
+      <li><b>Valor</b>: o primeiro número do texto ("35,90", "1.200", "80000").</li>
+      <li><b>Tipo</b>: verbos como "gastei/comprei/paguei" = despesa; "recebi/ganhei/vendi" = receita; sem verbo, despesa.</li>
+      <li><b>Categoria</b>: procurada pelo nome que você cadastrou ou por palavras-chave (uber → Transporte, mercado → Mercado...). Se não achar, usa "Outros".</li>
+      <li><b>Forma de pagamento</b>: pelo texto ("no pix", "no nubank", "crédito"); senão a padrão de /pgtopadrao; senão o primeiro cartão.</li>
+      <li><b>Parcelas</b>: "em 10x", "10 parcelas" (só no crédito). O valor informado é o total.</li>
+      <li><b>Data</b>: veja "Datas no texto".</li>
+    </ul>
+    <p>Depois toque em ✅ Confirmar. O que não for botão vira a descrição.</p>`,
+  'Datas no texto': `
+    <ul>
+      <li>"hoje", "ontem", "anteontem".</li>
+      <li>"25/09", "25/09/2026", "25-09-26".</li>
+      <li>"25 de setembro", "15 de março de 2026".</li>
+      <li>"dia 25": o dia 25 do mês atual, ou do mês anterior se ainda não chegou.</li>
+    </ul>
+    <p>A data é retirada da descrição. Datas impossíveis (como 31/02) são ignoradas. No rascunho, o botão 📅 Data também aceita Hoje, Ontem e Anteontem.</p>`,
+  'Comandos': `
+    <p>Todos funcionam no chat do bot, depois de vincular. /atualizar e /pgtopadrao abrem menus no teclado (sempre com ❌ Cancelar). Em /atualizar, toque no número de uma transação para transformá-la em rascunho de lançamento (com a forma de pagamento da conta). Veja o vínculo em {ver:openfinance}.</p>`,
+  'Formas de pgto.': `
+    <ul>
+      <li><b>Cartão de crédito</b>: banco, dia de fechamento, dia de vencimento e melhor dia de compra (sugerido: fechamento + 1). Ele alimenta {ver:cartao}.</li>
+      <li><b>PIX</b>: forma base, pode ter banco.</li>
+      <li><b>Dinheiro</b>: fixa, não se renomeia nem se remove.</li>
+      <li>Desativar tira a forma dos formulários e do bot, mas os lançamentos antigos continuam intactos e com a mesma cor.</li>
+    </ul>`,
+};
+
 /** Assunto aberto (um por vez; null = página em branco). */
 let _docsAberta = null;
 
-/** HTML de um item: resumo + complemento, tudo visível. */
+/** Troca {ver:id} por um link que abre aquele assunto. */
+function _docsLinks(html) {
+  return String(html || '').replace(/\{ver:(\w+)\}/g, (_, id) => {
+    const sec = DOCS_SECOES.find(x => x.id === id);
+    return sec ? `<a href="#" class="doc-link" data-doc-ir="${id}">${sec.titulo}</a>` : id;
+  });
+}
+
+/** HTML de um item: resumo + complemento visíveis; "+ detalhes" (quando existe) abre/fecha o texto extra. */
 function _htmlDocItem(it) {
+  const det = it.d || DOCS_DETALHES[it.t];
   return `
     <article class="doc-item">
       <h4>${it.t}</h4>
-      <p>${it.r}</p>
-      ${it.m ? `<div class="doc-extra">${it.m}</div>` : ''}
+      <p>${_docsLinks(it.r)}</p>
+      ${it.m ? `<div class="doc-extra">${_docsLinks(it.m)}</div>` : ''}
+      ${det ? `<button type="button" class="doc-detalhes" aria-expanded="false">+ detalhes</button><div class="doc-detalhes-corpo" hidden>${_docsLinks(det)}</div>` : ''}
     </article>`;
 }
 
@@ -275,6 +419,24 @@ function iniciarDocs() {
   });
   document.getElementById('docsFechar')?.addEventListener('click', () => { if (typeof mudarAba === 'function') mudarAba('docs'); });
   document.getElementById('docsBusca')?.addEventListener('input', renderDocs);
+  document.getElementById('docsConteudo')?.addEventListener('click', e => {
+    const ir = e.target.closest('[data-doc-ir]');
+    if (ir) {
+      e.preventDefault();
+      _docsAberta = ir.dataset.docIr;
+      const busca = document.getElementById('docsBusca'); if (busca) busca.value = '';
+      renderDocs();
+      document.getElementById('docsIndice')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    const btn = e.target.closest('.doc-detalhes');
+    if (!btn) return;
+    const corpo = btn.nextElementSibling;
+    const abrir = corpo.hidden;
+    corpo.hidden = !abrir;
+    btn.setAttribute('aria-expanded', String(abrir));
+    btn.textContent = abrir ? '− detalhes' : '+ detalhes';
+  });
   document.getElementById('docsIndice')?.addEventListener('click', e => {
     const btn = e.target.closest('[data-doc-assunto]');
     if (!btn) return;
