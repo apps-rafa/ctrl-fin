@@ -1123,13 +1123,13 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
         nome: nomeAtual, cor: corAtual, itens: atuais,
         total: soma(atuais) + pagasFat.reduce((acc, f) => acc + f.total, 0),
         extraHTML: pagasFat.map(subFaturaHTML).join(''),
-        extraContagem: pagasFat.reduce((acc, f) => acc + nItens(f), 0),
+        extraContagem: pagasFat.length, // cada fatura conta como 1 item
     });
     grupos.push({
         nome: rotuloPendente, cor: corPendente, itens: pendentes,
         total: soma(pendentes) + abertasFat.reduce((acc, f) => acc + f.total, 0),
         extraHTML: abertasFat.map(subFaturaHTML).join(''),
-        extraContagem: abertasFat.reduce((acc, f) => acc + nItens(f), 0),
+        extraContagem: abertasFat.length,
     });
     grupos.forEach(g => _ordenarPorGrupo(g.itens, `${tipoUI}:cronologica:${g.nome}`));
 
@@ -1143,6 +1143,12 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     // Grupo vazio nunca abre — nem é clicável: sem <details>, é uma linha
     // estática (não tem nada pra mostrar, então não faz sentido nem deixar
     // "abrir" e ver "Nada aqui").
+    // Despesas: o que está solto se divide em subgrupos por forma de pagamento (cada PIX, cada cartão);
+    // compra de cartão que ainda não bateu na fatura fica em "<cartão> (por vir)".
+    const corpoPorForma = (itens, nomeGrupo) => _renderItensSubagrupados(itens, tipoUI, {
+        chaveDe: t => (nomeGrupo === rotuloPendente && faturaDe.has(t.metodo) ? `${t.metodo} (por vir)` : t.metodo),
+        semChave: 'Sem forma de pagamento',
+    }, abertosSub, `${tipoUI}:cronologica:${nomeGrupo}`);
     const grupoHTML = (nome, cor, itens, total, pct, extraHTML = '', extraContagem = 0) => {
         if (!itens.length && !extraHTML) return `
         <div class="rec-grupo rec-grupo--vazio" style="--cor-rec:${cor}">
@@ -1160,8 +1166,8 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
           </summary>
           <div class="rec-grupo-itens">
             ${extraHTML}
-            ${!itens.length ? '' : _barraGrupo(ehDespesaCron && nome !== nomeAtual ? _renderOrganizadorInline(tipoUI, 'cronologica', nome, tipoUI === 'saida') : '')}
-            ${ehDespesaCron ? _corpoGrupoComSubmodo(itens, tipoUI, 'cronologica', nome, true, abertosSub) : itens.map(t => gerarHTMLTransacao(t, tipoUI)).join('')}
+            ${!itens.length || tipoUI === 'saida' ? '' : _barraGrupo(_renderOrganizadorInline(tipoUI, 'cronologica', nome, false))}
+            ${tipoUI === 'saida' ? corpoPorForma(itens, nome) : _corpoGrupoComSubmodo(itens, tipoUI, 'cronologica', nome, false, abertosSub)}
           </div>
         </details>`;
     };
