@@ -678,8 +678,9 @@ async function carregarListasUsuario(admin: ReturnType<typeof createClient>, use
     admin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("tipo", "Método").eq("status", "Ativo").eq("user_id", userId).order("ordem"),
   ]);
   const lista = (cats ?? []) as { nome: string; categoria_tipo: string | null }[];
-  // "Estorno" (Despesa) é fixa: todo usuário tem, sempre ativa.
-  if (!lista.some((c) => c.categoria_tipo === "saidas" && c.nome === "Estorno")) {
+  // "Estorno" (Despesa) é fixa e sempre ativa, mas só existe a partir do 1º cartão de crédito.
+  const temCartao = ((mets ?? []) as { metodo_kind: string | null }[]).some((m) => m.metodo_kind === "Crédito");
+  if (temCartao && !lista.some((c) => c.categoria_tipo === "saidas" && c.nome === "Estorno")) {
     const { data: ex } = await admin.from("menu_itens").select("id").eq("tipo", "Categoria").eq("categoria_tipo", "saidas").eq("nome", "Estorno").eq("user_id", userId).maybeSingle();
     if (ex) await admin.from("menu_itens").update({ status: "Ativo" }).eq("id", ex.id);
     else await admin.from("menu_itens").insert({ tipo: "Categoria", nome: "Estorno", categoria_tipo: "saidas", cor: corPadraoChip("Estorno"), user_id: userId });
@@ -687,7 +688,7 @@ async function carregarListasUsuario(admin: ReturnType<typeof createClient>, use
   }
   return {
     catsR: lista.filter((c) => c.categoria_tipo === "entradas" && c.nome !== "Estorno").map((c) => c.nome),
-    catsD: lista.filter((c) => c.categoria_tipo === "saidas").map((c) => c.nome),
+    catsD: lista.filter((c) => c.categoria_tipo === "saidas" && (temCartao || c.nome !== "Estorno")).map((c) => c.nome),
     metodos: (mets ?? []) as ListasUsuario["metodos"],
   };
 }
@@ -1437,7 +1438,9 @@ Deno.serve(async (req: Request) => {
       const { valor, tipo, resto, parcelas } = achado;
       // "Estorno" (Despesa) sempre existe pro usuário (é criada/reativada em carregarListasUsuario).
       const catsSugestao = [...(categoriasApp ?? [])];
-      if (!catsSugestao.some((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && c.nome === "Estorno")) catsSugestao.push({ nome: "Estorno", categoria_tipo: "saidas" });
+      const temCartaoTxt = ((metodosApp ?? []) as MetodoMenu[]).some((m) => m.metodo_kind === "Crédito");
+      if (!temCartaoTxt) { const ix = catsSugestao.findIndex((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && c.nome === "Estorno"); if (ix >= 0) catsSugestao.splice(ix, 1); }
+      else if (!catsSugestao.some((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && c.nome === "Estorno")) catsSugestao.push({ nome: "Estorno", categoria_tipo: "saidas" });
       const cat = sugerirCategoriaTexto(texto, tipo, catsSugestao);
       const categoria = cat.nome;
 

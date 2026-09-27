@@ -159,7 +159,7 @@ function preencherDropdownCategorias() {
     // "Estorno" é categoria de Despesa (abate a fatura do cartão), não de Receita
     const lista = estadoApp.tipoAtual === 'entradas'
         ? (estadoApp.menus.categoriasReceita || []).filter(c => c !== CATEGORIA_ESTORNO)
-        : estadoApp.menus.categoriasDespesa;
+        : (estadoApp.menus.categoriasDespesa || []).filter(c => c !== CATEGORIA_ESTORNO || (estadoApp.menus.metodos || []).some(m => m.metodoKind === 'Crédito')); // Estorno só existe a partir do 1º cartão
 
     (lista && lista.length ? lista : estadoApp.menus.categorias).forEach(categoria => {
         const option = document.createElement('option');

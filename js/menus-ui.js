@@ -185,7 +185,9 @@ async function carregarAbaMenus() {
   configurarSubtabsConfig();
   _aplicarSubConfig(subConfigAtiva);
 
-  renderizarItemsMenu('Categoria', 'categoriasDespesaList', menus.categoriasDespesa, 'categoriasDespesa');
+  // "Estorno" só aparece a partir do primeiro cartão de crédito ativo
+  const temCartao = (menus.metodos || []).some(m => m.metodoKind === 'Crédito' && m.status === 'Ativo');
+  renderizarItemsMenu('Categoria', 'categoriasDespesaList', (menus.categoriasDespesa || []).filter(c => c.nome !== CATEGORIA_ESTORNO || temCartao), 'categoriasDespesa');
   renderizarItemsMenu('Categoria', 'categoriasReceitaList', menus.categoriasReceita, 'categoriasReceita');
   renderizarItemsMenu('Método', 'metodosList', menus.metodos, 'metodos');
 
