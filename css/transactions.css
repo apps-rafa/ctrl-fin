@@ -753,6 +753,15 @@
     .chip .met-tier-media { display: none; }
     .chip .met-tier-curto { display: inline; }
 }
+/* Exceção: os chips (ver .despesa-badges) já quebraram pra linha própria —
+   sozinhos ali, sobra espaço de sobra, então não faz sentido abreviar (a
+   regra acima é só pra quando o chip ainda está espremido ao lado do
+   dia/valor/ações). Especificidade mais alta que as regras de @media acima,
+   então vale nas duas larguras. Classe setada por JS (ver
+   _ajustarBadgesQuebrados em ui.js). */
+.despesa-item.badges-quebrou .chip .met-tier-full { display: inline; }
+.despesa-item.badges-quebrou .chip .met-tier-media,
+.despesa-item.badges-quebrou .chip .met-tier-curto { display: none; }
 
 /* Conferência da fatura do cartão com a do banco (Open Finance) */
 .fatura-confere { font-size: .7rem; font-weight: 700; flex: none; }

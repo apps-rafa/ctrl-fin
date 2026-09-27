@@ -2153,6 +2153,23 @@ function definirLabelResp(sel, full, short) {
     if (semEspaco) el.textContent = short;
 }
 
+/** O chip de método (Crédito Bradesco etc.) abrevia por causa da LARGURA DA
+ *  TELA (ver CSS .met-tier-… nos @media) — mas se os chips (.despesa-badges)
+ *  já quebraram pra linha própria, longe do dia/valor/ações, sobra espaço
+ *  ali e abreviar deixa de fazer sentido. "Quebrou" = o grupo de chips não
+ *  está mais na mesma linha do valor. Rodado por um MutationObserver (ver
+ *  final do arquivo) depois de qualquer render de lista — mais simples
+ *  observar o resultado do que caçar cada função que desenha um
+ *  despesa-item pela tela. */
+function _ajustarBadgesQuebrados(root) {
+    (root || document).querySelectorAll('.despesa-item').forEach(item => {
+        const badges = item.querySelector('.despesa-badges');
+        const valor = item.querySelector('.despesa-valor');
+        if (!badges || !valor) { item.classList.remove('badges-quebrou'); return; }
+        item.classList.toggle('badges-quebrou', badges.offsetTop > valor.offsetTop + 2);
+    });
+}
+
 /** Mesma ideia de definirLabelResp, mas pra uma FILEIRA inteira de botões de
  *  filtro (data-full/data-emoji cada um) — usado no filtro principal
  *  (Recorrência/Forma de pgto./Categoria) e no organizador inline dentro de
@@ -2614,3 +2631,20 @@ function iniciarLimiteListas() {
     });
 }
 window.addEventListener('load', iniciarLimiteListas);
+
+/** Reavalia _ajustarBadgesQuebrados depois de qualquer render de lista —
+ *  despesa-item aparece em várias telas/abas (mês corrente, busca,
+ *  Próximos, visão anual...), então observar o documento inteiro é mais
+ *  simples do que caçar cada função que desenha um. Via microtask (roda
+ *  antes da próxima pintura), não requestAnimationFrame, pra não piscar
+ *  "abreviado" e depois "completo" por 1 frame a cada render. */
+function iniciarAjusteBadgesQuebrados() {
+    let agendado = false;
+    const obs = new MutationObserver(() => {
+        if (agendado) return;
+        agendado = true;
+        queueMicrotask(() => { agendado = false; _ajustarBadgesQuebrados(); });
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+}
+window.addEventListener('load', iniciarAjusteBadgesQuebrados);
