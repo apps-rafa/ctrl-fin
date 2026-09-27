@@ -180,10 +180,10 @@
     font-variant-numeric: tabular-nums;
 }
 .despesa-dia {
-    /* Mês sem zero à esquerda varia entre 1 e 2 dígitos ("26/9" x "26/12") —
-       largura fixa (o pior caso, "31/12") + alinhado à direita pra não
-       desalinhar o dia da semana (nem o resto da linha) de uma transação
-       pra outra por causa disso. */
+    /* Dia e mês sem zero à esquerda, cada um variando entre 1 e 2 dígitos
+       ("1/10" x "26/12") — largura fixa (o pior caso, "31/12") + alinhado
+       à direita pra não desalinhar o dia da semana (nem o resto da linha)
+       de uma transação pra outra por causa disso. */
     display: inline-block;
     min-width: 5ch;
     text-align: right;
