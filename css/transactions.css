@@ -171,7 +171,7 @@
     border-left-color: var(--danger);
 }
 
-/* Dia do mês + tricode do dia da semana (ex.: 28 SEG) */
+/* Dia/mês + tricode do dia da semana (ex.: 28/9 SEG) */
 .despesa-data {
     flex: 0 0 auto;
     display: inline-flex;
@@ -180,6 +180,13 @@
     font-variant-numeric: tabular-nums;
 }
 .despesa-dia {
+    /* Mês sem zero à esquerda varia entre 1 e 2 dígitos ("26/9" x "26/12") —
+       largura fixa (o pior caso, "31/12") + alinhado à direita pra não
+       desalinhar o dia da semana (nem o resto da linha) de uma transação
+       pra outra por causa disso. */
+    display: inline-block;
+    min-width: 5ch;
+    text-align: right;
     font-size: .88rem;
     line-height: 1;
     font-weight: var(--font-weight-bold);
