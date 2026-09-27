@@ -364,7 +364,7 @@ function _agruparParaBarra(modo, transacoes, tipoUI) {
         .map(([chave, itens]) => ({
             chave,
             nome: rotuloDe(chave),
-            cor: corMapa[chave] || corPadraoChip(chave),
+            cor: modo === 'metodo' ? (corMapa[chave] || corPadraoChip(chave)) : corDaCategoria(chave, tipoUI),
             total: itens.reduce((s, t) => s + valorDe(t), 0)
         }))
         .sort((a, b) => b.total - a.total);
@@ -956,7 +956,7 @@ function _renderListaAgrupadaPorTotal(container, transacoes, tipoUI, msgVazia, {
     const abertosSub = _lerAbertosSubgrupo(container);
 
     container.innerHTML = grupos.map(([nome, itens, total]) => {
-        const c = cores[nome] || corPadraoChip(nome);
+        const c = (modo === 'categoria' ? corDaCategoria(nome, tipoUI) : cores[nome]) || corPadraoChip(nome);
         const pct = totalGeral ? (total / totalGeral) * 100 : 0;
         const corpoItens = _corpoGrupoComSubmodo(itens, tipoUI, modo, nome, ehDespesa, abertosSub, gerarOpts);
         const submenuHTML = _renderOrganizadorInline(tipoUI, modo, nome, ehDespesa);
@@ -1467,7 +1467,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     // Nome longo de categoria: no celular mostra a versão abreviada (o nome
     // completo continua no title) pra o chip não empurrar a linha pra baixo.
     const catChip = (!opts.semCategoriaChip && trans.categoria)
-        ? chip(cor(cores.categoria, trans.categoria), _htmlNomeCategoriaChip(trans.categoria)) : '';
+        ? chip(corDaCategoria(trans.categoria, (tipo === 'entrada' && !_ehEstornoCartao(trans)) ? 'entradas' : 'saidas'), _htmlNomeCategoriaChip(trans.categoria)) : '';
     const descTxt = trans.descricao
         ? `<span class="despesa-desc">${trans.descricao}</span>` : '';
 

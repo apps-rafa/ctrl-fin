@@ -78,6 +78,14 @@ function corDoItemMenu(item) {
     return (item && item.cor) || corPadraoChip(item && item.nome);
 }
 
+/** Cor do chip de uma categoria. Receita e despesa têm cada uma a sua (o mesmo nome pode existir nos dois). */
+function corDaCategoria(nome, tipo) {
+    const c = (typeof estadoApp !== 'undefined' && estadoApp.menus && estadoApp.menus.cores) || {};
+    const ehReceita = tipo === 'entradas' || tipo === 'entrada';
+    const mapa = (ehReceita ? c.categoriaReceita : c.categoriaDespesa) || {};
+    return mapa[nome] || (c.categoria || {})[nome] || corPadraoChip(nome);
+}
+
 // Temas de cores para balanço
 const TEMAS_BALANCO = {
   negativo: {
