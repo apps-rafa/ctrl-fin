@@ -20,10 +20,45 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { avisarErroTelegram, notificarTelegramNovas } from "../_shared/telegram.ts";
-import { getPluggyApiKey } from "../_shared/pluggy.ts";
 
 const PLUGGY_API_URL = "https://api.pluggy.ai";
 const DIAS_HISTORICO_PRIMEIRA_SYNC = 30;
+
+// deno-lint-ignore no-explicit-any
+type ClienteSupabase = any;
+
+// Credencial da Pluggy a usar pra um usuário: a PRÓPRIA (Configurações >
+// Open Finance > Dados cadastrais, tabela pluggy_credenciais) se ele tiver
+// cadastrado uma; senão os secrets globais da função. Duplicado em cada
+// função Pluggy de propósito — são deployadas de forma independente.
+async function getPluggyApiKey(cliente: ClienteSupabase, userId: string): Promise<string> {
+  const { data } = await cliente
+    .from("pluggy_credenciais")
+    .select("client_id, client_secret")
+    .eq("user_id", userId)
+    .maybeSingle();
+  let clientId = data?.client_id as string | undefined;
+  let clientSecret = data?.client_secret as string | undefined;
+  if (!clientId || !clientSecret) {
+    clientId = Deno.env.get("PLUGGY_CLIENT_ID");
+    clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
+  }
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      "Nenhuma credencial da Pluggy disponível (nem própria em Configurações > Open Finance > Dados cadastrais, nem os secrets globais da função)",
+    );
+  }
+  const resp = await fetch(`${PLUGGY_API_URL}/auth`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ clientId, clientSecret }),
+  });
+  if (!resp.ok) {
+    throw new Error(`Pluggy /auth falhou (${resp.status}): ${await resp.text()}`);
+  }
+  const authData = await resp.json();
+  return authData.apiKey as string;
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
