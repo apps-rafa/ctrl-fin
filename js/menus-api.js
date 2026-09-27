@@ -10,7 +10,7 @@
 const CATEGORIAS_DESPESA_SEED = ['Alimentação', 'Alimentação app', 'Assinaturas', 'Contas',
     'Compras', 'Compras online', 'Lazer', 'Mercado', 'Saúde', 'Serviços',
     'Transporte app', 'Transporte'];
-const CATEGORIAS_RECEITA_SEED = ['Salário', 'Bônus', '13º', 'PL', 'Freelance', CATEGORIA_ESTORNO, CATEGORIA_REEMBOLSO, CATEGORIA_DINHEIRO_RECEITA];
+const CATEGORIAS_RECEITA_SEED = ['Salário', 'Bônus', '13º', 'PL', 'Freelance', CATEGORIA_REEMBOLSO, CATEGORIA_DINHEIRO_RECEITA];
 
 /**
  * Se o usuário atual ainda não tem nenhum item de menu, cria o conjunto padrão.
@@ -66,7 +66,7 @@ let _categoriaReembolsoGarantida = false;
 async function garantirCategoriaReembolsoNoBanco() {
     if (_categoriaReembolsoGarantida) return;
     try {
-        const fixas = [CATEGORIA_ESTORNO, CATEGORIA_REEMBOLSO, CATEGORIA_DINHEIRO_RECEITA];
+        const fixas = [CATEGORIA_REEMBOLSO, CATEGORIA_DINHEIRO_RECEITA]; // Estorno agora é categoria de Despesa
         const { data, error } = await sb.from('menu_itens')
             .select('nome').eq('tipo', 'Categoria').eq('categoria_tipo', 'entradas')
             .in('nome', fixas);
