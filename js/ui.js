@@ -1096,11 +1096,11 @@ function _htmlFaturaVirtual(f, compacta = false) {
 
 /** Subgrupo colapsável "Fatura <cartão>" (nome, contagem, total, %), com o box de vencimento/"paga" e as compras dentro.
  *  Usado em "A pagar" (Despesas) e em Próximos. `estornos`: lançamentos de crédito na fatura (mostrados com "+"). */
-function _htmlSubgrupoFatura(f, its, totalRef, tipoUI, abertosSub, estornos) {
+function _htmlSubgrupoFatura(f, its, totalRef, tipoUI, abertosSub, estornos, forcarAberto = false) {
     const nome = `Fatura ${f.rot}`;
     const cor = ((estadoApp.menus && estadoApp.menus.cores && estadoApp.menus.cores.metodo) || {})[f.rot] || corPadraoChip(f.rot);
     return `
-        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" style="--cor-rec:${cor}" ${abertosSub[nome] ? 'open' : ''}>
+        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" style="--cor-rec:${cor}" ${forcarAberto || abertosSub[nome] ? 'open' : ''}>
           <summary class="subgrupo-cab">
             <span class="subgrupo-nome">${nome}</span>
             <span class="subgrupo-espaco"></span>
@@ -1148,20 +1148,26 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     const pagasFat = faturas.filter(f => f.paga);
     const abertasFat = faturas.filter(f => !f.paga);
     const abertosSubFat = _lerAbertosSubgrupo(container);
-    const subFaturaHTML = (f, totalRef) => _htmlSubgrupoFatura(f, _ordenarPorGrupo(itensFatura.get(f.rot) || []), totalRef, tipoUI, abertosSubFat, estornos);
+    const subFaturaHTML = (f, totalRef, forcarAberto) => _htmlSubgrupoFatura(f, _ordenarPorGrupo(itensFatura.get(f.rot) || []), totalRef, tipoUI, abertosSubFat, estornos, forcarAberto);
     const totalPagoGrupo = soma(atuais) + pagasFat.reduce((acc, f) => acc + f.total, 0);
     const totalAPagarGrupo = soma(pendentes) + abertasFat.reduce((acc, f) => acc + f.total, 0);
     const nItens = f => (itensFatura.get(f.rot) || []).length;
+    // Quantos subgrupos por forma de pagamento os itens soltos (fora das faturas) de um
+    // grupo formariam — usado junto com o nº de faturas pra saber se a fatura é o ÚNICO
+    // subgrupo do grupo (aí ela já abre sozinha, mesma regra do _renderItensSubagrupados).
+    const contarFormas = (itens, nomeGrupo) => new Set(itens.map(t =>
+        (nomeGrupo === rotuloPendente && faturaDe.has(t.metodo)) ? 'Crédito' : (t.metodo || 'Sem forma de pagamento')
+    )).size;
     grupos.push({
         nome: nomeAtual, cor: corAtual, itens: atuais,
         total: totalPagoGrupo,
-        extraHTML: pagasFat.map(f => subFaturaHTML(f, totalPagoGrupo)).join(''),
+        extraHTML: pagasFat.map(f => subFaturaHTML(f, totalPagoGrupo, pagasFat.length === 1 && contarFormas(atuais, nomeAtual) === 0)).join(''),
         extraContagem: pagasFat.length, // cada fatura conta como 1 item
     });
     grupos.push({
         nome: rotuloPendente, cor: corPendente, itens: pendentes,
         total: totalAPagarGrupo,
-        extraHTML: abertasFat.map(f => subFaturaHTML(f, totalAPagarGrupo)).join(''),
+        extraHTML: abertasFat.map(f => subFaturaHTML(f, totalAPagarGrupo, abertasFat.length === 1 && contarFormas(pendentes, rotuloPendente) === 0)).join(''),
         extraContagem: abertasFat.length,
     });
     grupos.forEach(g => _ordenarPorGrupo(g.itens, `${tipoUI}:cronologica:${g.nome}`));
@@ -1184,7 +1190,8 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
         semChave: 'Sem forma de pagamento',
         campoChip: 'metodo',
         corDe: nome => coresMetodo[nome] || corPadraoChip(nome),
-    }, abertosSub, `${tipoUI}:cronologica:${nomeGrupo}`, nomeGrupo === nomeAtual ? totalPagoGrupo : totalAPagarGrupo);
+    }, abertosSub, `${tipoUI}:cronologica:${nomeGrupo}`, nomeGrupo === nomeAtual ? totalPagoGrupo : totalAPagarGrupo, {},
+        nomeGrupo === nomeAtual ? pagasFat.length : (nomeGrupo === rotuloPendente ? abertasFat.length : 0));
     const grupoHTML = (nome, cor, itens, total, pct, extraHTML = '', extraContagem = 0) => {
         if (!itens.length && !extraHTML) return `
         <div class="rec-grupo rec-grupo--vazio" style="--cor-rec:${cor}">
@@ -1320,7 +1327,7 @@ function _dimensaoSubmodo(dim, ehDespesa) {
 /** Reorganiza os itens de UM grupo pela dimensão escolhida (maior total
  *  primeiro) em vez de cronológico — cartõezinhos colapsáveis, fechados por
  *  padrão, com contagem e % (igual ao grupo de fora). */
-function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, totalRef, baseOpts = {}) {
+function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, totalRef, baseOpts = {}, extraIrmaos = 0) {
     const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
     const mapa = new Map();
     itens.forEach(t => {
@@ -1334,7 +1341,10 @@ function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, 
         .sort((a, b) => b[2] - a[2]);
     // Um único subgrupo dentro do grupo = não há escolha real a fazer: já vem aberto,
     // mesmo que o usuário não tenha aberto manualmente antes (não sobrescreve um "fechado" lembrado, já que aqui nunca houve estado lembrado pra ele ser diferente de aberto).
-    const unicoSubgrupo = grupos.length === 1;
+    // extraIrmaos conta subgrupos irmãos gerados FORA daqui (ex.: as faturas de cartão em
+    // renderListaCronologica, que ficam soltas ao lado destes) — com algum deles, mesmo só 1
+    // grupo aqui não é mais "o único subgrupo do grupo todo".
+    const unicoSubgrupo = grupos.length === 1 && extraIrmaos === 0;
     return grupos.map(([nome, its, total]) => {
         const pct = totalGeral ? (total / totalGeral) * 100 : 0;
         const aberto = unicoSubgrupo || (abertos && abertos[nome]);
@@ -1937,9 +1947,11 @@ function renderProximasAgrupado(abertos = {}) {
     const htmlR = receitas.length
         ? grupo('Receita', 'receita', 'var(--receita-text)', receitas.length, soma(receitas), receitas.map(t => gerarHTMLTransacao(t, 'entrada')).join(''))
         : '';
+    // Fatura como único "subgrupo" da Despesa (sem lançamento avulso ao lado) já abre sozinha.
+    const faturaUnica = faturas.length === 1 && despesas.length === 0;
     const htmlD = (despesas.length || faturas.length)
         ? grupo('Despesa', 'despesa', 'var(--despesa-text)', despesas.length + faturas.length, totalDespesa,
-            faturas.map(f => _htmlSubgrupoFatura(f, itensDe(f), totalDespesa, 'saida', abertosSub, estornos)).join('') + despesas.map(t => gerarHTMLTransacao(t, 'saida')).join(''))
+            faturas.map(f => _htmlSubgrupoFatura(f, itensDe(f), totalDespesa, 'saida', abertosSub, estornos, faturaUnica)).join('') + despesas.map(t => gerarHTMLTransacao(t, 'saida')).join(''))
         : '';
     return htmlR + htmlD;
 }
