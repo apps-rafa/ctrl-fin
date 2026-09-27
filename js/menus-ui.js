@@ -135,11 +135,11 @@ async function carregarAbaMenus() {
       </div>
 
       <div class="menu-section" data-sub="of" hidden>
+        <h3 class="dados-selecao-titulo">Pluggy</h3>
         <div class="pluggy-cred-aviso">
-          <button type="button" class="mini-btn" id="btnPluggyCred">🔑 Dados cadastrais</button>
+          <button type="button" class="mini-btn" id="btnPluggyCred" aria-expanded="false">🔑 Dados cadastrais</button>
           <span id="pluggyCredStatusOf" class="menu-hint pluggy-cred-status"></span>
         </div>
-        <h3 class="dados-selecao-titulo">Pluggy</h3>
         <div class="menu-secao-topo">
           <p class="menu-hint">
             Conecta suas contas via <a href="https://pluggy.ai" target="_blank" rel="noopener">Pluggy</a> (open finance)

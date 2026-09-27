@@ -9,15 +9,21 @@
  * Functions passam a usar essa credencial pra esse usuário; sem cadastrar
  * nada, continuam caindo pros secrets globais do app, como sempre foi.
  *
- * Página própria (mesma ideia de "visão anual"/"documentação" — ver
- * mudarAba/fecharAbas em events.js), aberta pelo botão no topo da sub-aba
- * Open Finance (ver iniciarPluggy em pluggy.js).
+ * Painel que se sobrepõe à tela atual (#pluggyCredOverlay em index.html),
+ * aberto/fechado pelo botão "Dados cadastrais" embaixo do título "Pluggy"
+ * na sub-aba Open Finance (ver iniciarPluggy em pluggy.js) ou pelo "✕".
+ * Quem já tem credencial cadastrada vê os campos travados (só leitura) até
+ * clicar em "Editar" — trocar esses dados pode quebrar a sincronização, daí
+ * o aviso e a confirmação extra antes de salvar uma mudança de verdade.
  */
 
-/** Linha salva (se houver) — carregada toda vez que a página abre. */
+/** Linha salva (se houver) — carregada toda vez que o painel abre. */
 let _pluggyCredAtual = null;
+/** Só importa quando _pluggyCredAtual existe: false = campos travados
+ *  (modo padrão de quem já cadastrou), true = campos liberados pra edição. */
+let _pluggyCredEditando = false;
 
-/** Texto curto pro status na sub-aba Open Finance e no topo desta página. */
+/** Texto curto pro status na sub-aba Open Finance e no topo do painel. */
 function _pluggyCredStatusTexto() {
     return _pluggyCredAtual
         ? '✅ Usando sua própria credencial da Pluggy'
@@ -29,41 +35,59 @@ function _atualizarPluggyCredStatusUI() {
     if (statusOf) statusOf.textContent = _pluggyCredStatusTexto();
     const statusPagina = document.getElementById('pluggyCredStatusPagina');
     if (statusPagina) statusPagina.textContent = _pluggyCredStatusTexto();
-    const btnRemover = document.getElementById('pluggyCredRemover');
-    if (btnRemover) btnRemover.hidden = !_pluggyCredAtual;
+    _pluggyCredAplicarModoUI();
 }
 
 /** Busca a credencial do usuário — chamada ao abrir a sub-aba Open Finance
- *  (só o status) e ao abrir esta página (status + preenche o formulário). */
+ *  (só o status) e ao abrir o painel (status + preenche o formulário). */
 async function carregarPluggyCredStatus() {
     const { data } = await sb.from('pluggy_credenciais').select('client_id, client_secret').maybeSingle();
     _pluggyCredAtual = data || null;
     _atualizarPluggyCredStatusUI();
 }
 
+/** Volta os campos pro valor salvo (ou vazio, se não houver credencial). */
+function _pluggyCredPreencherCampos() {
+    const idEl = document.getElementById('pluggyCredClientId');
+    const secEl = document.getElementById('pluggyCredClientSecret');
+    if (idEl) idEl.value = _pluggyCredAtual?.client_id || '';
+    if (secEl) { secEl.value = _pluggyCredAtual?.client_secret || ''; secEl.type = 'password'; }
+    const olho = document.getElementById('pluggyCredVerSecret');
+    if (olho) olho.textContent = '👁';
+}
+
+/** Trava/libera os campos e ajusta rótulos/visibilidade dos botões conforme
+ *  o estado atual (sem credencial / travado / editando). */
+function _pluggyCredAplicarModoUI() {
+    const idEl = document.getElementById('pluggyCredClientId');
+    const secEl = document.getElementById('pluggyCredClientSecret');
+    const btnPrincipal = document.getElementById('pluggyCredSalvar');
+    const btnCancelar = document.getElementById('pluggyCredCancelarEdicao');
+    const btnRemover = document.getElementById('pluggyCredRemover');
+    const aviso = document.getElementById('pluggyCredAvisoEdicao');
+    const temCredencial = !!_pluggyCredAtual;
+    // Sem credencial cadastrada ainda: é um cadastro novo, sempre editável.
+    const liberado = !temCredencial || _pluggyCredEditando;
+
+    if (idEl) idEl.readOnly = !liberado;
+    if (secEl) secEl.readOnly = !liberado;
+    if (aviso) aviso.hidden = !(temCredencial && _pluggyCredEditando);
+    if (btnCancelar) btnCancelar.hidden = !(temCredencial && _pluggyCredEditando);
+    if (btnRemover) btnRemover.hidden = !temCredencial;
+    if (btnPrincipal) btnPrincipal.textContent = !temCredencial ? 'Salvar' : (_pluggyCredEditando ? 'Salvar' : 'Editar');
+}
+
+/** Chamada toda vez que o painel abre. */
 function carregarPluggyCredenciais() {
     const msg = document.getElementById('pluggyCredMsg');
     if (msg) { msg.textContent = ''; msg.className = 'pluggy-cred-msg'; }
-    carregarPluggyCredStatus().then(() => {
-        const idEl = document.getElementById('pluggyCredClientId');
-        const secEl = document.getElementById('pluggyCredClientSecret');
-        if (idEl) idEl.value = _pluggyCredAtual?.client_id || '';
-        if (secEl) { secEl.value = _pluggyCredAtual?.client_secret || ''; secEl.type = 'password'; }
-        const olho = document.getElementById('pluggyCredVerSecret');
-        if (olho) olho.textContent = '👁';
-    });
+    _pluggyCredEditando = false;
+    return carregarPluggyCredStatus().then(_pluggyCredPreencherCampos);
 }
 
-async function _salvarPluggyCredenciais() {
-    const idEl = document.getElementById('pluggyCredClientId');
-    const secEl = document.getElementById('pluggyCredClientSecret');
+/** Grava de fato no banco (novo cadastro ou edição já confirmada). */
+async function _pluggyCredSalvarDeFato(clientId, clientSecret) {
     const msg = document.getElementById('pluggyCredMsg');
-    const clientId = idEl?.value.trim();
-    const clientSecret = secEl?.value.trim();
-    if (!clientId || !clientSecret) {
-        if (msg) { msg.textContent = 'Preencha os dois campos.'; msg.className = 'pluggy-cred-msg erro'; }
-        return;
-    }
     const btn = document.getElementById('pluggyCredSalvar');
     if (btn) btn.disabled = true;
     if (msg) { msg.textContent = 'Salvando...'; msg.className = 'pluggy-cred-msg'; }
@@ -76,7 +100,63 @@ async function _salvarPluggyCredenciais() {
         return;
     }
     if (msg) { msg.textContent = '✅ Credencial salva! Já vale pra próxima conta que você conectar.'; msg.className = 'pluggy-cred-msg ok'; }
+    _pluggyCredEditando = false;
     await carregarPluggyCredStatus();
+    _pluggyCredPreencherCampos();
+}
+
+/** Clique no botão principal — o que ele faz depende do estado atual:
+ *  sem credencial → salva direto; travado (já cadastrado) → só entra em
+ *  modo de edição; editando → valida e confirma antes de salvar por cima
+ *  de uma credencial que já existia. */
+async function _pluggyCredBotaoPrincipalClick() {
+    const temCredencial = !!_pluggyCredAtual;
+    if (temCredencial && !_pluggyCredEditando) {
+        _pluggyCredEditando = true;
+        _pluggyCredAplicarModoUI();
+        document.getElementById('pluggyCredClientId')?.focus();
+        return;
+    }
+
+    const idEl = document.getElementById('pluggyCredClientId');
+    const secEl = document.getElementById('pluggyCredClientSecret');
+    const msg = document.getElementById('pluggyCredMsg');
+    const clientId = idEl?.value.trim();
+    const clientSecret = secEl?.value.trim();
+    if (!clientId || !clientSecret) {
+        if (msg) { msg.textContent = 'Preencha os dois campos.'; msg.className = 'pluggy-cred-msg erro'; }
+        return;
+    }
+
+    const mudou = temCredencial && (clientId !== _pluggyCredAtual.client_id || clientSecret !== _pluggyCredAtual.client_secret);
+    if (temCredencial && !mudou) {
+        // Editou e voltou pros mesmos valores — não precisa confirmar nada.
+        _pluggyCredEditando = false;
+        _pluggyCredAplicarModoUI();
+        return;
+    }
+    if (temCredencial && mudou) {
+        mostrarDialogo({
+            titulo: 'Trocar a credencial da Pluggy?',
+            texto: 'Isso muda qual conta da Pluggy o app vai usar pras suas conexões daqui pra frente. Se os novos dados estiverem errados, você pode parar de conseguir sincronizar até corrigir.',
+            acoes: [
+                { label: 'Cancelar' },
+                { label: 'Trocar mesmo assim', perigo: true, onClick: () => _pluggyCredSalvarDeFato(clientId, clientSecret) },
+            ],
+        });
+        return;
+    }
+    await _pluggyCredSalvarDeFato(clientId, clientSecret);
+}
+
+/** "Fechar sem alterações" durante a edição — descarta o que foi digitado e
+ *  volta pros campos travados com o valor salvo. */
+function _pluggyCredSairEdicaoSemSalvar() {
+    _pluggyCredEditando = false;
+    _pluggyCredPreencherCampos();
+    _pluggyCredAplicarModoUI();
+    const msg = document.getElementById('pluggyCredMsg');
+    if (msg) { msg.textContent = ''; msg.className = 'pluggy-cred-msg'; }
 }
 
 async function _removerPluggyCredenciais() {
@@ -90,12 +170,10 @@ async function _removerPluggyCredenciais() {
                     const { data: { user } } = await sb.auth.getUser();
                     const { error } = await sb.from('pluggy_credenciais').delete().eq('user_id', user.id);
                     if (error) { console.error(error); mostrarNotificacao('Erro ao remover', 'erro'); return; }
-                    const idEl = document.getElementById('pluggyCredClientId');
-                    const secEl = document.getElementById('pluggyCredClientSecret');
-                    if (idEl) idEl.value = '';
-                    if (secEl) secEl.value = '';
                     mostrarNotificacao('Credencial removida', 'sucesso');
+                    _pluggyCredEditando = false;
                     await carregarPluggyCredStatus();
+                    _pluggyCredPreencherCampos();
                 },
             },
         ],
@@ -111,9 +189,34 @@ function _alternarVerSecretPluggyCred() {
     olho.textContent = vendo ? '👁' : '🙈';
 }
 
+function abrirPluggyCredOverlay() {
+    const ov = document.getElementById('pluggyCredOverlay');
+    if (!ov) return;
+    ov.hidden = false;
+    document.getElementById('btnPluggyCred')?.setAttribute('aria-expanded', 'true');
+    carregarPluggyCredenciais();
+}
+
+function fecharPluggyCredOverlay() {
+    const ov = document.getElementById('pluggyCredOverlay');
+    if (!ov) return;
+    ov.hidden = true;
+    document.getElementById('btnPluggyCred')?.setAttribute('aria-expanded', 'false');
+}
+
+function alternarPluggyCredOverlay() {
+    const ov = document.getElementById('pluggyCredOverlay');
+    if (!ov) return;
+    if (ov.hidden) abrirPluggyCredOverlay(); else fecharPluggyCredOverlay();
+}
+
 function iniciarPluggyCredenciais() {
-    document.getElementById('pluggyCredFechar')?.addEventListener('click', () => { if (typeof mudarAba === 'function') mudarAba('pluggyCred'); });
-    document.getElementById('pluggyCredSalvar')?.addEventListener('click', _salvarPluggyCredenciais);
+    document.getElementById('pluggyCredFechar')?.addEventListener('click', fecharPluggyCredOverlay);
+    document.getElementById('pluggyCredOverlay')?.addEventListener('click', (e) => {
+        if (e.target.id === 'pluggyCredOverlay') fecharPluggyCredOverlay();
+    });
+    document.getElementById('pluggyCredSalvar')?.addEventListener('click', _pluggyCredBotaoPrincipalClick);
+    document.getElementById('pluggyCredCancelarEdicao')?.addEventListener('click', _pluggyCredSairEdicaoSemSalvar);
     document.getElementById('pluggyCredRemover')?.addEventListener('click', _removerPluggyCredenciais);
     document.getElementById('pluggyCredVerSecret')?.addEventListener('click', _alternarVerSecretPluggyCred);
 }

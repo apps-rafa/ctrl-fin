@@ -1367,7 +1367,7 @@ async function alternarIgnorarImportadaPluggy(id) {
 
 /** Chamado ao entrar na sub-aba "Pluggy" de Importar (ver menus-ui.js). */
 function iniciarPluggy() {
-    document.getElementById('btnPluggyCred')?.addEventListener('click', () => { if (typeof mudarAba === 'function') mudarAba('pluggyCred'); });
+    document.getElementById('btnPluggyCred')?.addEventListener('click', () => { if (typeof alternarPluggyCredOverlay === 'function') alternarPluggyCredOverlay(); });
     if (typeof carregarPluggyCredStatus === 'function') carregarPluggyCredStatus();
     document.getElementById('btnConectarPluggy')?.addEventListener('click', conectarContaPluggy);
     document.getElementById('btnSincronizarPluggy')?.addEventListener('click', sincronizarPluggyAgora);
