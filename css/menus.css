@@ -36,6 +36,12 @@
 }
 @media (max-width: 420px) {
   .subtabs-itens > .subtab { grid-column: span 3; }
+  /* 2 por linha aqui (span 3 de 6) dá o dobro de largura por botão que o
+     layout de 3 colunas acima — o clamp geral (pensado pro pior caso, 3
+     colunas com "Formas de pagamento") deixava esses bem maiores sobrando
+     de graça. Sobe o tamanho: "Open Finance"/"Notificações" (os mais
+     longos aqui) ainda cabem numa linha só nessa largura de botão. */
+  .subtabs .subtab { font-size: clamp(0.72rem, 0.5rem + 1.6vw, 0.95rem); }
 }
 
 /* Rótulos longos ("Formas de pagamento", "Frequência") encolhem em níveis
