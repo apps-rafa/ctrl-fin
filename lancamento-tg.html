@@ -339,6 +339,7 @@
     aviso('');
     const cat = $('categoria').value, met = $('metodo').value;
     const dados = {
+      id: q.get('id') || null,
       tipo, data, categoria: cat,
       valor: Math.round(valorParcela * n * 100) / 100,   // o bot recebe o TOTAL da compra
       metodo: met || null,
