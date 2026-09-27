@@ -1342,3 +1342,10 @@ summary [role="button"] { font-family: Arial; text-align: center; }
 .pluggy-cred-msg { min-height: 1.2em; font-size: .82rem; margin: 0; }
 .pluggy-cred-msg.ok { color: var(--receita-text); }
 .pluggy-cred-msg.erro { color: var(--danger); }
+
+/* Busca da página de revisão do Open Finance (#pluggyRevisaoBusca, ver
+   js/pluggy.js:_filtrarRevisaoPluggy) — fica em cima do grupo "Para
+   revisar", filtra linha/card por texto e esconde o grupo inteiro se nada
+   dele sobrar visível. */
+.pluggy-revisao-busca { margin-bottom: .6rem; }
+.pluggy-busca-oculta { display: none !important; }
