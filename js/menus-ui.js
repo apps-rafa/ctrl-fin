@@ -186,8 +186,8 @@ async function carregarAbaMenus() {
           <div class="pluggy-cred-acoes">
             <button type="button" class="btn-submit" id="pluggyCredSalvar">Salvar</button>
             <button type="button" class="btn-cancelar" id="pluggyCredCancelarEdicao" hidden>Fechar sem alterações</button>
+            <button type="button" class="btn-cancelar" id="pluggyCredRemover" hidden>Remover (voltar ao padrão)</button>
           </div>
-          <button type="button" class="mini-btn pluggy-cred-remover" id="pluggyCredRemover" hidden>Remover (voltar ao padrão)</button>
           <p class="pluggy-cred-msg" id="pluggyCredMsg"></p>
         </div>
 

@@ -1339,7 +1339,6 @@ summary [role="button"] { font-family: Arial; text-align: center; }
 .pluggy-cred-aviso-edicao { color: var(--danger); font-weight: 600; font-size: .82rem; margin: 0; }
 .pluggy-cred-acoes { display: flex; gap: .6rem; margin-top: .2rem; }
 .pluggy-cred-acoes > button { flex: 1 1 0; }
-.pluggy-cred-remover { align-self: flex-start; }
 .pluggy-cred-msg { min-height: 1.2em; font-size: .82rem; margin: 0; }
 .pluggy-cred-msg.ok { color: var(--receita-text); }
 .pluggy-cred-msg.erro { color: var(--danger); }
