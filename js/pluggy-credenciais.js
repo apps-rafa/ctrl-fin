@@ -171,7 +171,7 @@ function _pluggyCredSairEdicaoSemSalvar() {
 async function _removerPluggyCredenciais() {
     mostrarDialogo({
         titulo: 'Remover credencial própria?',
-        texto: 'Volta a usar a credencial padrão do app — que só funciona pra conectar contas do dono do app, não a sua. Contas já conectadas com a sua credencial continuam funcionando normalmente (ela é lida na hora, não fica presa a elas).',
+        texto: 'Volta a usar a credencial padrão do app — que só conecta contas do dono do app, não a sua. Se você já tem contas conectadas com a SUA credencial, elas vão parar de sincronizar (a credencial padrão não tem acesso a elas) e você vai precisar reconectá-las do zero depois. O histórico já confirmado não é afetado, só a sincronização automática.',
         acoes: [
             { label: 'Cancelar' },
             {
