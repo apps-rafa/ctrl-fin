@@ -434,6 +434,10 @@
     margin-right: .35rem;
     font-size: 1.2rem;
     line-height: 1;
+    /* Mesma cor da categoria/forma de pagamento do subgrupo (--cor-rec vem
+       inline no <details>, igual ao .rec-grupo de fora) — sem isso a seta
+       ficava branca/padrão em qualquer subgrupo, não só no de fora. */
+    color: var(--cor-rec, var(--text-muted));
 }
 /* Glifo troca (▸/▾) em vez de girar — sem animação nem "pisca" no hover. */
 .subgrupo[open] > .subgrupo-cab::before { content: '▾'; }

@@ -208,10 +208,15 @@ function atualizarResumo() {
     const detLinha = document.getElementById('saidasDetalheLinha');
     if (detLinha) {
         const fat = estadoApp.resumo.saidasFatura || 0;
-        detLinha.classList.toggle('vazio', !(fat > 0.004)); // mantém a altura pra alinhar com Receita
+        const avulsos = estadoApp.resumo.saidasAvulsos || 0;
+        // Antes só aparecia com fatura em aberto (fat > 0) — num mês futuro com parcela de
+        // cartão, a compra ainda não bateu em nenhuma fatura (fat fica 0), mas já é "pendente"
+        // (avulsos > 0) e ficava sem quebra nenhuma, mesmo tendo o que mostrar.
+        const temQuebra = avulsos > 0.004 || fat > 0.004;
+        detLinha.classList.toggle('vazio', !temQuebra); // mantém a altura pra alinhar com Receita
         const fmt = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
         const det = document.getElementById('saidasDetalhe');
-        if (det) { const av = fmt(estadoApp.resumo.saidasAvulsos), fa = fmt(fat); _ajustarDetalhe(det, fat > 0.004 ? [`pendentes ${av} + crédito ${fa}`, `pend. ${av} + crédito ${fa}`, `pend. ${av} + créd. ${fa}`, `pend. ${av} + c.c. ${fa}`, `${av} + ${fa}`].map(mask) : null); }
+        if (det) { const av = fmt(avulsos), fa = fmt(fat); _ajustarDetalhe(det, temQuebra ? [`pendentes ${av} + crédito ${fa}`, `pend. ${av} + crédito ${fa}`, `pend. ${av} + créd. ${fa}`, `pend. ${av} + c.c. ${fa}`, `${av} + ${fa}`].map(mask) : null); }
     }
 
     if (balancoEl) {
@@ -1084,8 +1089,9 @@ function _htmlFaturaVirtual(f, compacta = false) {
  *  Usado em "A pagar" (Despesas) e em Próximos. `estornos`: lançamentos de crédito na fatura (mostrados com "+"). */
 function _htmlSubgrupoFatura(f, its, totalRef, tipoUI, abertosSub, estornos) {
     const nome = `Fatura ${f.rot}`;
+    const cor = ((estadoApp.menus && estadoApp.menus.cores && estadoApp.menus.cores.metodo) || {})[f.rot] || corPadraoChip(f.rot);
     return `
-        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" ${abertosSub[nome] ? 'open' : ''}>
+        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" style="--cor-rec:${cor}" ${abertosSub[nome] ? 'open' : ''}>
           <summary class="subgrupo-cab">
             <span class="subgrupo-nome">${nome}</span>
             <span class="subgrupo-espaco"></span>
@@ -1163,10 +1169,12 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     // "abrir" e ver "Nada aqui").
     // Despesas: o que está solto se divide em subgrupos por forma de pagamento (cada PIX, cada cartão);
     // compra de cartão que ainda não bateu na fatura fica em "<cartão> (por vir)".
+    const coresMetodo = (estadoApp.menus && estadoApp.menus.cores && estadoApp.menus.cores.metodo) || {};
     const corpoPorForma = (itens, nomeGrupo) => _renderItensSubagrupados(itens, tipoUI, {
         chaveDe: t => (nomeGrupo === rotuloPendente && faturaDe.has(t.metodo) ? 'Crédito' : t.metodo),
         semChave: 'Sem forma de pagamento',
         campoChip: 'metodo',
+        corDe: nome => coresMetodo[nome] || corPadraoChip(nome),
     }, abertosSub, `${tipoUI}:cronologica:${nomeGrupo}`, nomeGrupo === nomeAtual ? totalPagoGrupo : totalAPagarGrupo);
     const grupoHTML = (nome, cor, itens, total, pct, extraHTML = '', extraContagem = 0) => {
         if (!itens.length && !extraHTML) return `
@@ -1292,9 +1300,9 @@ const _SUBMODOS_POR_MODO = {
 function _dimensaoSubmodo(dim, ehDespesa) {
     switch (dim) {
         case 'categoria':
-            return { chaveDe: t => t.categoria, semChave: 'Sem categoria', emoji: '🏷️', label: 'Categoria', campoChip: 'categoria' };
+            return { chaveDe: t => t.categoria, semChave: 'Sem categoria', emoji: '🏷️', label: 'Categoria', campoChip: 'categoria', corDe: nome => corDaCategoria(nome, ehDespesa ? 'saida' : 'entrada') };
         case 'metodo':
-            return { chaveDe: t => t.metodo, semChave: 'Sem forma de pagamento', emoji: '💳', label: 'Forma de pgto.', campoChip: 'metodo' };
+            return { chaveDe: t => t.metodo, semChave: 'Sem forma de pagamento', emoji: '💳', label: 'Forma de pagamento', campoChip: 'metodo', corDe: nome => ((estadoApp.menus && estadoApp.menus.cores && estadoApp.menus.cores.metodo) || {})[nome] || corPadraoChip(nome) };
         default:
             return null;
     }
@@ -1315,10 +1323,15 @@ function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, 
     const grupos = [...mapa.entries()]
         .map(([nome, its]) => [nome, _ordenarPorGrupo(its, `${chavePrefixo}:sub:${nome}`), its.reduce((s, t) => s + valorDe(t), 0)])
         .sort((a, b) => b[2] - a[2]);
+    // Um único subgrupo dentro do grupo = não há escolha real a fazer: já vem aberto,
+    // mesmo que o usuário não tenha aberto manualmente antes (não sobrescreve um "fechado" lembrado, já que aqui nunca houve estado lembrado pra ele ser diferente de aberto).
+    const unicoSubgrupo = grupos.length === 1;
     return grupos.map(([nome, its, total]) => {
         const pct = totalGeral ? (total / totalGeral) * 100 : 0;
+        const aberto = unicoSubgrupo || (abertos && abertos[nome]);
+        const cor = (dimCfg.corDe ? dimCfg.corDe(nome) : null) || corPadraoChip(nome);
         return `
-        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" ${abertos && abertos[nome] ? 'open' : ''}>
+        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" style="--cor-rec:${cor}" ${aberto ? 'open' : ''}>
           <summary class="subgrupo-cab">
             <span class="subgrupo-nome">${nome}</span>
             <span class="subgrupo-espaco"></span>
@@ -1967,7 +1980,7 @@ function renderPendentesProximas(abertos = {}, termo = '') {
         </details>`;
     };
     // Despesas a pagar: um grupo por forma de pagamento ("PIX", "Dinheiro"...; todo "PIX <banco>" é PIX)
-    const nomeForma = t => (/^pix(\s|$)/i.test(String(t.metodo || '').trim()) ? 'PIX' : (t.metodo || 'Sem forma de pgto.'));
+    const nomeForma = t => (/^pix(\s|$)/i.test(String(t.metodo || '').trim()) ? 'PIX' : (t.metodo || 'Sem forma de pagamento'));
     const porForma = new Map();
     pend(estadoApp.transacoes.saidas).forEach(t => { const k = nomeForma(t); porForma.set(k, [...(porForma.get(k) || []), t]); });
     const gruposPagar = [...porForma.entries()]
@@ -2037,10 +2050,13 @@ function renderFaturasCartao(container, termo = '', soNaoRealizadas = false) {
             const gruposSub = [...mapa.entries()]
                 .map(([nome, its]) => [nome, _ordenarPorGrupo(its, `${chaveFatura}:sub:${nome}`), its.reduce((s, t) => s + valorDe(t), 0)])
                 .sort((a, b) => b[2] - a[2]);
+            const unicoSubgrupo = gruposSub.length === 1;
             itensHTML = gruposSub.map(([nome, its, totalSub]) => {
                 const pctSub = total ? (totalSub / total) * 100 : 0;
+                const corSub = (cfg.corDe ? cfg.corDe(nome) : null) || corPadraoChip(nome);
+                const abertoSub = unicoSubgrupo || abertosSub[nome];
                 return `
-                <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" ${abertosSub[nome] ? 'open' : ''}>
+                <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" style="--cor-rec:${corSub}" ${abertoSub ? 'open' : ''}>
                   <summary class="subgrupo-cab">
                     <span class="subgrupo-nome">${nome}</span>
                     <span class="subgrupo-espaco"></span>
