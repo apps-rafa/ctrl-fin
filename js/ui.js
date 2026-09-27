@@ -1288,7 +1288,7 @@ function _dimensaoSubmodo(dim, ehDespesa) {
 /** Reorganiza os itens de UM grupo pela dimensão escolhida (maior total
  *  primeiro) em vez de cronológico — cartõezinhos colapsáveis, fechados por
  *  padrão, com contagem e % (igual ao grupo de fora). */
-function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, totalRef) {
+function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, totalRef, baseOpts = {}) {
     const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
     const mapa = new Map();
     itens.forEach(t => {
@@ -1310,7 +1310,7 @@ function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, 
             <span class="subgrupo-contagem">${its.length}</span>
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalGeral ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
           </summary>
-          ${its.map(t => gerarHTMLTransacao(t, tipoUI, _optsSemChipRedundante(its, dimCfg.campoChip))).join('')}
+          ${its.map(t => gerarHTMLTransacao(t, tipoUI, { ...baseOpts, ..._optsSemChipRedundante(its, dimCfg.campoChip) })).join('')}
         </details>`;
     }).join('');
 }
@@ -1359,7 +1359,8 @@ function _corpoGrupoComSubmodo(itens, tipoUI, modo, grupoChave, ehDespesa, abert
     if (subAtual === 'cronologica' || !_SUBMODOS_POR_MODO[modo]) {
         return itens.map(t => gerarHTMLTransacao(t, tipoUI, gerarOpts)).join('');
     }
-    return _renderItensSubagrupados(itens, tipoUI, _dimensaoSubmodo(subAtual, ehDespesa), abertosSub, `${tipoUI}:${modo}:${grupoChave}`);
+    // gerarOpts leva junto os chips já escondidos pelo filtro de fora (filtro dentro de filtro: nenhum chip repetido)
+    return _renderItensSubagrupados(itens, tipoUI, _dimensaoSubmodo(subAtual, ehDespesa), abertosSub, `${tipoUI}:${modo}:${grupoChave}`, undefined, gerarOpts || {});
 }
 
 // Cache das "próximas" (usado ao renderizar a aba Próximas)
