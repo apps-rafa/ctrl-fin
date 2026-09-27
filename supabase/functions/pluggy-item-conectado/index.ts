@@ -7,7 +7,7 @@
 //
 // Segredos usados: PLUGGY_CLIENT_ID/PLUGGY_CLIENT_SECRET só como fallback pra
 // quem não cadastrou credencial própria em Configurações > Open Finance >
-// Dados cadastrais (ver _shared/pluggy.ts).
+// Dados cadastrais (ver getPluggyApiKey abaixo).
 // Ver plano da integração: memória "app-financeiro-pluggy-integracao".
 
 import { createClient } from "npm:@supabase/supabase-js@2";

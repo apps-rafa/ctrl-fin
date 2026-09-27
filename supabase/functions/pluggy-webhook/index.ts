@@ -11,7 +11,7 @@
 // por isso resolve o usuário só a partir do itemId (que só existe em
 // pluggy_contas de usuários reais), nunca de nada vindo do payload. A API
 // key da Pluggy usada depois é a do PRÓPRIO dono da conta (ver
-// _shared/pluggy.ts), não necessariamente a global.
+// getPluggyApiKey abaixo), não necessariamente a global.
 //
 // Segredos usados: PLUGGY_WEBHOOK_SECRET (sempre) e, só como fallback pra
 // quem não cadastrou credencial própria em Configurações > Open Finance >
@@ -19,7 +19,6 @@
 // Ver plano da integração: memória "app-financeiro-pluggy-integracao".
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { avisarErroTelegram, notificarTelegramNovas } from "../_shared/telegram.ts";
 
 const PLUGGY_API_URL = "https://api.pluggy.ai";
 const DIAS_HISTORICO_PRIMEIRA_SYNC = 30;
@@ -65,6 +64,120 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+// Duplicado aqui de propósito — funções Pluggy são deployadas de forma
+// independente.
+interface ItemNovoTelegram {
+  id: number;
+  tipo: "entradas" | "saidas";
+  valor: number;
+  data: string;
+  descricao_banco: string | null;
+  categoria_sugerida: string | null;
+  metodo_sugerido: number | null;
+}
+
+async function enviarMensagemTelegram(token: string, chatId: number, texto: string, botoes: unknown[][]) {
+  try {
+    const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: texto,
+        parse_mode: "Markdown",
+        reply_markup: { inline_keyboard: botoes },
+      }),
+    });
+    if (!resp.ok) console.error("Telegram sendMessage falhou:", resp.status, await resp.text());
+  } catch (e) {
+    console.error("Erro ao chamar Telegram sendMessage:", e);
+  }
+}
+
+// Só avisa transação com data de até 2 dias atrás — sem isso, qualquer
+// sincronização com janela larga (primeira sync de uma conta nova etc.)
+// manda um aviso por lançamento do período inteiro de uma vez.
+const NOTIFICAR_ATE_DIAS_ATRAS = 2;
+
+async function notificarTelegramNovas(
+  supabaseAdmin: ClienteSupabase,
+  userId: string,
+  itens: ItemNovoTelegram[],
+): Promise<void> {
+  const dataLimite = new Date(Date.now() - NOTIFICAR_ATE_DIAS_ATRAS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  itens = itens.filter((i) => i.data >= dataLimite);
+  if (!itens.length) return;
+  const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
+  if (!token) return;
+
+  const { data: tgUser } = await supabaseAdmin
+    .from("telegram_users")
+    .select("chat_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!tgUser) return; // usuário não vinculou o Telegram — nada a fazer
+
+  const metodoIds = [...new Set(itens.map((i) => i.metodo_sugerido).filter((x): x is number => x != null))];
+  const { data: metodos } = metodoIds.length
+    ? await supabaseAdmin.from("menu_itens").select("id, nome, metodo_kind, banco").in("id", metodoIds)
+    : { data: [] as { id: number; nome: string; metodo_kind: string | null; banco: string | null }[] };
+
+  const nomeMetodo = (id: number | null) => {
+    if (!id) return null;
+    const m = (metodos ?? []).find((x: { id: number }) => x.id === id);
+    return m ? rotuloMetodo(m) : null;
+  };
+
+  const fmtValor = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+  for (const item of itens) {
+    const sinal = item.tipo === "entradas" ? "+" : "-";
+    const emoji = item.tipo === "entradas" ? "💰" : "💸";
+    const dataFmt = new Date(`${item.data}T00:00:00`).toLocaleDateString("pt-BR");
+    const metodoTxt = nomeMetodo(item.metodo_sugerido);
+
+    const texto = [
+      `${emoji} *Novo lançamento via Pluggy*`,
+      `${sinal} ${fmtValor.format(item.valor)} — ${dataFmt}`,
+      item.descricao_banco ? `_${item.descricao_banco}_` : null,
+      item.categoria_sugerida ? `Categoria sugerida: ${item.categoria_sugerida}` : "Sem sugestão de categoria — confirme pelo app",
+      metodoTxt ? `Método: ${metodoTxt}` : null,
+    ].filter(Boolean).join("\n");
+
+    const botoes = item.categoria_sugerida
+      ? [[{ text: "✅ Confirmar", callback_data: `confirmar:${item.id}` }, { text: "❌ Ignorar", callback_data: `ignorar:${item.id}` }]]
+      : [[{ text: "❌ Ignorar", callback_data: `ignorar:${item.id}` }]];
+
+    await enviarMensagemTelegram(token, tgUser.chat_id, texto, botoes);
+  }
+}
+
+/** Avisa no Telegram (todos os chats vinculados) que algo falhou em segundo plano — no
+ *  máximo 1 alerta por hora para a mesma chave (tabela alertas_bot), pra não virar spam. */
+async function avisarErroTelegram(
+  supabaseAdmin: ClienteSupabase,
+  chave: string,
+  texto: string,
+): Promise<void> {
+  try {
+    const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
+    if (!token) return;
+    const { data } = await supabaseAdmin.from("alertas_bot").select("enviado_em").eq("chave", chave).maybeSingle();
+    if (data && Date.now() - new Date(data.enviado_em).getTime() < 60 * 60 * 1000) return;
+    await supabaseAdmin.from("alertas_bot").upsert({ chave, enviado_em: new Date().toISOString() });
+    const { data: users } = await supabaseAdmin.from("telegram_users").select("chat_id");
+    for (const u of (users ?? []) as { chat_id: number }[]) {
+      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: u.chat_id, text: String(texto).slice(0, 900) }),
+      }).catch(() => {});
+    }
+  } catch (e) {
+    console.error("Falha ao avisar erro:", e);
+  }
 }
 
 /** Movimentos que só trocam o dinheiro de lugar (resgate/aplicação, saldo
