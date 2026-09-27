@@ -1103,7 +1103,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     const pagasFat = faturas.filter(f => f.paga);
     const abertasFat = faturas.filter(f => !f.paga);
     const abertosSubFat = _lerAbertosSubgrupo(container);
-    const subFaturaHTML = f => {
+    const subFaturaHTML = (f, totalRef) => {
         const its = _ordenarPorGrupo(itensFatura.get(f.rot) || [], `${tipoUI}:cronologica:sub:${f.rot}`);
         const nome = `Fatura ${f.rot}`;
         return `
@@ -1112,23 +1112,25 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
             <span class="subgrupo-nome">${nome}</span>
             <span class="subgrupo-espaco"></span>
             <span class="subgrupo-contagem">${its.length}</span>
-            <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(f.total)}</span></span>
+            <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(f.total)}</span>${totalRef ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct((f.total / totalRef) * 100)}%</span>` : ''}</span>
           </summary>
           ${_htmlFaturaVirtual(f, true)}
           ${its.map(t => gerarHTMLTransacao(t, tipoUI, { semMetodoChip: true })).join('')}
         </details>`;
     };
+    const totalPagoGrupo = soma(atuais) + pagasFat.reduce((acc, f) => acc + f.total, 0);
+    const totalAPagarGrupo = soma(pendentes) + abertasFat.reduce((acc, f) => acc + f.total, 0);
     const nItens = f => (itensFatura.get(f.rot) || []).length;
     grupos.push({
         nome: nomeAtual, cor: corAtual, itens: atuais,
-        total: soma(atuais) + pagasFat.reduce((acc, f) => acc + f.total, 0),
-        extraHTML: pagasFat.map(subFaturaHTML).join(''),
+        total: totalPagoGrupo,
+        extraHTML: pagasFat.map(f => subFaturaHTML(f, totalPagoGrupo)).join(''),
         extraContagem: pagasFat.length, // cada fatura conta como 1 item
     });
     grupos.push({
         nome: rotuloPendente, cor: corPendente, itens: pendentes,
-        total: soma(pendentes) + abertasFat.reduce((acc, f) => acc + f.total, 0),
-        extraHTML: abertasFat.map(subFaturaHTML).join(''),
+        total: totalAPagarGrupo,
+        extraHTML: abertasFat.map(f => subFaturaHTML(f, totalAPagarGrupo)).join(''),
         extraContagem: abertasFat.length,
     });
     grupos.forEach(g => _ordenarPorGrupo(g.itens, `${tipoUI}:cronologica:${g.nome}`));
@@ -1149,7 +1151,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
         chaveDe: t => (nomeGrupo === rotuloPendente && faturaDe.has(t.metodo) ? 'Crédito' : t.metodo),
         semChave: 'Sem forma de pagamento',
         campoChip: 'metodo',
-    }, abertosSub, `${tipoUI}:cronologica:${nomeGrupo}`);
+    }, abertosSub, `${tipoUI}:cronologica:${nomeGrupo}`, nomeGrupo === nomeAtual ? totalPagoGrupo : totalAPagarGrupo);
     const grupoHTML = (nome, cor, itens, total, pct, extraHTML = '', extraContagem = 0) => {
         if (!itens.length && !extraHTML) return `
         <div class="rec-grupo rec-grupo--vazio" style="--cor-rec:${cor}">
@@ -1286,7 +1288,7 @@ function _dimensaoSubmodo(dim, ehDespesa) {
 /** Reorganiza os itens de UM grupo pela dimensão escolhida (maior total
  *  primeiro) em vez de cronológico — cartõezinhos colapsáveis, fechados por
  *  padrão, com contagem e % (igual ao grupo de fora). */
-function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo) {
+function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, totalRef) {
     const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
     const mapa = new Map();
     itens.forEach(t => {
@@ -1294,7 +1296,7 @@ function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo) 
         if (!mapa.has(k)) mapa.set(k, []);
         mapa.get(k).push(t);
     });
-    const totalGeral = itens.reduce((s, t) => s + valorDe(t), 0);
+    const totalGeral = totalRef != null ? totalRef : itens.reduce((s, t) => s + valorDe(t), 0);
     const grupos = [...mapa.entries()]
         .map(([nome, its]) => [nome, _ordenarPorGrupo(its, `${chavePrefixo}:sub:${nome}`), its.reduce((s, t) => s + valorDe(t), 0)])
         .sort((a, b) => b[2] - a[2]);
