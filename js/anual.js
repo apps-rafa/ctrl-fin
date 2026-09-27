@@ -95,7 +95,12 @@ function _calcularAno(linhas, tipo) {
 /** Aplica o filtro (uma linha só) e soma os totais mensais. */
 function _visao(ano, tipo) {
     const base = _calcularAno(estadoAnual.porAno[ano], tipo);
-    const linhas = estadoAnual.filtro ? base.linhas.filter(l => l.nome === estadoAnual.filtro) : base.linhas;
+    let linhas = estadoAnual.filtro ? base.linhas.filter(l => l.nome === estadoAnual.filtro) : base.linhas;
+    // Ordem: maior total do ano primeiro; com um mês em foco, o maior valor daquele mês primeiro
+    const foco = estadoAnual.foco;
+    if (foco !== null && foco !== undefined) {
+        linhas = [...linhas].sort((a, b) => (a.nome.startsWith('(−)') ? 1 : 0) - (b.nome.startsWith('(−)') ? 1 : 0) || b.meses[foco] - a.meses[foco] || b.total - a.total);
+    }
     const totais = Array(12).fill(0);
     linhas.forEach(l => l.meses.forEach((v, i) => { totais[i] += v; }));
     return { todas: base.linhas, linhas, totais, temEstorno: base.temEstorno };
@@ -127,7 +132,8 @@ function _linhaGrafico(linhasR, linhasD, meses, mesAtual, dim = () => '') {
     const max = Math.max(...meses.flatMap(i => [soma(linhasR, i), soma(linhasD, i)]), 1);
     const ALTURA = 130;
     const barra = (linhas, i, classe, rotulo) => {
-        const positivos = linhas.filter(l => !l.nome.startsWith('(−)') && l.meses[i] > 0.004);
+        const positivos = linhas.filter(l => !l.nome.startsWith('(−)') && l.meses[i] > 0.004)
+            .sort((a, b) => b.meses[i] - a.meses[i]); // maior valor do mês na base da barra
         const total = soma(linhas, i);
         const h = total > 0 ? Math.max(4, (total / max) * ALTURA) : 0;
         const segs = positivos.map(l => `<span class="seg" style="flex:${l.meses[i]};background:${_corDoNomeAnual(l.nome, classe === 'rec' ? 'entradas' : 'saidas')}" title="${rotulo} · ${_esc(l.nome)} · ${MESES_ANUAL_LONGO[i]}: ${_fmtMoeda(l.meses[i])} (${Math.round(l.meses[i] / total * 100)}%)"></span>`).join('');

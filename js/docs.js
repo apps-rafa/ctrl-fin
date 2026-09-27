@@ -121,7 +121,7 @@ const DOCS_SECOES = [
       { t: 'Cartões-resumo', r: 'No topo, quatro cartões: receitas no ano, despesas no ano, saldo do ano e despesa média por mês.',
         m: 'Ao focar num mês, os cartões mostram as receitas, as despesas e o saldo daquele mês e a variação da despesa em relação ao mês anterior. Verde é bom e vermelho é ruim, conforme o tipo (mais receita é bom; mais despesa é ruim).' },
       { t: 'Gráfico e tabela', r: 'O gráfico é a primeira linha da tabela: duas barras por mês (receita e despesa), empilhadas por categoria/forma.',
-        m: 'Meses passados sem lançamentos não aparecem; os futuros aparecem para planejamento. Cada linha da tabela mostra o valor por mês e o total do ano, com intensidade de cor proporcional ao valor.' },
+        m: 'Meses passados sem lançamentos não aparecem; os futuros aparecem para planejamento. Cada linha da tabela mostra o valor por mês e o total do ano, com intensidade de cor proporcional ao valor. <b>Ordem</b>: as linhas seguem o maior total do ano; ao focar num mês, seguem o maior valor daquele mês. Em cada barra do gráfico, o maior valor do mês fica na base.' },
       { t: 'Filtrar uma linha', r: 'Toque no nome de uma categoria/forma para ver só ela; toque de novo para voltar.',
         m: 'O filtro vale para cartões, gráfico e tabela.' },
       { t: 'Focar num mês', r: 'Toque no nome de um mês para destacá-lo nos cartões, no gráfico e na tabela.',
