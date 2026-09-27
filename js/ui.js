@@ -1080,6 +1080,23 @@ function _htmlFaturaVirtual(f, compacta = false) {
         </div>`;
 }
 
+/** Subgrupo colapsável "Fatura <cartão>" (nome, contagem, total, %), com o box de vencimento/"paga" e as compras dentro.
+ *  Usado em "A pagar" (Despesas) e em Próximos. `estornos`: lançamentos de crédito na fatura (mostrados com "+"). */
+function _htmlSubgrupoFatura(f, its, totalRef, tipoUI, abertosSub, estornos) {
+    const nome = `Fatura ${f.rot}`;
+    return `
+        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" ${abertosSub[nome] ? 'open' : ''}>
+          <summary class="subgrupo-cab">
+            <span class="subgrupo-nome">${nome}</span>
+            <span class="subgrupo-espaco"></span>
+            <span class="subgrupo-contagem">${its.length}</span>
+            <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(f.total)}</span>${totalRef ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct((f.total / totalRef) * 100)}%</span>` : ''}</span>
+          </summary>
+          ${_htmlFaturaVirtual(f, true)}
+          ${its.map(t => gerarHTMLTransacao(t, estornos && estornos.has(t) ? 'entrada' : tipoUI, { semMetodoChip: true })).join('')}
+        </details>`;
+}
+
 function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     if (!container) return;
     if (!transacoes || !transacoes.length) {
@@ -1116,21 +1133,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     const pagasFat = faturas.filter(f => f.paga);
     const abertasFat = faturas.filter(f => !f.paga);
     const abertosSubFat = _lerAbertosSubgrupo(container);
-    const subFaturaHTML = (f, totalRef) => {
-        const its = _ordenarPorGrupo(itensFatura.get(f.rot) || [], `${tipoUI}:cronologica:sub:${f.rot}`);
-        const nome = `Fatura ${f.rot}`;
-        return `
-        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" ${abertosSubFat[nome] ? 'open' : ''}>
-          <summary class="subgrupo-cab">
-            <span class="subgrupo-nome">${nome}</span>
-            <span class="subgrupo-espaco"></span>
-            <span class="subgrupo-contagem">${its.length}</span>
-            <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(f.total)}</span>${totalRef ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct((f.total / totalRef) * 100)}%</span>` : ''}</span>
-          </summary>
-          ${_htmlFaturaVirtual(f, true)}
-          ${its.map(t => gerarHTMLTransacao(t, estornos.has(t) ? 'entrada' : tipoUI, { semMetodoChip: true })).join('')}
-        </details>`;
-    };
+    const subFaturaHTML = (f, totalRef) => _htmlSubgrupoFatura(f, _ordenarPorGrupo(itensFatura.get(f.rot) || []), totalRef, tipoUI, abertosSubFat, estornos);
     const totalPagoGrupo = soma(atuais) + pagasFat.reduce((acc, f) => acc + f.total, 0);
     const totalAPagarGrupo = soma(pendentes) + abertasFat.reduce((acc, f) => acc + f.total, 0);
     const nItens = f => (itensFatura.get(f.rot) || []).length;
@@ -1887,8 +1890,18 @@ function renderProximasAgrupado(abertos = {}) {
         .sort((a, b) => String(a.data).localeCompare(String(b.data)));
     const receitas = futuras(estadoApp.transacoes.entradas);
     const despesas = futuras(estadoApp.transacoes.saidas);
-    const faturas = _faturasAPagar();
+    const faturas = _faturasAPagar().filter(f => !f.paga); // mesma lógica do "A pagar"
+    const abertosSub = abertos.__sub || {};
     const aberto = k => (abertos[k] !== undefined ? abertos[k] : true);
+    // Compras já feitas no cartão (+ créditos/estornos) que compõem cada fatura em aberto
+    const feita = t => _transacaoRealizada(t);
+    const estornos = new Set();
+    const itensDe = f => {
+        const compras = (estadoApp.transacoes.saidas || []).filter(t => t.metodo === f.rot && feita(t));
+        (estadoApp.transacoes.entradas || []).filter(t => t.metodo === f.rot && feita(t)).forEach(t => { estornos.add(t); compras.push(t); });
+        return compras.sort((a, b) => String(b.data).localeCompare(String(a.data)));
+    };
+    const totalDespesa = soma(despesas) + faturas.reduce((acc, f) => acc + f.total, 0);
     const grupo = (nome, chave, cor, contagem, total, corpo) => `
         <details class="fatura-item" data-pend="${chave}" style="--cor-cartao:${cor}" ${aberto(chave) ? 'open' : ''}>
           <summary>
@@ -1903,8 +1916,8 @@ function renderProximasAgrupado(abertos = {}) {
         ? grupo('Receita', 'receita', 'var(--receita-text)', receitas.length, soma(receitas), receitas.map(t => gerarHTMLTransacao(t, 'entrada')).join(''))
         : '';
     const htmlD = (despesas.length || faturas.length)
-        ? grupo('Despesa', 'despesa', 'var(--despesa-text)', despesas.length + faturas.filter(f => !f.paga).length, soma(despesas),
-            faturas.map(f => _htmlFaturaVirtual(f)).join('') + despesas.map(t => gerarHTMLTransacao(t, 'saida')).join(''))
+        ? grupo('Despesa', 'despesa', 'var(--despesa-text)', despesas.length + faturas.length, totalDespesa,
+            faturas.map(f => _htmlSubgrupoFatura(f, itensDe(f), totalDespesa, 'saida', abertosSub, estornos)).join('') + despesas.map(t => gerarHTMLTransacao(t, 'saida')).join(''))
         : '';
     return htmlR + htmlD;
 }
@@ -1917,6 +1930,7 @@ async function atualizarProximasTransacoes() {
         // Lê o aberto/fechado ANTES de reescrever (a fatura também usa essa chave).
         const abertosPend = {};
         container.querySelectorAll('details.fatura-item[data-pend]').forEach(d => { abertosPend[d.dataset.pend] = d.open; });
+        abertosPend.__sub = _lerAbertosSubgrupo(container);
         const html = renderProximasAgrupado(abertosPend);
         container.innerHTML = html || `<p class="empty-message">Nada a receber, a pagar nem fatura neste mês</p>`;
         container.onclick = html ? _onCliqueProximas : null;
