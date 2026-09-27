@@ -233,6 +233,19 @@
 .chip { text-shadow: -.5px 0 rgba(0,0,0,.6), .5px 0 rgba(0,0,0,.6), 0 -.5px rgba(0,0,0,.6), 0 .5px rgba(0,0,0,.6), 0 0 2px rgba(0,0,0,.35); }
 .chip--neutro { background: var(--surface-3); color: var(--text-muted); text-shadow: none; }
 
+/* Chips de método/categoria/"quando"/quitado agrupados num item só do flex
+   de fora (.despesa-conteudo) — assim, se a linha não couber tudo, o grupo
+   INTEIRO pula pra próxima linha junto (nunca um chip embaixo e outro em
+   cima); dentro do grupo eles ainda quebram entre si se nem todos couberem
+   na mesma linha. */
+.despesa-badges {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .3rem;
+    min-width: 0;
+}
+
 /* Info da parcela: "3/12" */
 .parcela-tag {
     font-size: .62rem;
