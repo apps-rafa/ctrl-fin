@@ -148,10 +148,10 @@ async function _carregarIndicadoresJanela(idxsAbs) {
  * conteúdo caber numa linha só, sem cortar — nunca usa "…": regra é sempre
  * diminuir a fonte até caber, em vez de truncar o texto.
  */
-function ajustarFonteParaCaber(el, minPx = 10) {
+function ajustarFonteParaCaber(el, minPx = 10, tamanhoInicial = null) {
     if (!el) return;
-    el.style.fontSize = '';
-    let tamanho = parseFloat(getComputedStyle(el).fontSize);
+    el.style.fontSize = tamanhoInicial != null ? tamanhoInicial + 'px' : '';
+    let tamanho = tamanhoInicial != null ? tamanhoInicial : parseFloat(getComputedStyle(el).fontSize);
     if (!Number.isFinite(tamanho)) return;
     while (el.scrollWidth > el.clientWidth + 1 && tamanho > minPx) {
         tamanho -= 1;
@@ -162,10 +162,19 @@ function ajustarFonteParaCaber(el, minPx = 10) {
 /** Elementos de valor que podem precisar encolher — reavaliados também no
  *  resize (a largura do card muda, então o que cabia pode deixar de caber). */
 function ajustarFontesDashboard() {
-    ['totalEntradas', 'totalSaidas', 'balanco', 'gastoDiario']
-        .forEach(id => ajustarFonteParaCaber(document.getElementById(id)));
-    // Balanço e Gasto diário lado a lado: mesmo tamanho (o menor dos dois)
+    ['totalEntradas', 'totalSaidas'].forEach(id => ajustarFonteParaCaber(document.getElementById(id)));
+    // Balanço e Gasto diário ficam na 3ª coluna, bem mais estreita que Receita/
+    // Despesa — pelo cqw do próprio card (ver .summary-card .amount) ficariam
+    // desproporcionalmente grandes pro valor curto que mostram. Usa o mesmo
+    // tamanho do total de Receita/Despesa (o menor dos dois) como ponto de
+    // partida, só encolhendo se mesmo assim não couber na 3ª coluna.
+    const totalEntradasEl = document.getElementById('totalEntradas');
+    const totalSaidasEl = document.getElementById('totalSaidas');
+    const tamanhosTotais = [totalEntradasEl, totalSaidasEl].filter(Boolean).map(el => parseFloat(getComputedStyle(el).fontSize));
+    const tamanhoBase = tamanhosTotais.length ? Math.min(...tamanhosTotais) : null;
     const par = ['balanco', 'gastoDiario'].map(id => document.getElementById(id)).filter(Boolean);
+    par.forEach(el => ajustarFonteParaCaber(el, 10, tamanhoBase));
+    // Lado a lado: mesmo tamanho entre os dois (o menor dos dois, caso um precise encolher mais que o outro)
     if (par.length === 2) {
         const menor = Math.min(...par.map(el => parseFloat(getComputedStyle(el).fontSize)));
         par.forEach(el => { el.style.fontSize = menor + 'px'; });
