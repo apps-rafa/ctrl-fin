@@ -222,7 +222,9 @@
     overflow-wrap: break-word;
     vertical-align: middle;
 }
-.chip--neutro { background: var(--surface-3); color: var(--text-muted); }
+/* contorno preto leve: texto branco continua legível em chips de cor clara */
+.chip { text-shadow: -.5px 0 rgba(0,0,0,.6), .5px 0 rgba(0,0,0,.6), 0 -.5px rgba(0,0,0,.6), 0 .5px rgba(0,0,0,.6), 0 0 2px rgba(0,0,0,.35); }
+.chip--neutro { background: var(--surface-3); color: var(--text-muted); text-shadow: none; }
 
 /* Info da parcela: "3/12" */
 .parcela-tag {
