@@ -79,6 +79,13 @@ async function garantirCategoriaReembolsoNoBanco() {
                 faltando.map(nome => ({ tipo: 'Categoria', nome, categoria_tipo: 'entradas', cor: cor(nome) }))
             );
         }
+        // "Estorno" agora também é categoria de Despesa (é por ela que se lança)
+        const { data: est } = await sb.from('menu_itens').select('id')
+            .eq('tipo', 'Categoria').eq('categoria_tipo', 'saidas').eq('nome', CATEGORIA_ESTORNO).limit(1);
+        if (!est || !est.length) {
+            await sb.from('menu_itens').insert({ tipo: 'Categoria', nome: CATEGORIA_ESTORNO, categoria_tipo: 'saidas',
+                cor: typeof corPadraoChip === 'function' ? corPadraoChip(CATEGORIA_ESTORNO) : null });
+        }
         _categoriaReembolsoGarantida = true;
     } catch (e) {
         console.error('Erro ao garantir categorias de estorno/reembolso no banco:', e);

@@ -428,7 +428,8 @@ function renderizarItemsMenu(tipo, containerId, itens, grupo) {
     const semEdicao = ehDinheiro;
     const semRemocao = ehDinheiro || ehPixBase
         || (tipo === 'Categoria' && item.categoriaTipo === 'entradas'
-            && (item.nome === CATEGORIA_ESTORNO || item.nome === CATEGORIA_REEMBOLSO || item.nome === CATEGORIA_DINHEIRO_RECEITA));
+            && (item.nome === CATEGORIA_ESTORNO || item.nome === CATEGORIA_REEMBOLSO || item.nome === CATEGORIA_DINHEIRO_RECEITA))
+        || (tipo === 'Categoria' && item.categoriaTipo === 'saidas' && item.nome === CATEGORIA_ESTORNO);
 
     const swatch = `<button class="cor-swatch" style="background:${corDoItemMenu(item)}"
         data-act="cor" data-tipo="${tipo}" data-id="${item.linha}" data-nome="${item.nome}" title="Cor do chip"></button>`;

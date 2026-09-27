@@ -852,17 +852,18 @@ async function _renderBuscaDoMes(termo, box, abertos) {
     const t = _normalizarBusca(q.texto).trim();
     const achados = itens.filter(tr => _bateConsulta(tr, q, t)).sort(_porDataDesc);
     _transacoesExtra = achados; // editar/excluir precisam achar itens que não são da competência em tela
-    const receitas = achados.filter(x => x.tipo === 'entradas');
-    const despesas = achados.filter(x => x.tipo !== 'entradas');
+    // Estorno de cartão abate a fatura: fica em Despesas (com "+"), não em Receitas
+    const receitas = achados.filter(x => x.tipo === 'entradas' && !_ehEstornoCartao(x));
+    const despesas = achados.filter(x => x.tipo !== 'entradas' || _ehEstornoCartao(x));
 
     const grupo = (nome, titulo, cor, lista, tipoUI) => !lista.length ? '' : `
     <details class="rec-grupo" data-nome="${nome}" style="--cor-rec:${cor}" ${abertos[nome] !== false ? 'open' : ''}>
       <summary>
         <span class="rec-grupo-nome">${titulo}</span>
         <span class="rec-grupo-contagem">${lista.length}</span>
-        <span class="rec-grupo-total">${formatarMoeda(lista.reduce((s, x) => s + valorDe(x), 0))}</span>
+        <span class="rec-grupo-total">${formatarMoeda(lista.reduce((s, x) => s + (x.tipo === 'entradas' && tipoUI === 'saida' ? -valorDe(x) : valorDe(x)), 0))}</span>
       </summary>
-      <div class="rec-grupo-itens">${lista.slice(0, _limiteGrupoBusca('m:' + termo, nome)).map(x => gerarHTMLTransacao(x, tipoUI)).join('')}${_htmlMaisGrupo(nome, lista.length, _limiteGrupoBusca('m:' + termo, nome))}</div>
+      <div class="rec-grupo-itens">${lista.slice(0, _limiteGrupoBusca('m:' + termo, nome)).map(x => gerarHTMLTransacao(x, x.tipo === 'entradas' ? 'entrada' : tipoUI)).join('')}${_htmlMaisGrupo(nome, lista.length, _limiteGrupoBusca('m:' + termo, nome))}</div>
     </details>`;
     const html =
         grupo('__busca_receitas__', '⬇️ Receitas', 'var(--receita-text)', receitas, 'entrada') +
@@ -1612,6 +1613,8 @@ function irParaMes(competencia) {
 
 /** Carrega a transação no formulário da aba Adicionar em modo edição */
 function iniciarEdicaoTransacao(trans, tipoTransacao) {
+    // Estorno de cartão é gravado como entrada, mas se lança (e edita) como Despesa > categoria Estorno
+    if (tipoTransacao === 'entradas' && _ehEstornoCartao(trans)) tipoTransacao = 'saidas';
     estadoApp.editandoId = trans.id;
     // Guarda a tela de busca/Recém-lançados (com o modo e o que estava por cima) pra devolver
     // exatamente igual quando a edição fechar; o formulário precisa da área livre.
@@ -1643,8 +1646,8 @@ function iniciarEdicaoTransacao(trans, tipoTransacao) {
     document.querySelector(SELECTORS.descricao).value = trans.descricao || '';
     // Precisa vir depois de setar a categoria: é ela que decide se o campo
     // Método aparece pra receita (categorias "Estorno"/"Reembolso").
-    if (tipoTransacao === 'entradas' && typeof atualizarCampoMetodoReceita === 'function') atualizarCampoMetodoReceita();
-    document.querySelector(SELECTORS.metodo).value = trans.metodo || '';
+    if (typeof atualizarCampoMetodoReceita === 'function') atualizarCampoMetodoReceita();
+    document.querySelector(SELECTORS.metodo).value = tipoTransacao === 'entradas' ? '' : (trans.metodo || '');
 
     const parc = document.getElementById('parcelas');
     if (parc) parc.value = trans.parcelasTotal || 1;
@@ -2124,7 +2127,7 @@ function _parcelasNumero(input) {
 function atualizarCampoParcelas() {
     const ehReceita = document.querySelector(SELECTORS.tipoTransacao)?.value === 'entradas';
     const metodoAtual = typeof metodoSelecionado === 'function' ? metodoSelecionado() : null;
-    const ehCredito = !ehReceita && !!metodoAtual && metodoAtual.metodoKind === 'Crédito';
+    const ehCredito = !ehReceita && !_formEhEstorno() && !!metodoAtual && metodoAtual.metodoKind === 'Crédito';
 
     const set = (id, mostrar) => { const el = document.getElementById(id); if (el) el.hidden = !mostrar; };
     // "Mês" (competência): preview de qual mês esse lançamento vai cair,
@@ -2171,9 +2174,7 @@ function atualizarLabelsPorTipo() {
 
     const metodoSel = document.querySelector(SELECTORS.metodo);
     if (ehReceita) {
-        // Receita normalmente não tem método — exceto "Reembolso/Estorno"
-        // (ver atualizarCampoMetodoReceita), que pode vir via Pix ou direto
-        // na fatura do cartão.
+        // Receita não tem forma de pagamento
         atualizarCampoMetodoReceita();
         const compGrp = document.getElementById('competenciaGroup');
         if (compGrp) compGrp.hidden = true;
@@ -2185,6 +2186,7 @@ function atualizarLabelsPorTipo() {
         // Reembolso na receita) — repõe a lista completa pra despesa.
         if (typeof preencherDropdownMetodos === 'function') preencherDropdownMetodos();
         if (typeof atualizarCampoCredito === 'function') atualizarCampoCredito();
+        if (metodoSel) delete metodoSel.dataset.restrito;
     }
 
     // Categorias são específicas de receita x despesa
@@ -2366,43 +2368,48 @@ function atualizarCampoCredito() {
  * tipo de método que faz sentido pra cada uma.
  */
 function atualizarCampoMetodoReceita() {
-    // Só se aplica à Receita — é ela que esconde o bloco Método por padrão
-    // (mostrando de volta só pra Estorno/Reembolso). Despesa SEMPRE mostra
-    // o campo; como o listener de "categoria muda" chama esta função sem
-    // saber qual tipo está ativo, sem essa guarda trocar de categoria numa
-    // Despesa escondia (e limpava) a Forma de pgto. sozinho.
     const ehReceita = document.querySelector(SELECTORS.tipoTransacao)?.value === 'entradas';
-    if (!ehReceita) return;
-
-    const categoriaAtual = document.querySelector(SELECTORS.categoria)?.value;
-    const ehEstorno = categoriaAtual === CATEGORIA_ESTORNO;
-    const ehReembolso = categoriaAtual === CATEGORIA_REEMBOLSO;
-    // Receita SEMPRE mostra a Forma de pagamento (opcional). Todas as formas
-    // aparecem; as que não servem pra categoria escolhida ficam cinzas
-    // (desabilitadas): só "Estorno" aceita cartão de crédito; qualquer outra
-    // categoria (Reembolso incluso) aceita só Pix/Dinheiro/etc., sem crédito.
     const blocoMetodo = document.getElementById('metodoBloco');
-    if (blocoMetodo) blocoMetodo.hidden = false;
     const metodoSel = document.querySelector(SELECTORS.metodo);
-    if (metodoSel) {
-        metodoSel.required = false;
-        const atual = metodoSel.value;
-        metodoSel.innerHTML = '<option value="">Selecione...</option>';
-        (estadoApp.menus.metodos || []).forEach(m => {
-            const label = rotuloMetodo(m);
-            const o = document.createElement('option');
-            o.value = label; o.textContent = label;
-            o.disabled = ehEstorno ? m.metodoKind !== 'Crédito' : m.metodoKind === 'Crédito';
-            metodoSel.appendChild(o);
-        });
-        const opAtual = [...metodoSel.options].find(o => o.value === atual);
-        metodoSel.value = opAtual && !opAtual.disabled ? atual : '';
+    if (ehReceita) {
+        // Receita não tem forma de pagamento (Reembolso é receita comum; Estorno mora em Despesas)
+        if (blocoMetodo) blocoMetodo.hidden = true;
+        if (metodoSel) { metodoSel.required = false; metodoSel.value = ''; }
+        const compGrp = document.getElementById('competenciaGroup');
+        if (compGrp) compGrp.hidden = true;
+        const parceleGrp = document.getElementById('parceleGroup');
+        if (parceleGrp) parceleGrp.hidden = true;
+        ajustarCamposSozinhos();
+        return;
     }
-    const compGrp = document.getElementById('competenciaGroup');
-    if (compGrp) compGrp.hidden = true; // receita nunca mostra o select "Mês"
-    const parceleGrp = document.getElementById('parceleGroup');
-    if (parceleGrp) parceleGrp.hidden = true;
+    // Despesa: categoria "Estorno" só aceita cartão de crédito (as outras formas ficam cinzas)
+    if (blocoMetodo) blocoMetodo.hidden = false;
+    if (metodoSel) {
+        metodoSel.required = true;
+        const ehEstorno = _formEhEstorno();
+        if (ehEstorno || metodoSel.dataset.restrito) {
+            const atual = metodoSel.value;
+            metodoSel.innerHTML = '<option value="">Selecione...</option>';
+            (estadoApp.menus.metodos || []).forEach(m => {
+                const label = rotuloMetodo(m);
+                const o = document.createElement('option');
+                o.value = label; o.textContent = label;
+                o.disabled = ehEstorno && m.metodoKind !== 'Crédito';
+                metodoSel.appendChild(o);
+            });
+            const opAtual = [...metodoSel.options].find(o => o.value === atual);
+            metodoSel.value = opAtual && !opAtual.disabled ? atual : '';
+            if (ehEstorno) metodoSel.dataset.restrito = '1'; else delete metodoSel.dataset.restrito;
+        }
+    }
+    if (typeof atualizarCampoParcelas === 'function') atualizarCampoParcelas();
     ajustarCamposSozinhos();
+}
+
+/** Despesa com a categoria "Estorno": abate a fatura de um cartão (gravada como lançamento de entrada nesse cartão). */
+function _formEhEstorno() {
+    return document.querySelector(SELECTORS.tipoTransacao)?.value === 'saidas'
+        && document.querySelector(SELECTORS.categoria)?.value === CATEGORIA_ESTORNO;
 }
 
 /**

@@ -156,8 +156,9 @@ function preencherDropdownCategorias() {
     selectCategoria.innerHTML = '<option value="">Selecione...</option>';
 
     // Lista específica conforme o tipo do lançamento (receita x despesa)
+    // "Estorno" é categoria de Despesa (abate a fatura do cartão), não de Receita
     const lista = estadoApp.tipoAtual === 'entradas'
-        ? estadoApp.menus.categoriasReceita
+        ? (estadoApp.menus.categoriasReceita || []).filter(c => c !== CATEGORIA_ESTORNO)
         : estadoApp.menus.categoriasDespesa;
 
     (lista && lista.length ? lista : estadoApp.menus.categorias).forEach(categoria => {
