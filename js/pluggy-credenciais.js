@@ -9,12 +9,18 @@
  * Functions passam a usar essa credencial pra esse usuário; sem cadastrar
  * nada, continuam caindo pros secrets globais do app, como sempre foi.
  *
- * Painel que se sobrepõe à tela atual (#pluggyCredOverlay em index.html),
- * aberto/fechado pelo botão "Dados cadastrais" embaixo do título "Pluggy"
- * na sub-aba Open Finance (ver iniciarPluggy em pluggy.js) ou pelo "✕".
+ * Painel inline (#pluggyCredPainel, dentro do template de menus-ui.js) que
+ * troca de lugar com o conteúdo normal do Open Finance (#pluggyConteudoNormal)
+ * quando o botão "Dados cadastrais" (embaixo do título "Pluggy") é clicado —
+ * mesmo botão fecha de novo, como qualquer outra sub-aba de Configurações.
  * Quem já tem credencial cadastrada vê os campos travados (só leitura) até
  * clicar em "Editar" — trocar esses dados pode quebrar a sincronização, daí
  * o aviso e a confirmação extra antes de salvar uma mudança de verdade.
+ *
+ * O template de menus-ui.js é recriado do zero toda vez que a aba
+ * Configurações abre (carregarAbaMenus) — por isso os listeners são
+ * re-anexados a cada vez via iniciarPluggyCredenciais(), chamada de dentro
+ * de iniciarPluggy() (pluggy.js), e não uma vez só no carregamento da página.
  */
 
 /** Linha salva (se houver) — carregada toda vez que o painel abre. */
@@ -41,7 +47,8 @@ function _atualizarPluggyCredStatusUI() {
 /** Busca a credencial do usuário — chamada ao abrir a sub-aba Open Finance
  *  (só o status) e ao abrir o painel (status + preenche o formulário). */
 async function carregarPluggyCredStatus() {
-    const { data } = await sb.from('pluggy_credenciais').select('client_id, client_secret').maybeSingle();
+    const { data, error } = await sb.from('pluggy_credenciais').select('client_id, client_secret').maybeSingle();
+    if (error) console.error('Falha ao carregar credencial da Pluggy:', error);
     _pluggyCredAtual = data || null;
     _atualizarPluggyCredStatusUI();
 }
@@ -189,35 +196,43 @@ function _alternarVerSecretPluggyCred() {
     olho.textContent = vendo ? '👁' : '🙈';
 }
 
-function abrirPluggyCredOverlay() {
-    const ov = document.getElementById('pluggyCredOverlay');
-    if (!ov) return;
-    ov.hidden = false;
-    document.getElementById('btnPluggyCred')?.setAttribute('aria-expanded', 'true');
+/** Abre o painel "Dados cadastrais" no lugar do conteúdo normal do Open
+ *  Finance — igual a qualquer outra sub-aba de Configurações (título
+ *  "Pluggy" continua visível, só o que vem abaixo dele troca). */
+function abrirPluggyCredPainel() {
+    const painel = document.getElementById('pluggyCredPainel');
+    const normal = document.getElementById('pluggyConteudoNormal');
+    if (!painel || !normal) return;
+    painel.hidden = false;
+    normal.hidden = true;
+    const btn = document.getElementById('btnPluggyCred');
+    btn?.classList.add('active');
+    btn?.setAttribute('aria-expanded', 'true');
     carregarPluggyCredenciais();
 }
 
-function fecharPluggyCredOverlay() {
-    const ov = document.getElementById('pluggyCredOverlay');
-    if (!ov) return;
-    ov.hidden = true;
-    document.getElementById('btnPluggyCred')?.setAttribute('aria-expanded', 'false');
+function fecharPluggyCredPainel() {
+    const painel = document.getElementById('pluggyCredPainel');
+    const normal = document.getElementById('pluggyConteudoNormal');
+    if (!painel || !normal) return;
+    painel.hidden = true;
+    normal.hidden = false;
+    const btn = document.getElementById('btnPluggyCred');
+    btn?.classList.remove('active');
+    btn?.setAttribute('aria-expanded', 'false');
 }
 
-function alternarPluggyCredOverlay() {
-    const ov = document.getElementById('pluggyCredOverlay');
-    if (!ov) return;
-    if (ov.hidden) abrirPluggyCredOverlay(); else fecharPluggyCredOverlay();
+function alternarPluggyCredPainel() {
+    const painel = document.getElementById('pluggyCredPainel');
+    if (!painel) return;
+    if (painel.hidden) abrirPluggyCredPainel(); else fecharPluggyCredPainel();
 }
 
+/** Chamada de dentro de iniciarPluggy() (pluggy.js) toda vez que a aba
+ *  Configurações é (re)renderizada — ver nota no topo do arquivo. */
 function iniciarPluggyCredenciais() {
-    document.getElementById('pluggyCredFechar')?.addEventListener('click', fecharPluggyCredOverlay);
-    document.getElementById('pluggyCredOverlay')?.addEventListener('click', (e) => {
-        if (e.target.id === 'pluggyCredOverlay') fecharPluggyCredOverlay();
-    });
     document.getElementById('pluggyCredSalvar')?.addEventListener('click', _pluggyCredBotaoPrincipalClick);
     document.getElementById('pluggyCredCancelarEdicao')?.addEventListener('click', _pluggyCredSairEdicaoSemSalvar);
     document.getElementById('pluggyCredRemover')?.addEventListener('click', _removerPluggyCredenciais);
     document.getElementById('pluggyCredVerSecret')?.addEventListener('click', _alternarVerSecretPluggyCred);
 }
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciarPluggyCredenciais); else iniciarPluggyCredenciais();
