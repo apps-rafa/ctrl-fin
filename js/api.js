@@ -155,6 +155,8 @@ async function carregarMenusAPI() {
             metodosTodos: todos.filter(i => i.tipo === 'Método'),
             cores: {
                 categoria: mapaCor(todos.filter(i => i.tipo === 'Categoria')),
+                categoriaDespesa: mapaCor(todos.filter(i => i.tipo === 'Categoria' && i.categoriaTipo !== 'entradas')),
+                categoriaReceita: mapaCor(todos.filter(i => i.tipo === 'Categoria' && i.categoriaTipo === 'entradas')),
                 metodo: mapaCorMetodo(todos.filter(i => i.tipo === 'Método'))
             }
         };

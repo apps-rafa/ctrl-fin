@@ -101,7 +101,8 @@ function _visao(ano, tipo) {
     return { todas: base.linhas, linhas, totais, temEstorno: base.temEstorno };
 }
 
-function _corDoNomeAnual(nome) {
+function _corDoNomeAnual(nome, tipo) {
+    if (estadoAnual.agrupar === 'categoria' && typeof corDaCategoria === 'function') return corDaCategoria(nome, tipo);
     const cores = (estadoApp.menus && estadoApp.menus.cores) || {};
     const mapa = estadoAnual.agrupar === 'categoria' ? cores.categoria : cores.metodo;
     return (mapa && mapa[nome]) || (typeof corPadraoChip === 'function' ? corPadraoChip(nome) : '#6366F1');
@@ -129,7 +130,7 @@ function _linhaGrafico(linhasR, linhasD, meses, mesAtual, dim = () => '') {
         const positivos = linhas.filter(l => !l.nome.startsWith('(−)') && l.meses[i] > 0.004);
         const total = soma(linhas, i);
         const h = total > 0 ? Math.max(4, (total / max) * ALTURA) : 0;
-        const segs = positivos.map(l => `<span class="seg" style="flex:${l.meses[i]};background:${_corDoNomeAnual(l.nome)}" title="${rotulo} · ${_esc(l.nome)} · ${MESES_ANUAL_LONGO[i]}: ${_fmtMoeda(l.meses[i])} (${Math.round(l.meses[i] / total * 100)}%)"></span>`).join('');
+        const segs = positivos.map(l => `<span class="seg" style="flex:${l.meses[i]};background:${_corDoNomeAnual(l.nome, classe === 'rec' ? 'entradas' : 'saidas')}" title="${rotulo} · ${_esc(l.nome)} · ${MESES_ANUAL_LONGO[i]}: ${_fmtMoeda(l.meses[i])} (${Math.round(l.meses[i] / total * 100)}%)"></span>`).join('');
         return `<div class="barra ${classe}" style="height:${h.toFixed(0)}px" title="${rotulo} de ${MESES_ANUAL_LONGO[i]}: ${_fmtMoeda(total)}">${segs}</div>`;
     };
     const cels = meses.map(i => `<td class="grafico-cel${i === mesAtual ? ' atual' : ''}${dim(i)}"><div class="par">${barra(linhasR, i, 'rec', 'Receita')}${barra(linhasD, i, 'desp', 'Despesa')}</div></td>`).join('');
@@ -160,7 +161,7 @@ function _secaoTabela({ rotulo, tipo, v, meses, mesAtual, ultimoMes, dim }) {
             const forca = Math.round(8 + 42 * Math.min(1, Math.abs(x) / maxCel));
             return `<td class="cel${i === mesAtual ? ' atual' : ''}${dim(i)}" style="background:color-mix(in srgb, ${neg ? 'var(--receita-text)' : corHeat} ${forca}%, transparent)" title="${_esc(l.nome)} · ${MESES_ANUAL_LONGO[i]}: ${_fmtMoeda(x)}">${_fmtCel(x)}</td>`;
         }).join('');
-        const ponto = neg ? '' : `<i class="anual-ponto" style="background:${_corDoNomeAnual(l.nome)}"></i>`;
+        const ponto = neg ? '' : `<i class="anual-ponto" style="background:${_corDoNomeAnual(l.nome, tipo)}"></i>`;
         const alvo = neg ? '' : ` data-anual-linha="${_esc(l.nome)}" title="Filtrar só ${_esc(l.nome)}"`;
         return `<tr><th scope="row" class="anual-nome${neg ? '' : ' clicavel'}"${alvo}>${ponto}<span>${_nomeCurto(l.nome)}</span></th>${cel}<td class="total">${_fmtCel(l.total)}</td></tr>`;
     }).join('');
@@ -199,7 +200,7 @@ function _renderComparacaoMeses(vD, vR, ref) {
         if (!ls.length) return '';
         const tA = ls.reduce((a, l) => a + l.a, 0), tB = ls.reduce((a, l) => a + l.b, 0);
         const pT = _pctTipo(tipo, tA, tB);
-        const linhas = ls.map(l => `<tr><th scope="row" class="anual-nome"><i class="anual-ponto" style="background:${_corDoNomeAnual(l.nome)}"></i><span>${_nomeCurto(l.nome)}</span></th>
+        const linhas = ls.map(l => `<tr><th scope="row" class="anual-nome"><i class="anual-ponto" style="background:${_corDoNomeAnual(l.nome, tipo)}"></i><span>${_nomeCurto(l.nome)}</span></th>
             <td>${l.a ? _fmtCel(l.a) : '–'}</td><td>${l.b ? _fmtCel(l.b) : '–'}</td>
             <td class="delta ${l.p.classe || (l.p.valor === null ? _pctTipo(tipo, l.d, 0).classe : '')}">${l.d > 0 ? '+' : ''}${_fmtCel(l.d)}</td>
             <td class="delta ${l.p.classe}">${_fmtPct(l.p.valor)}</td></tr>`).join('');
