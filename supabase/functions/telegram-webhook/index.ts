@@ -292,9 +292,11 @@ function interpretarValorETipo(texto: string): LancamentoDetectado | null {
 /** SMS de "compra aprovada" no cartão (Bradesco e bancos com o mesmo
  *  formato) encaminhado pro bot — ex.: "BRADESCO CARTOES: COMPRA APROVADA
  *  NO CARTAO FINAL 1525 EM 26/09/2026 15:30. VALOR DE R$ 175,05 ASSAI
- *  ATACADISTA         RIO DE JANEI." Formato fixo o bastante pra extrair
- *  valor/data/estabelecimento direto, sem a heurística de linguagem natural
- *  do interpretarValorETipo (que é quem trata o texto se isto não bater). */
+ *  ATACADISTA         RIO DE JANEI." ou, em compras de app/online, com um
+ *  código de canal antes do nome real (marcado com "*"): "DL          *UBER
+ *  RIDES   SAO PAULO." Formato fixo o bastante pra extrair valor/data/
+ *  estabelecimento direto, sem a heurística de linguagem natural do
+ *  interpretarValorETipo (que é quem trata o texto se isto não bater). */
 function interpretarSmsCartao(texto: string): LancamentoDetectado | null {
   const m = texto.match(
     /CART[AÃ]O\s+FINAL\s*\d{3,4}[\s\S]*?EM\s+(\d{1,2})\/(\d{1,2})\/(\d{4})\s+\d{1,2}:\d{2}[\s\S]*?VALOR\s+DE\s+R\$\s*([\d.,]+)\s+([\s\S]+?)\.?\s*$/i,
@@ -305,8 +307,14 @@ function interpretarSmsCartao(texto: string): LancamentoDetectado | null {
   if (mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
   const valor = parseFloat(valorS.includes(",") ? valorS.replace(/\./g, "").replace(",", ".") : valorS);
   if (!isFinite(valor) || valor <= 0) return null;
-  // Cidade costuma vir colada com 2+ espaços depois do nome do estabelecimento.
-  const estabelecimento = estabRaw.split(/\s{2,}/)[0].replace(/\s+/g, " ").trim();
+  // Campos (código de canal / nome / cidade) vêm separados por 2+ espaços.
+  // Compra online costuma prefixar o nome real com "*" (ex.: "DL *UBER RIDES
+  // SAO PAULO") — nesse caso o nome é esse segmento (sem o "*"), não o
+  // código antes dele; sem "*" (loja física), o primeiro segmento já é o
+  // nome ("ASSAI ATACADISTA RIO DE JANEI").
+  const segmentos = estabRaw.split(/\s{2,}/).map((s) => s.trim()).filter(Boolean);
+  const comAsterisco = segmentos.find((s) => s.startsWith("*"));
+  const estabelecimento = (comAsterisco ? comAsterisco.slice(1) : segmentos[0])?.replace(/\s+/g, " ").trim();
   if (!estabelecimento) return null;
   return {
     valor, tipo: "saidas", parcelas: null,
