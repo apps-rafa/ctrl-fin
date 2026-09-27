@@ -1025,8 +1025,8 @@ async function carregarRevisaoPluggy() {
     // Mesmo layout do CSV/PDF (js/revisao-importacao.js): grupo → subgrupos
     // Despesas/Receitas → tabela X/Data/Valor/Categoria/Descrição. Sem
     // "Forma de pgto." — o método já vem fixado pela conta em "Método do app".
-    const grupo = (id, titulo, itens, nota = '') => htmlGrupoRevisao({
-        id, titulo: titulo, abertos: _abertosPluggy, padraoAberto: false, subAberto: false, itens, nota,
+    const grupo = (id, titulo, itens, nota = '', semSubgrupos = false) => htmlGrupoRevisao({
+        id, titulo: titulo, abertos: _abertosPluggy, padraoAberto: false, subAberto: false, itens, nota, semSubgrupos,
         tipoDe: i => i.tipo, colunas: ['Data', 'Valor', 'Categoria', 'Descrição'],
         htmlLinha: gerarHTMLImportadaPluggy,
     });
@@ -1053,12 +1053,18 @@ async function carregarRevisaoPluggy() {
     // Mercado Pago: Conta...) com os 3 grupos de sempre dentro; com uma só, fica
     // como sempre foi.
     const notaDup = `<p class="import-csv-nota">Mesmo tipo, data (± 2 dias) e valor de algo já lançado no app. Vêm com X: ao importar, cada uma é conciliada com o lançamento que já existe (ele ganha o selo 🏦), sem duplicar — clique no ↺ se for mesmo um lançamento novo.</p>`;
-    const doisGrupos = (pref, lRev, lDup) =>
-        grupo(`${pref}revisar`, '⚠️ Para revisar', lRev) +
-        grupo(`${pref}duplicatas`, '🔁 Possíveis duplicatas — já existe algo parecido no app', lDup, notaDup);
+    // Cartão de crédito é praticamente sempre despesa — o subgrupo
+    // "Despesas" vira uma camada de clique inútil (não existe "Receitas"
+    // pra justificar o split); pula direto pra tabela.
+    const doisGrupos = (pref, lRev, lDup, semSubgrupos = false) =>
+        grupo(`${pref}revisar`, '⚠️ Para revisar', lRev, '', semSubgrupos) +
+        grupo(`${pref}duplicatas`, '🔁 Possíveis duplicatas — já existe algo parecido no app', lDup, notaDup, semSubgrupos);
     const blocosPorConta = () => {
         const ids = [...new Set(marcados.map(i => i.conta_id))];
-        if (ids.length <= 1) return doisGrupos('pluggy-', revisar, duplicatas);
+        if (ids.length <= 1) {
+            const semSub = ids.length === 1 && contasPorId[ids[0]]?.tipo_conta === 'CREDIT';
+            return doisGrupos('pluggy-', revisar, duplicatas, semSub);
+        }
         const nomes = ids.map(id => contasPorId[id] ? tituloContaPluggyCurto(contasPorId[id]) : 'Conta');
         return ids.map((id, k) => {
             const dela = l => l.filter(i => i.conta_id === id);
@@ -1070,7 +1076,7 @@ async function carregarRevisaoPluggy() {
             return _grupoColapsavelConciliar({
                 id: `pluggy-conta-${id}`, abertos: _abertosPluggy, padraoAberto: false,
                 titulo: `🏦 ${nome} (${total})`,
-                corpo: doisGrupos(`pluggy-c${id}-`, lRev, lDup),
+                corpo: doisGrupos(`pluggy-c${id}-`, lRev, lDup, c?.tipo_conta === 'CREDIT'),
             });
         }).join('');
     };

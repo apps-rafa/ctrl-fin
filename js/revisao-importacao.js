@@ -63,10 +63,24 @@ function htmlLinhaRevisao(o) {
  * Subgrupos Despesas / Receitas (cada um é um <details> igual ao grupo pai —
  * mesma classe, mesma seta — com a própria tabela). `abertos` guarda o estado
  * pelo id completo; começam abertos.
- *   colunas   títulos das colunas DEPOIS da primeira (a do X/ação, sem título)
+ *   colunas        títulos das colunas DEPOIS da primeira (a do X/ação, sem título)
+ *   semSubgrupos   pula o split Despesas/Receitas e mostra uma tabela só com
+ *                  tudo — usado quando a origem só produz um tipo (ex.: conta
+ *                  de cartão de crédito, que é sempre despesa) e o subgrupo
+ *                  duplicado não ajudaria em nada.
  */
-function htmlSubgruposRevisao({ idPai, abertos, itens, tipoDe, colunas, htmlLinha, subAberto = true }) {
+function htmlSubgruposRevisao({ idPai, abertos, itens, tipoDe, colunas, htmlLinha, subAberto = true, semSubgrupos = false }) {
     const cab = `<thead><tr><th></th>${colunas.map(c => `<th>${c}</th>`).join('')}</tr></thead>`;
+    if (semSubgrupos) {
+        if (!itens.length) return '';
+        return `
+    <div class="import-csv-tabela-wrap import-csv-tabela-wrap--solta">
+        <table class="import-csv-tabela import-csv-tabela--compacta">
+            ${cab}
+            <tbody>${itens.map(htmlLinha).join('')}</tbody>
+        </table>
+    </div>`;
+    }
     const sub = (tipo, lista) => !lista.length ? '' : _grupoColapsavelConciliar({
         id: `${idPai}-${tipo}`, abertos, padraoAberto: subAberto,
         titulo: `${tipo === 'entradas' ? 'Receitas' : 'Despesas'} (${lista.length})`,
@@ -82,12 +96,13 @@ function htmlSubgruposRevisao({ idPai, abertos, itens, tipoDe, colunas, htmlLinh
          + sub('entradas', itens.filter(i => tipoDe(i) === 'entradas'));
 }
 
-/** Grupo pai (details) com os subgrupos Despesas/Receitas dentro. */
-function htmlGrupoRevisao({ id, titulo, abertos, padraoAberto, itens, tipoDe, colunas, htmlLinha, nota = '', subAberto = true }) {
+/** Grupo pai (details) com os subgrupos Despesas/Receitas dentro (ou uma
+ *  tabela única, com `semSubgrupos`). */
+function htmlGrupoRevisao({ id, titulo, abertos, padraoAberto, itens, tipoDe, colunas, htmlLinha, nota = '', subAberto = true, semSubgrupos = false }) {
     if (!itens.length) return '';
     return _grupoColapsavelConciliar({
         id, abertos, padraoAberto, titulo: `${titulo} (${itens.length})`,
-        corpo: nota + htmlSubgruposRevisao({ idPai: id, abertos, itens, tipoDe, colunas, htmlLinha, subAberto })
+        corpo: nota + htmlSubgruposRevisao({ idPai: id, abertos, itens, tipoDe, colunas, htmlLinha, subAberto, semSubgrupos })
     });
 }
 
