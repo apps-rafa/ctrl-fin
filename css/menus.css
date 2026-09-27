@@ -1309,7 +1309,9 @@ summary [role="button"] { font-family: Arial; text-align: center; }
 
 /* Botão "Dados cadastrais" (credencial própria da Pluggy), embaixo do título
    "Pluggy" na sub-aba Open Finance, + status ao lado — ver
-   js/pluggy-credenciais.js. Toggle: abre/fecha o painel #pluggyCredOverlay. */
+   js/pluggy-credenciais.js. Toggle: troca #pluggyConteudoNormal por
+   #pluggyCredPainel no lugar (mesmo botão fecha de novo), fica "aceso"
+   (.active) igual outras sub-abas de Configurações enquanto aberto. */
 .pluggy-cred-aviso {
   display: flex;
   align-items: center;
@@ -1317,43 +1319,19 @@ summary [role="button"] { font-family: Arial; text-align: center; }
   flex-wrap: wrap;
   margin-bottom: .6rem;
 }
+#btnPluggyCred.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
 /* .menu-hint tem margin negativa própria (pra colar em cima do parágrafo
    seguinte) — aqui ela descentralizava o texto em relação ao botão ao lado. */
 .pluggy-cred-status { color: var(--text-muted); font-size: .78rem; margin: 0; }
 
-/* Painel "Dados cadastrais" (#pluggyCredOverlay, ver index.html) — se
-   sobrepõe à página atual (fundo escurecido + caixa central), não troca o
-   app inteiro de tela como "visão anual"/"documentação". */
-.pluggy-cred-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  background: rgba(17, 24, 39, .55);
-  padding: 1rem;
-  overflow-y: auto;
-}
-.pluggy-cred-painel {
-  background: var(--surface);
-  color: var(--text);
-  border-radius: var(--radius);
-  box-shadow: 0 20px 45px rgba(0,0,0,.35);
-  max-width: 560px;
-  width: 100%;
-  margin: 2rem 0;
-}
-.pluggy-cred-cabecalho {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: .6rem;
-  padding: 1rem 1.2rem;
-  border-bottom: 1px solid var(--border);
-}
-.pluggy-cred-cabecalho h2 { margin: 0; font-size: 1.05rem; }
-.pluggy-cred-corpo { display: flex; flex-direction: column; gap: .8rem; padding: 1.2rem; }
+/* Painel "Dados cadastrais" (#pluggyCredPainel, ver js/menus-ui.js) — fica
+   embutido na própria sub-aba Open Finance, no lugar do conteúdo normal
+   (contas conectadas/sincronização), não numa caixa flutuante por cima. */
+.pluggy-cred-painel-inline { display: flex; flex-direction: column; gap: .8rem; }
 .pluggy-cred-passos { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: .4rem; font-size: .82rem; color: var(--text); }
 .pluggy-cred-passos li { line-height: 1.4; }
 .pluggy-cred-secret-linha { display: flex; gap: .4rem; }
