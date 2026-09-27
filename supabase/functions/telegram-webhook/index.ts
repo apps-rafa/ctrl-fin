@@ -247,7 +247,18 @@ const VERBOS_DESPESA = /(?<![\p{L}])(?:gast|compr|pagu|pagar|pagamento)[\p{L}]*/
  *  não é um lançamento (retorna null e o bot cai no "não entendi"). O valor
  *  é sempre o TOTAL da compra; "parcelas" só vem preenchido em "10x"/"em 10
  *  vezes"/"10 parcelas". */
-function interpretarValorETipo(texto: string): { valor: number; tipo: "entradas" | "saidas"; resto: string; parcelas: number | null; data: string | null } | null {
+type LancamentoDetectado = {
+  valor: number;
+  tipo: "entradas" | "saidas";
+  resto: string;
+  parcelas: number | null;
+  data: string | null;
+  /** Só preenchido pelo parser de SMS de cartão — nome do estabelecimento,
+   *  sem a ambiguidade do texto livre digitado pelo usuário. */
+  estabelecimento?: string | null;
+};
+
+function interpretarValorETipo(texto: string): LancamentoDetectado | null {
   const dt = extrairData(texto);
   let corpo = dt.resto;
   let parcelas: number | null = null;
@@ -276,6 +287,32 @@ function interpretarValorETipo(texto: string): { valor: number; tipo: "entradas"
     .replace(/\s+/g, " ")
     .trim();
   return { valor, tipo, resto, parcelas, data: dt.data };
+}
+
+/** SMS de "compra aprovada" no cartão (Bradesco e bancos com o mesmo
+ *  formato) encaminhado pro bot — ex.: "BRADESCO CARTOES: COMPRA APROVADA
+ *  NO CARTAO FINAL 1525 EM 26/09/2026 15:30. VALOR DE R$ 175,05 ASSAI
+ *  ATACADISTA         RIO DE JANEI." Formato fixo o bastante pra extrair
+ *  valor/data/estabelecimento direto, sem a heurística de linguagem natural
+ *  do interpretarValorETipo (que é quem trata o texto se isto não bater). */
+function interpretarSmsCartao(texto: string): LancamentoDetectado | null {
+  const m = texto.match(
+    /CART[AÃ]O\s+FINAL\s*\d{3,4}[\s\S]*?EM\s+(\d{1,2})\/(\d{1,2})\/(\d{4})\s+\d{1,2}:\d{2}[\s\S]*?VALOR\s+DE\s+R\$\s*([\d.,]+)\s+([\s\S]+?)\.?\s*$/i,
+  );
+  if (!m) return null;
+  const [, diaS, mesS, anoS, valorS, estabRaw] = m;
+  const dia = Number(diaS), mes = Number(mesS), ano = Number(anoS);
+  if (mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
+  const valor = parseFloat(valorS.includes(",") ? valorS.replace(/\./g, "").replace(",", ".") : valorS);
+  if (!isFinite(valor) || valor <= 0) return null;
+  // Cidade costuma vir colada com 2+ espaços depois do nome do estabelecimento.
+  const estabelecimento = estabRaw.split(/\s{2,}/)[0].replace(/\s+/g, " ").trim();
+  if (!estabelecimento) return null;
+  return {
+    valor, tipo: "saidas", parcelas: null,
+    data: `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`,
+    resto: estabelecimento, estabelecimento,
+  };
 }
 
 interface ContaPluggy {
@@ -1380,7 +1417,7 @@ Deno.serve(async (req: Request) => {
       // Texto livre: tenta entender como um lançamento ("gastei 35,90 no
       // mercado", "recebi 200 de salário"). Sem um valor em dinheiro no
       // texto, não dá pra saber o que é — cai no "não entendi" de sempre.
-      const achado = interpretarValorETipo(texto);
+      const achado = interpretarSmsCartao(texto) ?? interpretarValorETipo(texto);
       if (!achado) {
         // Sem valor no texto e com rascunho esperando confirmação: o texto é
         // a descrição — atualiza e repete o rascunho (com Confirmar/Cancelar).
@@ -1478,9 +1515,13 @@ Deno.serve(async (req: Request) => {
       }
       const parcelasFinal = tipo === "saidas" && !ehEstornoTxt && parcelas && metodoObj?.metodo_kind === "Crédito" ? parcelas : null;
 
-      // O bot nunca inventa descrição: começa em branco; o que o usuário
-      // responder (fora dos botões) vira a descrição.
-      const descricao = "";
+      // O bot nunca inventa descrição em texto livre: começa em branco, e o
+      // que o usuário responder (fora dos botões) vira a descrição. Já um
+      // SMS de cartão traz o nome do estabelecimento sem ambiguidade, então
+      // usa ele direto.
+      const descricao = achado.estabelecimento
+        ? achado.estabelecimento.charAt(0).toUpperCase() + achado.estabelecimento.slice(1).toLowerCase()
+        : "";
 
       const rascunho: RascunhoLancamento = {
         tipo, valor, descricao, categoria,
