@@ -267,13 +267,13 @@ function calcularResumoMes() {
         if (!t.pendente && String(t.data).slice(0, 10) <= hoje) porCartao.set(t.metodo, (porCartao.get(t.metodo) || 0) - tot);
         else avulsos -= tot;
     });
-    let faturaAberta = 0;
+    let faturaAberta = 0, pagoCredito = 0;
     porCartao.forEach((soma, rot) => {
         const cartao = metodosCredito.get(rot);
         const venc = cartao && cartao.diaVencimento ? dataVencimento(compVista, cartao.diaVencimento) : null;
         const escolha = escolhasFatura.get(rot + '|' + compVista);
         const paga = escolha !== undefined ? escolha : !!(venc && venc <= hoje);
-        if (paga) pago += soma; else faturaAberta += soma;
+        if (paga) { pago += soma; pagoCredito += soma; } else faturaAberta += soma;
     });
 
     estadoApp.resumo = {
@@ -285,7 +285,9 @@ function calcularResumoMes() {
         saidasAtual: r2(pago),
         saidasAPagar: r2(avulsos + faturaAberta),
         saidasAvulsos: r2(avulsos),
-        saidasFatura: r2(faturaAberta)
+        saidasFatura: r2(faturaAberta),
+        saidasPagoCredito: r2(pagoCredito),        // faturas já pagas/vencidas
+        saidasPagoPix: r2(pago - pagoCredito)      // o resto do "pago" (PIX, dinheiro...)
     };
 
     console.log('📈 Resumo calculado:', estadoApp.resumo);
