@@ -797,3 +797,6 @@
 /* "Carregar mais 5 · restam X": texto menor, "restam" na mesma linha e do mesmo tamanho (só a cor muda) */
 .lista-mais-btn, .busca-ampla-btn[data-mais-grupo], .busca-ampla-btn[data-recentes-mais], .busca-ampla-btn[data-lixeira-mais] { font-size: .72rem !important; padding: .4rem .7rem; }
 .lista-mais-btn small, .busca-ampla-btn[data-mais-grupo] small { display: inline; margin: 0 0 0 .4rem; font-size: inherit !important; font-weight: 400; color: var(--text-muted); }
+
+/* Subgrupo da fatura: sem tracejado entre o cabeçalho e o box do vencimento */
+.subgrupo-cab:has(+ .fatura-virtual) { border-bottom: 0 !important; margin-bottom: 0 !important; }
