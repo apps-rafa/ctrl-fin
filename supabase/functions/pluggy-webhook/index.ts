@@ -526,7 +526,7 @@ Deno.serve(async (req: Request) => {
     const idsAtivos = new Set((metodosAtivos ?? []).map((m: { id: number }) => m.id));
     const contasSemForma = contas.filter((c: { metodo_id: number | null }) => !c.metodo_id || !idsAtivos.has(c.metodo_id));
     for (const c of contasSemForma) {
-      await avisarErroTelegram(supabaseAdmin, `pluggy-sem-forma-${c.id}`, `⚠️ A conta ${c.nome_conta ?? c.id} chegou do Open Finance mas está sem forma de pagamento ativa (Selecione...). Ligue-a a uma forma em Configurações > Open Finance pra ela voltar a sincronizar.`);
+      await avisarErroTelegram(supabaseAdmin, `pluggy-sem-forma-${c.id}`, `⚠️ A conta ${c.nome_conta ?? c.id} chegou do Open Finance mas está sem forma de pagamento ativa (Selecione...). Isso só se resolve no app: abra Configurações > Open Finance e ligue essa conta a uma forma de pagamento pra ela voltar a sincronizar.`);
     }
     const contasOk = contas.filter((c: { metodo_id: number | null }) => c.metodo_id && idsAtivos.has(c.metodo_id));
     if (!contasOk.length) return json({ ok: true, ignorado: "contas sem forma de pagamento ativa" });
