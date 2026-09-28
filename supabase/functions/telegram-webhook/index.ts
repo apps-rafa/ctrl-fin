@@ -722,7 +722,13 @@ async function enviarRascunho(
     "Confirma?",
   ].filter((l) => l !== null).join("\n");
   // Botão "✏️ Editar": abre o formulário (mini app) já preenchido. Só aparece
-  // quando dá pra carregar as listas do usuário.
+  // quando dá pra carregar as listas do usuário. Importante: o Telegram só
+  // deixa o mini app devolver dados via WebApp.sendData() quando ele foi
+  // aberto por um botão de TECLADO (ReplyKeyboardMarkup) — um web_app dentro
+  // de inline_keyboard abre a tela, mas o sendData não faz nada (o clique em
+  // "Adicionar" parecia travado). Por isso o Editar vai numa segunda
+  // mensagem com teclado próprio, e some sozinho (one_time_keyboard) assim
+  // que o usuário confirma/edita/cancela.
   const listas = admin && userId ? await carregarListasUsuario(admin, userId).catch(() => null) : null;
   await tg(token, "sendMessage", {
     chat_id: chatId,
@@ -730,11 +736,21 @@ async function enviarRascunho(
     reply_markup: {
       inline_keyboard: [[
         { text: "✅ Confirmar", callback_data: `nlconfirmar:${rascunhoId}` },
-        ...(listas ? [{ text: "✏️ Editar", web_app: { url: urlMiniApp(rascunhoId, r, listas) } }] : []),
         { text: "❌ Cancelar", callback_data: `nlcancelar:${rascunhoId}` },
       ]],
     },
   });
+  if (listas) {
+    await tg(token, "sendMessage", {
+      chat_id: chatId,
+      text: "Quer ajustar algo antes de confirmar?",
+      reply_markup: {
+        keyboard: [[{ text: "✏️ Editar", web_app: { url: urlMiniApp(rascunhoId, r, listas) } }]],
+        resize_keyboard: true,
+        one_time_keyboard: true,
+      },
+    });
+  }
 }
 
 // ---------- Comandos de consulta: /resumo /diario /credito /pix ----------
