@@ -81,7 +81,7 @@ async function renderDados() {
         <button type="button" class="dados-btn dados-btn-perigo" id="btnApagarDados">🗑 Apagar</button>
     </div>
     <div id="secImportarBackup"></div>
-    <div id="dadosStatus" class="import-csv-progresso" hidden></div>
+    <div id="dadosStatus" class="revisao-progresso" hidden></div>
     `;
     document.getElementById('btnImportarBackup')?.addEventListener('click', () => document.getElementById('importBackupArquivo')?.click());
     document.getElementById('importBackupArquivo')?.addEventListener('change', onBackupArquivoEscolhido);
@@ -292,15 +292,15 @@ function renderImportarBackup() {
     const dataFormatada = b.exportadoEm ? new Date(b.exportadoEm).toLocaleString('pt-BR') : '?';
     const feriados = Array.isArray(b.feriados) ? b.feriados : [];
     sec.innerHTML = `
-    <p class="import-csv-resumo">
+    <p class="revisao-resumo">
         Backup${b.selecaoParcial ? ' PARCIAL (uma seleção, não tudo)' : ''} de ${dataFormatada} — <b>${b.menuItens.length}</b> itens de configuração,
         <b>${b.transacoes.length}</b> lançamentos, <b>${feriados.length}</b> feriados
     </p>
-    <div class="import-csv-acoes">
+    <div class="revisao-acoes">
         <button type="button" class="btn-submit" id="btnRestaurarBackup">Restaurar backup</button>
         <button type="button" class="mini-btn" id="btnCancelarBackup">Cancelar</button>
     </div>
-    <div id="importBackupProgresso" class="import-csv-progresso" hidden></div>
+    <div id="importBackupProgresso" class="revisao-progresso" hidden></div>
     `;
     document.getElementById('btnRestaurarBackup')?.addEventListener('click', onRestaurarBackup);
     document.getElementById('btnCancelarBackup')?.addEventListener('click', () => {
