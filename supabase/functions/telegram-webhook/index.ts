@@ -18,6 +18,39 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 import {
+  TELEGRAM_API,
+  json,
+  tg,
+  rotuloMetodo,
+  escaparHtml,
+  formatarMoedaBR,
+} from "./util.ts";
+import {
+  PLUGGY_API_URL,
+  type ContaPluggy,
+  normalizarBanco,
+  linhasContaPluggy,
+  BOTAO_TODAS_CONTAS,
+  rotuloBotaoConta,
+  tituloContaPluggyDetalhado,
+  carregarContasPluggy,
+  ehRendimentoPluggy,
+  executarAtualizacaoPluggy,
+  getPluggyApiKey,
+  pluggyGet,
+} from "./pluggy.ts";
+import {
+  confirmarRascunhoNoBanco,
+  PALETA_CHIPS,
+  corPadraoChip,
+  criarCategoria,
+  criarMetodo,
+  MINIAPP_URL,
+  type ListasUsuario,
+  carregarListasUsuario,
+  urlMiniApp,
+} from "./lancamentos.ts";
+import {
   limparLinks,
   PALAVRAS_CHAVE_CATEGORIA,
   sugerirCategoriaPorPalavraChave,
@@ -41,413 +74,7 @@ import {
   type LancamentoDetectado,
 } from "./parser.ts";
 
-const TELEGRAM_API = "https://api.telegram.org/bot";
 const CODIGO_VALIDADE_MIN = 10;
-const PLUGGY_API_URL = "https://api.pluggy.ai";
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-}
-
-async function tg(token: string, method: string, body: unknown) {
-  try {
-    // Nunca mostra pré-visualização de link (descrições vindas do banco, ex.: "apple.com/bill", viravam link com thumb)
-    const corpo = method === "sendMessage" ? { link_preview_options: { is_disabled: true }, ...(body as object) } : body;
-    const resp = await fetch(`${TELEGRAM_API}${token}/${method}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(corpo),
-    });
-    if (!resp.ok) console.error(`Telegram ${method} falhou:`, resp.status, await resp.text());
-  } catch (e) {
-    console.error(`Erro chamando Telegram ${method}:`, e);
-  }
-}
-
-/** Mesmo rótulo mostrado no formulário do app (js/menus-api.js:rotuloMetodo). */
-function rotuloMetodo(m: { nome: string; metodo_kind: string | null; banco: string | null }): string {
-  if (!m.metodo_kind || m.metodo_kind === "Dinheiro") return m.nome;
-  return m.banco ? `${m.metodo_kind} ${m.banco}` : m.metodo_kind;
-}
-
-interface ContaPluggy {
-  id: number;
-  item_id: string;
-  account_id: string;
-  marketing_name: string | null;
-  tipo_conta: string | null;
-  nome_conta: string | null;
-  nome_instituicao: string | null;
-  numero_mascarado: string | null;
-  marca_cartao: string | null;
-  metodo_id: number | null;
-  /** Banco do "Método do app" ligado à conta (ex. "Bradesco") — é a fonte
-   *  mais confiável: o conector "MeuPluggy" agrega vários bancos e não diz
-   *  qual é o de cada conta. */
-  banco_metodo?: string | null;
-}
-
-function escaparHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-/** "Nu Pagamentos S.A. - Instituição de Pagamento" -> "Nubank"; tira
- *  qualquer "(...)" final. */
-function normalizarBanco(nome: string): string {
-  if (/^nu pagamentos/i.test(nome.trim())) return "Nubank";
-  return nome.replace(/\s*\([^)]*\)\s*$/, "").trim();
-}
-
-/** Nome da conta no formato "Banco: Tipo", ex.:
- *    Mercado Pago: Conta Pré-paga
- *    Bradesco: Cartão de crédito VISA INFINITE (final 1525)
- *    Nubank: Cartão de crédito MASTERCARD PLATINUM (final 8381)
- *  Cartão quebra em 2 linhas ("Nubank: Cartão de crédito" / "MASTERCARD
- *  PLATINUM (final 8381)") — é o que o menu do /atualizar mostra. O título
- *  curto do app vira "Cartão de crédito" genérico pra qualquer cartão. */
-function linhasContaPluggy(c: ContaPluggy): string[] {
-  const marketing = c.marketing_name ?? "";
-  const tipoEntreParenteses = marketing.match(/\(([^)]+)\)\s*$/)?.[1] ?? null; // "Conta Pré-paga"
-  const bancoBruto = c.banco_metodo
-    || (marketing ? marketing.replace(/\s*\([^)]*\)\s*$/, "") : null)
-    || (c.nome_instituicao && !/meupluggy/i.test(c.nome_instituicao) ? c.nome_instituicao : null);
-  const banco = bancoBruto ? normalizarBanco(bancoBruto) : null;
-
-  if (c.tipo_conta === "CREDIT") {
-    const marca = (c.marca_cartao ?? "").toUpperCase();
-    const nivel = (c.nome_conta ?? "").toUpperCase(); // "VISA INFINITE", "PLATINUM" ou o próprio banco
-    let detalhe: string;
-    if (nivel && marca && nivel.includes(marca)) detalhe = nivel;
-    else if (nivel && banco && nivel === banco.toUpperCase()) detalhe = marca;
-    else detalhe = [marca, nivel].filter(Boolean).join(" ");
-    const linha1 = banco ? `${banco}: Cartão de crédito` : "Cartão de crédito";
-    const linha2 = `${detalhe}${c.numero_mascarado ? `${detalhe ? " " : ""}(final ${c.numero_mascarado})` : ""}`;
-    return linha2 ? [linha1, linha2] : [linha1];
-  }
-
-  const tipo = tipoEntreParenteses || c.nome_conta || "Conta bancária";
-  return [banco ? `${banco}: ${tipo}` : tipo];
-}
-
-const BOTAO_TODAS_CONTAS = "🔄 Todas as contas";
-
-/** Texto do botão de uma conta no teclado do /atualizar. */
-function rotuloBotaoConta(c: ContaPluggy, i: number): string {
-  return `${i + 1}. ${tituloContaPluggyDetalhado(c)}`;
-}
-
-/** Mesmo nome numa linha só (log das transações, aviso de "Atualizando..."). */
-function tituloContaPluggyDetalhado(c: ContaPluggy): string {
-  return linhasContaPluggy(c).join(" ");
-}
-
-/** Contas Pluggy ativas do usuário, com o banco do "Método do app" junto
- *  (ver ContaPluggy.banco_metodo). Sem filtro de "sincronizar" de
- *  propósito — /atualizar é uma ação explícita do usuário no Telegram,
- *  independente do toggle "Incluir na sincronização" do botão automático
- *  do app. */
-async function carregarContasPluggy(
-  admin: ReturnType<typeof createClient>,
-  userId: string,
-): Promise<{ erro: unknown; contas: ContaPluggy[] }> {
-  const { data, error } = await admin
-    .from("pluggy_contas").select("*").eq("user_id", userId).in("status", ["ativo", "erro"]).order("id");
-  if (error) return { erro: error, contas: [] };
-  const contas = (data ?? []) as ContaPluggy[];
-  const metodoIds = [...new Set(contas.map((c) => c.metodo_id).filter((id): id is number => !!id))];
-  const bancos = new Map<number, string>();
-  if (metodoIds.length) {
-    const { data: metodos } = await admin.from("menu_itens").select("id, banco").in("id", metodoIds);
-    for (const m of (metodos ?? []) as { id: number; banco: string | null }[]) if (m.banco) bancos.set(m.id, m.banco);
-  }
-  return {
-    erro: null,
-    contas: contas.map((c) => ({ ...c, banco_metodo: c.metodo_id ? bancos.get(c.metodo_id) ?? null : null })),
-  };
-}
-
-function formatarMoedaBR(valor: number): string {
-  return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-
-/** "Rendimentos e dividendos" da Pluggy (juros de conta remunerada etc.) —
- *  sempre fora do /atualizar: são muitos, minúsculos, e não é isso que o
- *  usuário quer ver ao pedir as últimas transações. Mesma categoria que o
- *  toggle "Ignorar" do app usa (ver TRADUCAO_CATEGORIA_PLUGGY em
- *  pluggy-sync), só que aqui é sempre — sem toggle. */
-function ehRendimentoPluggy(categoriaBruta: string | null | undefined): boolean {
-  return (categoriaBruta || "").trim().toLowerCase() === "proceeds interests and dividends";
-}
-
-/** Força a Pluggy buscar dados novos AGORA nas contas passadas (PATCH
- *  /items/{id}, mesma chamada do "Sincronizar agora" no app) e manda de
- *  volta um log com as 3 transações mais recentes de cada uma. Usado pelo
- *  /atualizar tanto pra "Todas as contas" quanto pra uma conta escolhida
- *  no teclado. */
-async function executarAtualizacaoPluggy(
-  admin: ReturnType<typeof createClient>,
-  token: string,
-  chatId: number,
-  contas: ContaPluggy[],
-): Promise<void> {
-  try {
-    const apiKey = await getPluggyApiKey();
-
-    // Assíncrono do lado da Pluggy, por isso a pequena espera antes de
-    // buscar as transações; itemIds repetidos (várias contas da mesma
-    // conexão) só disparam uma vez.
-    const itemIds = [...new Set(contas.map((c) => c.item_id))];
-    await Promise.all(itemIds.map((itemId) =>
-      fetch(`${PLUGGY_API_URL}/items/${itemId}`, {
-        method: "PATCH",
-        headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      }).catch((e) => console.error(`Falha ao forçar atualização do item ${itemId}:`, e))
-    ));
-    await new Promise((resolve) => setTimeout(resolve, 6000));
-
-    // /v2/transactions não aceita "pageSize" (só filtros — accountId,
-    // dateFrom/dateTo — e pagina por cursor via "next" na resposta, igual
-    // ao pluggy-sync); busca uma janela recente e pega as 3 mais novas no
-    // client.
-    const dateFrom = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const blocos: string[] = [];
-    for (const conta of contas) {
-      const titulo = escaparHtml(tituloContaPluggyDetalhado(conta));
-      try {
-        const resp = await pluggyGet(`/v2/transactions?accountId=${conta.account_id}&dateFrom=${dateFrom}`, apiKey);
-        const ultimas = [...(resp.results ?? [])]
-          .filter((t: { category?: string }) => !ehRendimentoPluggy(t.category))
-          .sort((a: { date: string }, b: { date: string }) => (a.date < b.date ? 1 : -1))
-          .slice(0, 3);
-        if (!ultimas.length) {
-          blocos.push(`🏦 <b>${titulo}</b>\nSem transações no período.`);
-          continue;
-        }
-        const linhas = ultimas.map((t: { date: string; amount: number; type: string; description?: string; descriptionRaw?: string }) => {
-          const data = String(t.date).slice(0, 10).split("-").reverse().join("/");
-          const sinal = t.type === "CREDIT" ? "+" : "-";
-          const desc = t.description || t.descriptionRaw || "(sem descrição)";
-          const valor = Math.abs(Number(t.amount) || 0);
-          return `• ${data} ${sinal}${formatarMoedaBR(valor)} — ${escaparHtml(desc)}`;
-        });
-        blocos.push(`🏦 <b>${titulo}</b>\n${linhas.join("\n")}`);
-      } catch (e) {
-        console.error(`Erro buscando transações da conta ${conta.id}:`, e);
-        blocos.push(`🏦 <b>${titulo}</b>\n⚠️ Erro ao buscar transações.`);
-      }
-    }
-
-    await tg(token, "sendMessage", {
-      chat_id: chatId,
-      parse_mode: "HTML",
-      text: `✅ Atualizado. Últimas transações por conta:\n\n${blocos.join("\n\n")}`,
-    });
-  } catch (e) {
-    console.error("Erro no /atualizar:", e);
-    await tg(token, "sendMessage", { chat_id: chatId, text: "Deu erro ao atualizar com a Pluggy — tenta de novo em instantes." });
-  }
-}
-
-/** Mesmo par client_id/client_secret do pluggy-sync — gera uma API key
- *  válida por ~2h da Pluggy. */
-async function getPluggyApiKey(): Promise<string> {
-  const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
-  const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
-  if (!clientId || !clientSecret) {
-    throw new Error("PLUGGY_CLIENT_ID/PLUGGY_CLIENT_SECRET não configurados");
-  }
-  const resp = await fetch(`${PLUGGY_API_URL}/auth`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clientId, clientSecret }),
-  });
-  if (!resp.ok) throw new Error(`Pluggy /auth falhou (${resp.status}): ${await resp.text()}`);
-  const data = await resp.json();
-  return data.apiKey as string;
-}
-
-async function pluggyGet(path: string, apiKey: string) {
-  const resp = await fetch(`${PLUGGY_API_URL}${path}`, { headers: { "X-API-KEY": apiKey } });
-  if (!resp.ok) throw new Error(`Pluggy ${path} falhou (${resp.status}): ${await resp.text()}`);
-  return resp.json();
-}
-
-/** Grava de vez um rascunho (ver RascunhoLancamento) como lançamento de
- *  verdade em `transacoes` — chamado tanto pelo botão inline "✅ Confirmar"
- *  (callback "nlconfirmar:<id>") quanto pela submissão do mini app
- *  ("✏️ Editar"). */
-async function confirmarRascunhoNoBanco(
-  supabaseAdmin: ReturnType<typeof createClient>,
-  userId: string,
-  d: RascunhoLancamento,
-): Promise<{ erro: unknown }> {
-  const ehCredito = d.metodoKind === "Crédito";
-  const competencia = d.competencia || competenciaDe(d.data, ehCredito ? d.diaFechamento : null);
-  // Despesa > categoria "Estorno" = crédito na fatura do cartão (gravado como entrada, igual ao app).
-  const ehEstorno = d.tipo === "saidas" && d.categoria === "Estorno";
-  if (ehEstorno && !ehCredito) return { erro: new Error("Estorno exige um cartão de crédito") };
-  const tipoGravar = ehEstorno ? "entradas" : d.tipo;
-
-  // Compra parcelada: uma linha por parcela, igual ao adicionarParceladoAPI do
-  // app (grupo_id comum, centavos distribuídos, 1 mês entre parcelas).
-  const n = d.parcelas && d.parcelas > 1 && ehCredito && d.tipo === "saidas" && !ehEstorno ? d.parcelas : 0;
-  if (n) {
-    const grupoId = crypto.randomUUID();
-    const totalCent = Math.round(d.valor * 100);
-    const base = Math.floor(totalCent / n);
-    const resto = totalCent - base * n;
-    const registros = Array.from({ length: n }, (_, i) => ({
-      tipo: tipoGravar,
-      data: addMeses(d.data, i),
-      valor: (base + (i < resto ? 1 : 0)) / 100,
-      metodo: d.metodo,
-      categoria: d.categoria,
-      descricao: d.descricao,
-      forma_pagamento: "À vista",
-      tipo_recorrencia: "Parcelada",
-      competencia: i === 0 ? competencia : addMeses(competencia, i),
-      status: "Ativa",
-      grupo_id: grupoId,
-      parcela_num: i + 1,
-      parcelas_total: n,
-      valor_total: totalCent / 100,
-      user_id: userId,
-    }));
-    const { error: erroParcelas } = await supabaseAdmin.from("transacoes").insert(registros);
-    return { erro: erroParcelas };
-  }
-
-  const { error } = await supabaseAdmin.from("transacoes").insert({
-    tipo: tipoGravar,
-    data: d.data,
-    valor: d.valor,
-    metodo: d.metodo, // receita também guarda a forma (opcional)
-    categoria: d.categoria,
-    descricao: d.descricao,
-    forma_pagamento: "À vista",
-    tipo_recorrencia: "Pontual",
-    competencia,
-    status: "Ativa",
-    user_id: userId,
-  });
-  return { erro: error };
-}
-
-const PALETA_CHIPS = [
-  "#EF4444", "#F97316", "#F59E0B", "#EAB308", "#84CC16", "#22C55E",
-  "#10B981", "#14B8A6", "#06B6D4", "#0EA5E9", "#3B82F6", "#6366F1",
-  "#8B5CF6", "#A855F7", "#D946EF", "#EC4899", "#F43F5E", "#64748B",
-];
-/** Mesma cor padrão do app (js/config.js:corPadraoChip). */
-function corPadraoChip(nome: string): string {
-  let h = 0;
-  for (let i = 0; i < nome.length; i++) h = (h * 31 + nome.charCodeAt(i)) >>> 0;
-  return PALETA_CHIPS[h % PALETA_CHIPS.length];
-}
-
-/** Cria a categoria na posição alfabética da lista (mesma regra do app:
- *  js/ui.js:_inserirCategoriaAlfabetica). Ignora se já existir. */
-async function criarCategoria(
-  admin: ReturnType<typeof createClient>, userId: string,
-  tipo: "entradas" | "saidas", nome: string, descricao: string,
-): Promise<boolean> {
-  const { data } = await admin.from("menu_itens").select("id, nome, ordem")
-    .eq("tipo", "Categoria").eq("categoria_tipo", tipo).eq("user_id", userId);
-  const itens = ((data ?? []) as { id: number; nome: string; ordem: number | null }[])
-    .sort((a, b) => (a.ordem ?? Infinity) - (b.ordem ?? Infinity) || a.nome.localeCompare(b.nome, "pt-BR"))
-    .map((it, i) => ({ ...it, ef: it.ordem ?? i + 1 }));
-  if (itens.some((it) => it.nome.toLowerCase() === nome.toLowerCase())) return true;
-  const depois = itens.findIndex((it) => it.nome.localeCompare(nome, "pt-BR") > 0);
-  const ordem = depois === -1 ? (itens.length ? itens[itens.length - 1].ef + 1 : 1) : itens[depois].ef;
-  const { error } = await admin.from("menu_itens").insert({
-    tipo: "Categoria", nome, ordem, descricao, categoria_tipo: tipo, cor: corPadraoChip(nome), user_id: userId,
-  });
-  if (error) { console.error(error); return false; }
-  if (depois !== -1) {
-    for (const it of itens.slice(depois)) await admin.from("menu_itens").update({ ordem: it.ef + 1 }).eq("id", it.id);
-  }
-  return true;
-}
-
-/** Cria a forma de pagamento (PIX ou Crédito) como o "+" do formulário do app. */
-async function criarMetodo(
-  admin: ReturnType<typeof createClient>, userId: string,
-  n: { kind: string; banco: string; venc: number | null; fech: number | null; melhor: number | null },
-): Promise<boolean> {
-  const kind = n.kind === "Crédito" ? "Crédito" : n.kind === "PIX" ? "PIX" : null;
-  if (!kind) return false;
-  const banco = String(n.banco ?? "").trim();
-  if (kind === "Crédito" && (!banco || !(n.venc && n.venc >= 1 && n.venc <= 31))) return false;
-  const nome = banco ? `${kind} — ${banco}` : kind;
-  const rotulo = banco ? `${kind} ${banco}` : kind;
-  const { data } = await admin.from("menu_itens").select("nome, banco, metodo_kind, ordem").eq("tipo", "Método").eq("user_id", userId);
-  const existentes = (data ?? []) as { nome: string; banco: string | null; metodo_kind: string | null; ordem: number | null }[];
-  if (existentes.some((m) => rotuloMetodo(m) === rotulo)) return true;
-  const ordem = existentes.reduce((mx, m) => Math.max(mx, m.ordem ?? 0), 0) + 1;
-  const fech = n.fech && n.fech >= 1 && n.fech <= 31 ? n.fech : null;
-  const extra: Record<string, unknown> = { metodo_kind: kind, banco, cor: corPadraoChip(nome) };
-  if (kind === "Crédito") {
-    extra.dia_vencimento = n.venc;
-    if (fech) extra.dia_fechamento = fech;
-    const melhor = n.melhor && n.melhor >= 1 && n.melhor <= 31 ? n.melhor : (fech ? Math.min(31, fech + 1) : null);
-    if (melhor) extra.melhor_dia_compra = melhor;
-  }
-  const { error } = await admin.from("menu_itens").insert({ tipo: "Método", nome, ordem, user_id: userId, ...extra });
-  if (error) { console.error(error); return false; }
-  return true;
-}
-
-const MINIAPP_URL = "https://apps-rafa.github.io/ctrl-fin/lancamento-tg.html";
-
-interface ListasUsuario {
-  catsR: string[];
-  catsD: string[];
-  metodos: { nome: string; metodo_kind: string | null; banco: string | null; dia_fechamento: number | null }[];
-}
-
-async function carregarListasUsuario(admin: ReturnType<typeof createClient>, userId: string): Promise<ListasUsuario> {
-  const [{ data: cats }, { data: mets }] = await Promise.all([
-    admin.from("menu_itens").select("nome, categoria_tipo").eq("tipo", "Categoria").eq("status", "Ativo").eq("user_id", userId).order("ordem"),
-    admin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("tipo", "Método").eq("status", "Ativo").eq("user_id", userId).order("ordem"),
-  ]);
-  const lista = (cats ?? []) as { nome: string; categoria_tipo: string | null }[];
-  // "Estorno" (Despesa) é fixa e sempre ativa, mas só existe a partir do 1º cartão de crédito.
-  const temCartao = ((mets ?? []) as { metodo_kind: string | null }[]).some((m) => m.metodo_kind === "Crédito");
-  if (temCartao && !lista.some((c) => c.categoria_tipo === "saidas" && c.nome === "Estorno")) {
-    const { data: ex } = await admin.from("menu_itens").select("id").eq("tipo", "Categoria").eq("categoria_tipo", "saidas").eq("nome", "Estorno").eq("user_id", userId).maybeSingle();
-    if (ex) await admin.from("menu_itens").update({ status: "Ativo" }).eq("id", ex.id);
-    else await admin.from("menu_itens").insert({ tipo: "Categoria", nome: "Estorno", categoria_tipo: "saidas", cor: corPadraoChip("Estorno"), user_id: userId });
-    lista.push({ nome: "Estorno", categoria_tipo: "saidas" });
-  }
-  return {
-    catsR: lista.filter((c) => c.categoria_tipo === "entradas" && c.nome !== "Estorno").map((c) => c.nome),
-    catsD: lista.filter((c) => c.categoria_tipo === "saidas" && (temCartao || c.nome !== "Estorno")).map((c) => c.nome),
-    metodos: (mets ?? []) as ListasUsuario["metodos"],
-  };
-}
-
-/** Endereço do mini app (formulário de lançamento) já preenchido com o rascunho.
- *  Leva o id do rascunho (`id`) pra o mini app devolver junto no envio — assim o
- *  bot sabe qual dos vários rascunhos pendentes foi editado (ver web_app_data
- *  em Deno.serve). */
-function urlMiniApp(id: number | string, r: RascunhoLancamento, l: ListasUsuario): string {
-  const q = new URLSearchParams();
-  q.set("id", String(id));
-  q.set("tipo", r.tipo);
-  q.set("v", String(r.valor));
-  q.set("d", r.data);
-  q.set("c", r.categoria);
-  if (r.metodo) q.set("m", r.metodo);
-  if (r.descricao) q.set("desc", r.descricao);
-  if (r.parcelas && r.parcelas > 1) q.set("p", String(r.parcelas));
-  q.set("cr", JSON.stringify(l.catsR));
-  q.set("cd", JSON.stringify(l.catsD));
-  q.set("mt", JSON.stringify(l.metodos.map((m) => [rotuloMetodo(m), m.metodo_kind, m.dia_fechamento])));
-  // Toda despesa tem "Mês" no formulário (no crédito, o da fatura; nos outros, o da data)
-  q.set("comp", (r.competencia || competenciaDe(r.data, r.tipo === "saidas" && r.metodoKind === "Crédito" ? r.diaFechamento : null)).slice(5, 7));
-  return `${MINIAPP_URL}?${q.toString()}`;
-}
 
 /** Mensagem do rascunho + botões INLINE (grudados nesta mensagem, não um
  *  teclado embaixo compartilhado pela conversa) — assim vários SMS seguidos
