@@ -365,6 +365,16 @@ function configurarEventListeners() {
             clearTimeout(dTimer);
             dTimer = setTimeout(ajustarFontesDashboard, 150);
         });
+        // Reajusta sempre que os cards mudarem de tamanho (ficaram visíveis, mudou o layout, fonte carregou):
+        // só no resize da janela o estouro do Balanço/Gasto diário voltava a cada vez
+        let rafAjuste = 0;
+        const reajustar = () => { cancelAnimationFrame(rafAjuste); rafAjuste = requestAnimationFrame(ajustarFontesDashboard); };
+        if (typeof ResizeObserver === 'function') {
+            const ro = new ResizeObserver(reajustar);
+            document.querySelectorAll('.dashboard .summary-card').forEach(c => ro.observe(c));
+        }
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(reajustar);
+        window.addEventListener('load', reajustar);
     }
 
     console.log('✓ Event listeners configurados');

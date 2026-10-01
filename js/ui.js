@@ -150,7 +150,11 @@ async function _carregarIndicadoresJanela(idxsAbs) {
  */
 function ajustarFonteParaCaber(el, minPx = 10, tamanhoInicial = null) {
     if (!el) return;
-    el.style.fontSize = tamanhoInicial != null ? tamanhoInicial + 'px' : '';
+    el.style.fontSize = '';
+    // Sem layout ainda (card escondido/largura 0, fontes carregando): não dá pra medir. Deixa o tamanho do
+    // CSS e NÃO fixa o tamanho-base em px — antes ele ficava preso e o valor estourava o card (o ResizeObserver refaz depois).
+    if (!el.clientWidth) return;
+    if (tamanhoInicial != null) el.style.fontSize = tamanhoInicial + 'px';
     let tamanho = tamanhoInicial != null ? tamanhoInicial : parseFloat(getComputedStyle(el).fontSize);
     if (!Number.isFinite(tamanho)) return;
     while (el.scrollWidth > el.clientWidth + 1 && tamanho > minPx) {
@@ -174,6 +178,7 @@ function ajustarFontesDashboard() {
     const tamanhoBase = tamanhosTotais.length ? Math.min(...tamanhosTotais) : null;
     const par = ['balanco', 'gastoDiario'].map(id => document.getElementById(id)).filter(Boolean);
     par.forEach(el => ajustarFonteParaCaber(el, 10, tamanhoBase));
+    if (par.some(el => !el.clientWidth)) return;
     // Lado a lado: mesmo tamanho entre os dois (o menor dos dois, caso um precise encolher mais que o outro)
     if (par.length === 2) {
         const menor = Math.min(...par.map(el => parseFloat(getComputedStyle(el).fontSize)));
