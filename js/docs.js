@@ -260,7 +260,7 @@ const DOCS_DETALHES = {
     <p>Por isso o total do mês não muda quando você paga a fatura: só muda de "a pagar" para "pago".</p>`,
   'Filtros: Categoria e Forma de pagamento': `
     <ul>
-      <li>O ícone de funil de cada grupo tira o filtro; os botões ao lado reorganizam os itens.</li>
+      <li>O ícone de funil de cada grupo tira o filtro; os botões ao lado reorganizam os itens. Um filtro só aparece quando o grupo tem mais de uma opção (por exemplo, mais de uma forma de pagamento ou categoria).</li>
       <li>Filtro por Categoria e por Forma de pagamento se combinam: dentro de uma forma você pode filtrar por categoria (e vice-versa) sem chips repetidos.</li>
       <li>Em Receitas o filtro por forma de pagamento não existe, porque receita não tem forma.</li>
       <li>O filtro escolhido vale enquanto você está na tela; ao reabrir a aba, volta à ordem cronológica.</li>

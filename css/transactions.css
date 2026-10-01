@@ -778,7 +778,7 @@
 .despesa-item { position: relative; }
 /* margem esquerda um pouco maior em TODAS as linhas (as colunas seguem alinhadas) pro ícone não apertar */
 body .despesa-item { padding-left: 1.25rem !important; }
-@media (max-width: 480px) { body .despesa-item { padding-left: 1rem !important; } }
+@media (max-width: 480px) { body .despesa-item { padding-left: 1.5rem !important; } .despesa-item > .despesa-conteudo > .conc-selo { left: .3rem; } }
 .despesa-item > .despesa-conteudo > .conc-selo { position: absolute; left: .25rem; top: .5rem; }
 
 /* Busca em todos os meses */
