@@ -453,8 +453,8 @@ async function carregarRevisaoPluggy() {
     // Mesmo layout do CSV/PDF (js/revisao-importacao.js): grupo → subgrupos
     // Despesas/Receitas → tabela X/Data/Valor/Categoria/Descrição. Sem
     // "Forma de pgto." — o método já vem fixado pela conta em "Método do app".
-    const grupo = (id, titulo, itens, nota = '', semSubgrupos = false) => htmlGrupoRevisao({
-        id, titulo: titulo, abertos: _abertosPluggy, padraoAberto: false, subAberto: false, itens, nota, semSubgrupos,
+    const grupo = (id, titulo, itens, nota = '', semSubgrupos = false, abrir = false) => htmlGrupoRevisao({
+        id, titulo: titulo, abertos: _abertosPluggy, padraoAberto: abrir, subAberto: false, itens, nota, semSubgrupos,
         tipoDe: i => i.tipo, colunas: ['Data', 'Valor', 'Categoria', 'Descrição'],
         htmlLinha: gerarHTMLImportadaPluggy,
     });
@@ -473,7 +473,7 @@ async function carregarRevisaoPluggy() {
                 .sort((x, y) => String(y.transacao.data).localeCompare(String(x.transacao.data)));
             if (!lista.length) return '';
             return _grupoColapsavelConciliar({
-                id: `pluggy-historico-${tipo}`, abertos: _abertosPluggy, padraoAberto: false,
+                id: `pluggy-historico-${tipo}`, abertos: _abertosPluggy, padraoAberto: !historicoValido.some(i => (i.transacao.tipo === 'entradas') !== (tipo === 'entradas')), // subgrupo único abre junto do pai
                 titulo: `${tipo === 'entradas' ? 'Receitas' : 'Despesas'} (${lista.length})<span class="hist-total">${formatarMoeda(_somaHist(lista))}</span>`,
                 corpo: `<div class="historico-lista rec-grupo-itens">${lista.map(gerarHTMLHistoricoPluggy).join('')}</div>`,
             });
@@ -487,9 +487,12 @@ async function carregarRevisaoPluggy() {
     // Cartão de crédito é praticamente sempre despesa — o subgrupo
     // "Despesas" vira uma camada de clique inútil (não existe "Receitas"
     // pra justificar o split); pula direto pra tabela.
-    const doisGrupos = (pref, lRev, lDup, semSubgrupos = false) =>
-        grupo(`${pref}revisar`, '⚠️ Para revisar', lRev, '', semSubgrupos) +
-        grupo(`${pref}duplicatas`, '🔁 Possíveis duplicatas — já existe algo parecido no app', lDup, notaDup, semSubgrupos);
+    // aninhado = dentro do grupo de uma conta: se só um dos dois tiver itens, ele abre junto com o pai
+    const doisGrupos = (pref, lRev, lDup, semSubgrupos = false, aninhado = false) => {
+        const unico = aninhado && (!!lRev.length !== !!lDup.length);
+        return grupo(`${pref}revisar`, '⚠️ Para revisar', lRev, '', semSubgrupos, unico) +
+            grupo(`${pref}duplicatas`, '🔁 Possíveis duplicatas — já existe algo parecido no app', lDup, notaDup, semSubgrupos, unico);
+    };
     const blocosPorConta = () => {
         const ids = [...new Set(marcados.map(i => i.conta_id))];
         if (ids.length <= 1) {
@@ -507,7 +510,7 @@ async function carregarRevisaoPluggy() {
             return _grupoColapsavelConciliar({
                 id: `pluggy-conta-${id}`, abertos: _abertosPluggy, padraoAberto: false,
                 titulo: `🏦 ${nome} (${total})`,
-                corpo: doisGrupos(`pluggy-c${id}-`, lRev, lDup, c?.tipo_conta === 'CREDIT'),
+                corpo: doisGrupos(`pluggy-c${id}-`, lRev, lDup, c?.tipo_conta === 'CREDIT', true),
             });
         }).join('');
     };
