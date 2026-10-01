@@ -333,9 +333,10 @@ function mesDeCompetencia(iso) {
 function competenciaDeMes(mm) {
     const mo = parseInt(String(mm).replace(/\D/g, ''), 10);
     if (!(mo >= 1 && mo <= 12)) return '';
-    const ano = (typeof estadoApp !== 'undefined' && estadoApp.mesAtual)
+    const anoEdicao = parseInt(document.getElementById('competencia')?.dataset.ano, 10); // edição de item de outro ano
+    const ano = anoEdicao || ((typeof estadoApp !== 'undefined' && estadoApp.mesAtual)
         ? estadoApp.mesAtual.getFullYear()
-        : new Date().getFullYear();
+        : new Date().getFullYear());
     return `${ano}-${String(mo).padStart(2, '0')}-01`;
 }
 
@@ -441,6 +442,8 @@ function limparFormulario() {
     const form = document.querySelector(SELECTORS.formTransacao);
     if (form) {
         form.reset();
+        const compEl = document.getElementById('competencia');
+        if (compEl) { delete compEl.dataset.editado; delete compEl.dataset.ano; }
         aplicarDataPadrao(true);
         // Tipo volta para "Despesa" — e os BOTÕES acompanham (evita botão dizer
         // "Receita" enquanto os campos mostram "Despesa")
@@ -485,7 +488,8 @@ function obterDadosFormulario() {
     const diaRecorrencia = ehMetodoCredito ? (_met.diaVencimento || '') : '';
 
     const mesSelecionado = document.getElementById('competencia')?.value;
-    let compISO = ehMetodoCredito ? competenciaDeMes(mesSelecionado) : '';
+    const temMes = ehEstorno || document.querySelector(SELECTORS.tipoTransacao).value === 'saidas'; // toda despesa tem o campo "Mês"
+    let compISO = temMes ? competenciaDeMes(mesSelecionado) : '';
     if (!compISO) compISO = mesExib.slice(0, 8) + '01';
 
     return {

@@ -46,7 +46,9 @@ const DOCS_SECOES = [
         m: 'A descrição é opcional. O botão "+" ao lado de categoria e forma de pagamento cria uma nova na hora. Trocar entre Receita e Despesa limpa o formulário (fora da edição).' },
       { t: 'Receita: sem forma de pagamento', r: 'Receita não pede forma de pagamento; o "Reembolso" é uma receita comum.',
         m: 'O dinheiro que você recebe cai na conta, então não há o que escolher. Receitas antigas que tinham forma (ex.: PIX) continuam funcionando; o chip da forma fica escondido nas receitas.' },
-      { t: 'Despesa no cartão de crédito', r: 'No crédito aparecem "Mês" (fatura) e "Parcelas". Parcelas 1x = compra à vista.',
+      { t: 'Mês da despesa', r: 'Toda despesa tem o campo "Mês" (competência), que começa no mês que você está vendo e pode ser trocado.',
+        m: 'É o mês em que a despesa conta nas listas, no dashboard e na {ver:anual}. Em Receita o campo não existe. No cartão de crédito o mês muda sozinho conforme a data e o fechamento (veja abaixo). O mesmo campo existe no formulário do bot.' },
+      { t: 'Despesa no cartão de crédito', r: 'No crédito aparecem também "Parcelas" e o "Mês" (fatura). Parcelas 1x = compra à vista.',
         m: 'O <b>Mês</b> é calculado pela data da compra e pelo fechamento do cartão (compra no dia do fechamento ou depois cai na fatura seguinte) e você pode ajustar. Com mais de 1 parcela, o app cria uma linha por mês (centavos distribuídos), todas ligadas ao mesmo parcelamento; o valor total aparece ao lado.' },
       { t: 'Estorno', r: 'Estorno é uma categoria de Despesa, só para cartão de crédito: abate o valor da fatura.',
         m: 'Ao escolher a categoria <b>Estorno</b>, só os cartões de crédito ficam disponíveis, aparece o mês da fatura e some o parcelamento. Por dentro ele é gravado como crédito no cartão, então dashboard, fatura e {ver:anual} continuam corretos. A categoria só existe a partir do primeiro cartão cadastrado e é fixa (não dá para renomear, desativar nem remover).' },
@@ -170,8 +172,8 @@ const DOCS_SECOES = [
         m: 'O bot entende valor, tipo, categoria (pelo texto), forma de pagamento (ex.: "no pix", "no nubank") e parcelas. Monta um rascunho e só grava após ✅ Confirmar. Qualquer outra resposta vira a <b>descrição</b>.' },
       { t: 'Datas no texto', r: 'Diga a data: "ontem uber 10 reais", "25/09 uber 10 reais", "25 de setembro", "dia 25". Sem data vale hoje.',
         m: 'Entende hoje, ontem, anteontem, dd/mm, dd/mm/aaaa, "25 de setembro" e "dia 25". Sem o ano, usa o ano atual (ou o anterior se a data ficaria muito no futuro). Também dá para digitar só a data com um rascunho aberto.' },
-      { t: 'Botões do rascunho', r: 'Confirmar, Editar (abre o formulário), Cancelar, 💳 Forma de pgto., 🏷️ Categorias e 📅 Data.',
-        m: 'Todo menu do bot fica no teclado, termina com ❌ Cancelar e não deixa item sozinho na última linha. 📅 Data oferece Hoje, Ontem e Anteontem (ou digite).' },
+      { t: 'Botões do rascunho', r: 'Cada rascunho traz na própria mensagem ✅ Confirmar, ✏️ Editar e ❌ Cancelar, então dá para ter vários pendentes e tratar um por um.',
+        m: 'Ao tocar em ✏️ Editar, o bot responde "Toque em Editar para alterar o lançamento referente à despesa de R$ 10,00 no dia 05/10/2026" e põe o botão do formulário em cima do teclado, já preenchido com aquele rascunho (o Telegram só devolve os dados do formulário quando ele é aberto por esse botão). Ao salvar, só aquele rascunho sai da fila; ❌ Cancelar edição fecha o botão. Os menus de /atualizar e /pgtopadrao ficam no teclado, terminam com ❌ Cancelar e não deixam item sozinho na última linha.' },
       { t: 'Estorno pelo bot', r: 'Diga "estorno 50 uber" ou escolha a categoria Estorno: o bot usa um cartão de crédito e abate a fatura.',
         m: 'A categoria Estorno só existe a partir do primeiro cartão. Nesse rascunho a forma de pagamento aceita só cartão de crédito e não há parcelas.' },
       { t: 'Comandos', r: '/resumo, /diario, /credito, /pix, /ultimos, /atualizar, /pgtopadrao, /lancamento e /backup.',
@@ -222,7 +224,7 @@ const DOCS_DETALHES = {
       <li>Compra em 14/09 → fatura de setembro.</li>
       <li>Compra em 15/09 (ou depois) → fatura de outubro.</li>
     </ul>
-    <p>Em compras parceladas, a 1ª parcela usa esse mês e cada parcela seguinte cai um mês depois. No formulário o campo "Mês" já vem calculado, mas você pode trocar. É a competência que decide em que mês o lançamento aparece nas listas, no dashboard e na {ver:anual}.</p>`,
+    <p>Em compras parceladas, a 1ª parcela usa esse mês e cada parcela seguinte cai um mês depois. No formulário de despesa o campo "Mês" já vem preenchido (o mês que você está vendo; no cartão, calculado pela data e pelo fechamento), mas você pode trocar. É a competência que decide em que mês o lançamento aparece nas listas, no dashboard e na {ver:anual}.</p>`,
   'Fatura em aberto x paga': `
     <p>A fatura de um mês é a soma das compras do cartão já feitas (data até hoje) menos os estornos. Ela só existe enquanto o total for maior que zero.</p>
     <ul>
@@ -315,7 +317,7 @@ const DOCS_DETALHES = {
       <li>"25 de setembro", "15 de março de 2026".</li>
       <li>"dia 25": o dia 25 do mês atual, ou do mês anterior se ainda não chegou.</li>
     </ul>
-    <p>A data é retirada da descrição. Datas impossíveis (como 31/02) são ignoradas. No rascunho, o botão 📅 Data também aceita Hoje, Ontem e Anteontem.</p>`,
+    <p>A data é retirada da descrição. Datas impossíveis (como 31/02) são ignoradas.</p>`,
   'Comandos': `
     <p>Todos funcionam no chat do bot, depois de vincular. /atualizar e /pgtopadrao abrem menus no teclado (sempre com ❌ Cancelar). Em /atualizar, toque no número de uma transação para transformá-la em rascunho de lançamento (com a forma de pagamento da conta). Veja o vínculo em {ver:openfinance}.</p>`,
   'Formas de pagamento': `

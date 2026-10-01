@@ -1704,6 +1704,9 @@ function iniciarEdicaoTransacao(trans, tipoTransacao) {
     mudarAba('adicionar');
 
     // Tipo (entrada/saída) sem recarregar menus
+    // A lista de onde veio (ex.: Recém-lançados) pode ter deixado a página rolada: o formulário
+    // é bem menor, então sem isto a tela ficava presa no fim, com o dashboard cortado em cima
+    window.scrollTo(0, 0);
     estadoApp.tipoAtual = tipoTransacao;
     const tipoField = document.querySelector(SELECTORS.tipoTransacao);
     if (tipoField) tipoField.value = tipoTransacao;
@@ -1723,7 +1726,11 @@ function iniciarEdicaoTransacao(trans, tipoTransacao) {
     const parc = document.getElementById('parcelas');
     if (parc) parc.value = trans.parcelasTotal || 1;
     const comp = document.getElementById('competencia');
-    if (comp) { comp.value = mesDeCompetencia(trans.competencia) || comp.value; comp.dataset.editado = "1"; }
+    if (comp) {
+        comp.value = mesDeCompetencia(trans.competencia) || comp.value;
+        comp.dataset.editado = "1";
+        comp.dataset.ano = String(trans.competencia || '').slice(0, 4); // o item pode ser de outro ano que o mês em tela
+    }
 
     atualizarCampoParcelas();
     atualizarCampoCredito();
@@ -2234,12 +2241,10 @@ function atualizarCampoParcelas() {
     const ehCredito = !ehReceita && !_formEhEstorno() && !!metodoAtual && metodoAtual.metodoKind === 'Crédito';
 
     const set = (id, mostrar) => { const el = document.getElementById(id); if (el) el.hidden = !mostrar; };
-    // Estorno também tem mês da fatura (competência), mas nunca parcelas
-    const ehCreditoComp = !ehReceita && !!metodoAtual && metodoAtual.metodoKind === 'Crédito';
-    // "Mês" (competência): preview de qual mês esse lançamento vai cair,
-    // calculado a partir da data da compra + fechamento do cartão — só faz
-    // sentido pra Crédito (outros métodos usam o mês da própria data).
-    set('competenciaGroup', ehCreditoComp);
+    // "Mês" (competência): toda despesa tem. No Crédito é calculado a partir da data da compra +
+    // fechamento do cartão; nos outros métodos, começa no mês em exibição (editável).
+    // Estorno também tem mês da fatura, mas nunca parcelas.
+    set('competenciaGroup', !ehReceita);
 
     const parcelasInput = document.getElementById('parcelas');
     if (!ehCredito && parcelasInput) parcelasInput.value = _parcelasTexto(1);
@@ -2254,7 +2259,7 @@ function atualizarCampoParcelas() {
     set('valorTotalGroup', parcelas > 1);
     atualizarValorTotal();
 
-    if (ehCreditoComp && typeof recalcularCompetencia === 'function') recalcularCompetencia();
+    if (!ehReceita && typeof recalcularCompetencia === 'function') recalcularCompetencia();
 
     ajustarCamposSozinhos();
 }
@@ -2536,8 +2541,11 @@ function recalcularCompetencia() {
     }
 
     const metodo = typeof metodoSelecionado === 'function' ? metodoSelecionado() : null;
-    const fech = metodo && metodo.metodoKind === 'Crédito' ? metodo.diaFechamento : null;
-    campo.value = mesDeCompetencia(competenciaDe(iso, fech));
+    if (!metodo || metodo.metodoKind !== 'Crédito') { // fora do Crédito: o mês em exibição, não o da data digitada
+        if (estadoApp.mesAtual) campo.value = mesDeCompetencia(formatarDataISO(estadoApp.mesAtual));
+        return;
+    }
+    campo.value = mesDeCompetencia(competenciaDe(iso, metodo.diaFechamento));
 }
 
 

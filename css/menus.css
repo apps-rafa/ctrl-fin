@@ -903,7 +903,7 @@
    com o mesmo tamanho em toda linha, alinhadas verticalmente entre si
    (antes cada select/valor tinha a largura do próprio conteúdo). */
 #pluggyRevisaoLista .despesa-item { flex-wrap: nowrap; }
-#pluggyRevisaoLista .despesa-data { flex: 0 0 2.8rem; }
+#pluggyRevisaoLista .despesa-data { flex: 0 0 3.4rem; }
 #pluggyRevisaoLista .despesa-valor { flex: 0 0 4.4rem; text-align: right; }
 #pluggyRevisaoLista .campo-com-add { flex: 0 0 9.5rem; }
 #pluggyRevisaoLista .select-mini { width: 100%; }

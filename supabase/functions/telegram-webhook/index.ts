@@ -690,7 +690,8 @@ function urlMiniApp(id: number, r: RascunhoLancamento, l: ListasUsuario): string
   q.set("cr", JSON.stringify(l.catsR));
   q.set("cd", JSON.stringify(l.catsD));
   q.set("mt", JSON.stringify(l.metodos.map((m) => [rotuloMetodo(m), m.metodo_kind, m.dia_fechamento])));
-  if (r.metodoKind === "Crédito") q.set("comp", (r.competencia || competenciaDe(r.data, r.diaFechamento)).slice(5, 7));
+  // Toda despesa tem "Mês" no formulário (no crédito, o da fatura; nos outros, o da data)
+  if (r.tipo === "saidas") q.set("comp", (r.competencia || competenciaDe(r.data, r.metodoKind === "Crédito" ? r.diaFechamento : null)).slice(5, 7));
   return `${MINIAPP_URL}?${q.toString()}`;
 }
 
@@ -721,16 +722,16 @@ async function enviarRascunho(
     "",
     "Confirma?",
   ].filter((l) => l !== null).join("\n");
-  // Botão "✏️ Editar": abre o formulário (mini app) já preenchido. Só aparece
-  // quando dá pra carregar as listas do usuário.
-  const listas = admin && userId ? await carregarListasUsuario(admin, userId).catch(() => null) : null;
+  // "✏️ Editar" não abre o formulário direto: o Telegram só devolve os dados do mini app (sendData)
+  // quando ele é aberto por um botão do TECLADO, não por botão inline. Então o toque vira o callback
+  // "nleditar:<id>" e o bot responde com o botão do formulário DAQUELE rascunho (ver Deno.serve).
   await tg(token, "sendMessage", {
     chat_id: chatId,
     text: linhas,
     reply_markup: {
       inline_keyboard: [[
         { text: "✅ Confirmar", callback_data: `nlconfirmar:${rascunhoId}` },
-        ...(listas ? [{ text: "✏️ Editar", web_app: { url: urlMiniApp(rascunhoId, r, listas) } }] : []),
+        { text: "✏️ Editar", callback_data: `nleditar:${rascunhoId}` },
         { text: "❌ Cancelar", callback_data: `nlcancelar:${rascunhoId}` },
       ]],
     },
@@ -1129,10 +1130,10 @@ Deno.serve(async (req: Request) => {
         parcelas: tipoF === "saidas" && metodoF?.metodo_kind === "Crédito" && nParc > 1 ? nParc : null,
         competencia: null,
       };
-      // Mês da fatura escolhido no formulário (só crédito): o ano acompanha o
-      // mês sugerido pela data + fechamento, ajustando a virada de ano.
-      if (tipoF === "saidas" && metodoF?.metodo_kind === "Crédito" && /^(0[1-9]|1[0-2])$/.test(String(p.comp ?? ""))) {
-        const padrao = competenciaDe(dataF, metodoF.dia_fechamento);
+      // Mês escolhido no formulário (toda despesa; no crédito é o da fatura): o ano acompanha o
+      // mês sugerido pela data (+ fechamento, no crédito), ajustando a virada de ano.
+      if (tipoF === "saidas" && /^(0[1-9]|1[0-2])$/.test(String(p.comp ?? ""))) {
+        const padrao = competenciaDe(dataF, metodoF?.metodo_kind === "Crédito" ? metodoF.dia_fechamento : null);
         const [ap, mp] = padrao.split("-").map(Number);
         const mEsc = Number(p.comp);
         const ano = mEsc - mp > 6 ? ap - 1 : mp - mEsc > 6 ? ap + 1 : ap;
@@ -1156,6 +1157,12 @@ Deno.serve(async (req: Request) => {
     if (update.message?.text) {
       const chatId = update.message.chat.id;
       const texto = String(update.message.text).trim();
+
+      // Botão do teclado mostrado junto do "Editar" de um rascunho: só tira o teclado (o rascunho continua nos botões dele)
+      if (texto === "❌ Cancelar edição") {
+        await tg(token, "sendMessage", { chat_id: chatId, text: "Edição cancelada — o rascunho continua pendente.", reply_markup: { remove_keyboard: true } });
+        return json({ ok: true });
+      }
 
       if (texto.startsWith("/start")) {
         // Já vinculado antes (ex.: clicou o link de novo, ou mandou o mesmo
@@ -1320,6 +1327,32 @@ Deno.serve(async (req: Request) => {
         await tg(token, "editMessageText", {
           chat_id: chatId, message_id: cq.message.message_id,
           text: `${cq.message.text}\n\n❌ Cancelado`,
+        });
+        return json({ ok: true });
+      }
+
+      // "✏️ Editar" na mensagem de um rascunho: responde dizendo QUAL lançamento é e com o botão do
+      // formulário dele em cima do teclado (único jeito de o mini app devolver os dados).
+      if (acao === "nleditar" && chatId) {
+        const rascunhoId = Number(idStr);
+        const { data: tgUser } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+        const { data: rascunho } = tgUser
+          ? await supabaseAdmin.from("telegram_rascunhos").select("dados").eq("id", rascunhoId).eq("chat_id", chatId).eq("user_id", tgUser.user_id).maybeSingle()
+          : { data: null };
+        if (!tgUser || !rascunho) {
+          await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Esse rascunho já não existe mais" });
+          return json({ ok: true });
+        }
+        const d = rascunho.dados as RascunhoLancamento;
+        const listas = await carregarListasUsuario(supabaseAdmin, tgUser.user_id);
+        await tg(token, "answerCallbackQuery", { callback_query_id: cq.id });
+        await tg(token, "sendMessage", {
+          chat_id: chatId,
+          text: `Toque em ✏️ Editar para alterar o lançamento referente à ${d.tipo === "entradas" ? "receita" : "despesa"} de ${formatarMoedaBR(d.valor)} no dia ${new Date(`${d.data}T00:00:00`).toLocaleDateString("pt-BR")}${d.descricao ? ` (${d.descricao})` : ""}.`,
+          reply_markup: {
+            keyboard: [[{ text: "✏️ Editar", web_app: { url: urlMiniApp(rascunhoId, d, listas) } }], [{ text: "❌ Cancelar edição" }]],
+            resize_keyboard: true, is_persistent: true, one_time_keyboard: false,
+          },
         });
         return json({ ok: true });
       }
