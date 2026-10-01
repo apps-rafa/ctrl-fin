@@ -308,6 +308,12 @@ function mascaraCompetencia(input) {
     input.value = v;
 }
 
+/** Texto vindo do banco sem endereço de site ("apple.com/bill" -> "Apple"): campos preenchidos
+ *  sozinhos não devem trazer link (no Telegram viravam link com pré-visualização). */
+function limparLinks(t) {
+    return String(t == null ? '' : t).replace(/(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+)\.(?:com|net|org|io|app|co|me|tv|gov|edu|br)(?:\.[a-z]{2})?(?:\/\S*)?/gi, (_m, nome) => nome.charAt(0).toUpperCase() + nome.slice(1));
+}
+
 /** 'mm/aaaa' -> 'YYYY-MM-01' (ou '') */
 function parseCompetencia(str) {
     const m = String(str).trim().match(/^(\d{1,2})\/(\d{4})$/);
@@ -488,8 +494,7 @@ function obterDadosFormulario() {
     const diaRecorrencia = ehMetodoCredito ? (_met.diaVencimento || '') : '';
 
     const mesSelecionado = document.getElementById('competencia')?.value;
-    const temMes = ehEstorno || document.querySelector(SELECTORS.tipoTransacao).value === 'saidas'; // toda despesa tem o campo "Mês"
-    let compISO = temMes ? competenciaDeMes(mesSelecionado) : '';
+    let compISO = competenciaDeMes(mesSelecionado); // todo lançamento tem o campo "Mês"
     if (!compISO) compISO = mesExib.slice(0, 8) + '01';
 
     return {

@@ -78,6 +78,11 @@ interface ItemNovoTelegram {
   metodo_sugerido: number | null;
 }
 
+/** Texto vindo do banco sem endereço de site ("apple.com/bill" -> "Apple"): o Telegram transformava em link com pré-visualização. */
+function limparLinks(t: string): string {
+  return String(t ?? "").replace(/(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+)\.(?:com|net|org|io|app|co|me|tv|gov|edu|br)(?:\.[a-z]{2})?(?:\/\S*)?/gi, (_m, nome: string) => nome.charAt(0).toUpperCase() + nome.slice(1));
+}
+
 async function enviarMensagemTelegram(token: string, chatId: number, texto: string, botoes: unknown[][]) {
   try {
     const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -87,6 +92,7 @@ async function enviarMensagemTelegram(token: string, chatId: number, texto: stri
         chat_id: chatId,
         text: texto,
         parse_mode: "Markdown",
+        link_preview_options: { is_disabled: true },
         reply_markup: { inline_keyboard: botoes },
       }),
     });
@@ -141,7 +147,7 @@ async function notificarTelegramNovas(
     const texto = [
       `${emoji} *Novo lançamento via Pluggy*`,
       `${sinal} ${fmtValor.format(item.valor)} — ${dataFmt}`,
-      item.descricao_banco ? `_${item.descricao_banco}_` : null,
+      item.descricao_banco ? `_${limparLinks(item.descricao_banco)}_` : null,
       item.categoria_sugerida ? `Categoria sugerida: ${item.categoria_sugerida}` : "Sem sugestão de categoria — confirme pelo app",
       metodoTxt ? `Método: ${metodoTxt}` : null,
     ].filter(Boolean).join("\n");

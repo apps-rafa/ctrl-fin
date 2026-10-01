@@ -835,7 +835,7 @@ function _categoriaAoVivoPluggy(item) {
 }
 
 function _descricaoAoVivoPluggy(item) {
-    return item.id in _descricaoEditadaPluggy ? _descricaoEditadaPluggy[item.id] : (item.descricao_banco || '');
+    return item.id in _descricaoEditadaPluggy ? _descricaoEditadaPluggy[item.id] : limparLinks(item.descricao_banco);
 }
 
 /** Chave de uma descrição do banco (mesma regra do pluggy-webhook: minúsculas, sem acento,
