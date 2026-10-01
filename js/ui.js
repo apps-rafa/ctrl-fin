@@ -980,7 +980,7 @@ function _renderListaAgrupadaPorTotal(container, transacoes, tipoUI, msgVazia, {
         const c = (modo === 'categoria' ? corDaCategoria(nome, tipoUI) : cores[nome]) || corPadraoChip(nome);
         const pct = totalGeral ? (total / totalGeral) * 100 : 0;
         const corpoItens = _corpoGrupoComSubmodo(itens, tipoUI, modo, nome, ehDespesa, abertosSub, gerarOpts);
-        const submenuHTML = _renderOrganizadorInline(tipoUI, modo, nome, ehDespesa);
+        const submenuHTML = _renderOrganizadorInline(tipoUI, modo, nome, ehDespesa, itens);
         return `
         <details class="rec-grupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" style="--cor-rec:${c}" ${abertos[nome] ? 'open' : ''}>
           <summary>
@@ -1418,13 +1418,22 @@ function _barraGrupo(html) {
  *  <summary> — reutilizado pelos 3 modos que agrupam (Recorrência, Forma de
  *  pgto., Categoria). Cronológica não chama isso (não tem grupos "de
  *  dimensão", tem "Atual"/"A pagar"/"A receber"). */
-function _renderOrganizadorInline(tipoUI, modo, grupoChave, ehDespesa) {
+function _renderOrganizadorInline(tipoUI, modo, grupoChave, ehDespesa, itens) {
     // Receitas agrupadas por categoria: sem filtro de forma de pagamento dentro das categorias
     if (tipoUI === 'entrada' && modo === 'categoria') return '';
     const opcoes = _SUBMODOS_POR_MODO[modo];
     if (!opcoes) return '';
     const subAtual = _subModoGrupoDe(tipoUI, modo, grupoChave);
-    const botoes = opcoes.map(dim => {
+    // Só oferece o filtro quando há mais de uma opção nos dados do grupo (ex.: todos na mesma forma de
+    // pagamento = filtro sem sentido). Um filtro já ativo continua visível pra poder ser desfeito.
+    const temEscolha = dim => {
+        if (!itens) return true;
+        const c = _dimensaoSubmodo(dim, ehDespesa);
+        return new Set(itens.map(t => c.chaveDe(t) || c.semChave)).size > 1;
+    };
+    const visiveis = opcoes.filter(dim => subAtual === dim || temEscolha(dim));
+    if (!visiveis.length) return '';
+    const botoes = visiveis.map(dim => {
         const cfg = _dimensaoSubmodo(dim, ehDespesa);
         const full = `${cfg.emoji} ${cfg.label}`;
         return `<span role="button" tabindex="0" class="subgrupo-modo-btn${subAtual === dim ? ' active' : ''}" data-submodo="${dim}" data-full="${full}" data-emoji="${cfg.emoji}">${full}</span>`;
@@ -2169,7 +2178,7 @@ function renderFaturasCartao(container, termo = '', soNaoRealizadas = false) {
                 </details>`;
             }).join('');
         }
-        const organizadorHTML = _renderOrganizadorInline(TIPO_UI_FATURA, 'metodo', rot, true);
+        const organizadorHTML = _renderOrganizadorInline(TIPO_UI_FATURA, 'metodo', rot, true, todos);
 
         // Conferência com a fatura do banco (Open Finance): só fora da busca (lá o
         // total é parcial) e quando a Pluggy já trouxe a fatura desse mês.
