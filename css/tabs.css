@@ -144,3 +144,8 @@
 .lixeira-linha1 > * { min-width: 0; }
 .lixeira-valor { flex: none; white-space: nowrap; }
 .lixeira-desc { flex: 0 1 auto; min-width: 0; }
+
+/* Tela muito estreita: "Próximos" só com o emoji (e o texto de qualquer botão da coluna some) */
+@media (max-width: 340px) {
+    .tabs-dir .t-full, .tabs-dir .t-curto { display: none; }
+}

@@ -434,3 +434,24 @@
 .summary-card .linha-detalhe { margin-top: -.3rem; } /* colado no valor da linha de cima */
 .summary-card .linha-detalhe i { font-size: .62rem; opacity: .75; font-style: normal; }
 .summary-card .linha-detalhe.vazio { visibility: hidden; } /* segura a altura da linha */
+
+/* ===== Extremos (telas muito largas e muito estreitas) ===== */
+/* Largura máxima: Balanço/Gasto diário podem crescer mais (o JS só encolhe se um valor longo ainda estourar) */
+@media (min-width: 481px) {
+    .summary-card.balanco .amount,
+    .summary-card.gasto-diario .amount { font-size: clamp(.8rem, 17cqw, 2.3rem); }
+}
+/* Card estreito (≈ celular de 290px): sem emoji no título, título e linhas menores, até caber com respiro */
+@container (max-width: 150px) {
+    .summary-card h3 { font-size: clamp(.5rem, 8cqw, .68rem); }
+    .summary-card h3 .card-emoji { display: none; }
+    .card-linhas-topo .linha { gap: .15rem; }
+    .card-linhas-topo .linha b { font-size: clamp(.5rem, 7.5cqw, 1.25rem); }
+    .card-linhas-topo .linha i { font-size: clamp(.4rem, 5cqw, .85rem); }
+    .summary-card .linha-detalhe i { font-size: clamp(.42rem, 4.6cqw, .62rem); }
+}
+/* Menu flutuante (mini-resumo): sem emoji e com fonte menor quando a tela é muito estreita */
+@media (max-width: 340px) {
+    .mini-box .mini-emoji { display: none; }
+    .mini-box b { font-size: .5rem; }
+}
