@@ -109,9 +109,7 @@
         font-size: 0.75rem;
     }
 
-    .summary-card .amount {
-        font-size: 1.5rem;
-    }
+    /* .summary-card .amount: o tamanho vem de dashboard.css (cqw), que se ajusta à largura do card */
 
     /* Tabs */
     .tab-btn {
