@@ -2227,6 +2227,17 @@ function _parcelasNumero(input) {
     return Math.max(1, parseInt(input?.value, 10) || 1);
 }
 
+/** Receita: o "Mês" fica ao lado do Valor (Data - Valor - Mês, já que não há forma de pagamento);
+ *  despesa: ao lado da forma de pagamento, antes das parcelas. */
+function posicionarCompetencia(ehReceita) {
+    const grp = document.getElementById('competenciaGroup');
+    if (!grp) return;
+    grp.hidden = false;
+    const destino = ehReceita ? document.getElementById('dataValorBloco') : document.getElementById('metodoBloco');
+    if (!destino || grp.parentElement === destino) return;
+    destino.insertBefore(grp, ehReceita ? null : document.getElementById('parceleGroup'));
+}
+
 /**
  * Mostra/esconde "Mês" e "Parcelas" — só existem pra despesa em Crédito.
  * O campo de parcelas fica sempre visível junto (setinha ▲▼, começando em
@@ -2241,10 +2252,10 @@ function atualizarCampoParcelas() {
     const ehCredito = !ehReceita && !_formEhEstorno() && !!metodoAtual && metodoAtual.metodoKind === 'Crédito';
 
     const set = (id, mostrar) => { const el = document.getElementById(id); if (el) el.hidden = !mostrar; };
-    // "Mês" (competência): toda despesa tem. No Crédito é calculado a partir da data da compra +
-    // fechamento do cartão; nos outros métodos, começa no mês em exibição (editável).
+    // "Mês" (competência): todo lançamento tem. No Crédito é calculado a partir da data da compra +
+    // fechamento do cartão; nos outros casos, começa no mês em exibição (editável).
     // Estorno também tem mês da fatura, mas nunca parcelas.
-    set('competenciaGroup', !ehReceita);
+    posicionarCompetencia(ehReceita);
 
     const parcelasInput = document.getElementById('parcelas');
     if (!ehCredito && parcelasInput) parcelasInput.value = _parcelasTexto(1);
@@ -2259,7 +2270,7 @@ function atualizarCampoParcelas() {
     set('valorTotalGroup', parcelas > 1);
     atualizarValorTotal();
 
-    if (!ehReceita && typeof recalcularCompetencia === 'function') recalcularCompetencia();
+    if (typeof recalcularCompetencia === 'function') recalcularCompetencia();
 
     ajustarCamposSozinhos();
 }
@@ -2287,8 +2298,7 @@ function atualizarLabelsPorTipo() {
     if (ehReceita) {
         // Receita não tem forma de pagamento
         atualizarCampoMetodoReceita();
-        const compGrp = document.getElementById('competenciaGroup');
-        if (compGrp) compGrp.hidden = true;
+        posicionarCompetencia(true);
     } else {
         const blocoMetodo = document.getElementById('metodoBloco');
         if (blocoMetodo) blocoMetodo.hidden = false;
@@ -2486,8 +2496,7 @@ function atualizarCampoMetodoReceita() {
         // Receita não tem forma de pagamento (Reembolso é receita comum; Estorno mora em Despesas)
         if (blocoMetodo) blocoMetodo.hidden = true;
         if (metodoSel) { metodoSel.required = false; metodoSel.value = ''; }
-        const compGrp = document.getElementById('competenciaGroup');
-        if (compGrp) compGrp.hidden = true;
+        posicionarCompetencia(true);
         const parceleGrp = document.getElementById('parceleGroup');
         if (parceleGrp) parceleGrp.hidden = true;
         ajustarCamposSozinhos();

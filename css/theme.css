@@ -390,7 +390,6 @@ input.campo-travado,
 .busca-limpar[hidden] { display: none; }
 
 /* Editando um lançamento: só o formulário aparece, sem a busca */
-body.editando-lancamento .busca-global,
 body.editando-lancamento #resultadoBusca { display: none !important; }
 
 /* "✕" do formulário de lançamento */

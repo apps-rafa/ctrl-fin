@@ -179,7 +179,12 @@
 
   function atualizarCampoParcelas() {
     const cred = ehCredito();
-    $('competenciaGroup').hidden = tipo !== 'saidas'; // toda despesa tem o "Mês" (no crédito, o da fatura; nos outros, o da data)
+    // Todo lançamento tem o "Mês" (no crédito, o da fatura; nos outros, o da data): na receita fica
+    // ao lado do Valor, na despesa ao lado da forma de pagamento
+    const gm = $('competenciaGroup');
+    const destino = tipo === 'entradas' ? $('dataValorBloco') : $('metodoBloco');
+    if (gm.parentElement !== destino) destino.insertBefore(gm, tipo === 'entradas' ? null : $('parceleGroup'));
+    gm.hidden = false;
     const parc = cred && !ehEstorno();
     $('parceleGroup').hidden = !parc;
     if (!parc) $('parcelas').value = parcelasTexto(1);
@@ -187,7 +192,7 @@
     if (document.activeElement !== $('parcelas')) $('parcelas').value = parcelasTexto(n);
     $('valorTotalGroup').hidden = !(parc && n > 1);
     $('valorTotal').value = fmt(numero($('valor').value) * n);
-    if (tipo === 'saidas') recalcularCompetencia();
+    recalcularCompetencia();
   }
 
   function atualizarTipo() {
@@ -221,7 +226,7 @@
     if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2);
     e.target.value = v;
     delete $('competencia').dataset.editado;
-    if (tipo === 'saidas') recalcularCompetencia();
+    recalcularCompetencia();
   });
   $('valor').addEventListener('input', () => { $('valorTotal').value = fmt(numero($('valor').value) * parcelasNumero()); });
   $('parcelas').addEventListener('focus', () => { $('parcelas').value = parcelasNumero() > 1 ? String(parcelasNumero()) : ''; });
@@ -345,7 +350,7 @@
       metodo: met || null,
       descricao: $('descricao').value.trim(),
       parcelas: n,
-      comp: tipo === 'saidas' ? $('competencia').value : null,
+      comp: $('competencia').value,
       novaCategoria: novasCats.filter(c => c.tipo === tipo && c.nome.toLowerCase() === cat.toLowerCase())[0] || null,
       novoMetodo: novosMetodos.filter(m => m.rotulo === met)[0] || null,
     };

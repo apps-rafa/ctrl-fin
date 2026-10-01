@@ -27,10 +27,12 @@ function json(body: unknown, status = 200): Response {
 
 async function tg(token: string, method: string, body: unknown) {
   try {
+    // Nunca mostra pré-visualização de link (descrições vindas do banco, ex.: "apple.com/bill", viravam link com thumb)
+    const corpo = method === "sendMessage" ? { link_preview_options: { is_disabled: true }, ...(body as object) } : body;
     const resp = await fetch(`${TELEGRAM_API}${token}/${method}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(corpo),
     });
     if (!resp.ok) console.error(`Telegram ${method} falhou:`, resp.status, await resp.text());
   } catch (e) {
@@ -691,7 +693,7 @@ function urlMiniApp(id: number, r: RascunhoLancamento, l: ListasUsuario): string
   q.set("cd", JSON.stringify(l.catsD));
   q.set("mt", JSON.stringify(l.metodos.map((m) => [rotuloMetodo(m), m.metodo_kind, m.dia_fechamento])));
   // Toda despesa tem "Mês" no formulário (no crédito, o da fatura; nos outros, o da data)
-  if (r.tipo === "saidas") q.set("comp", (r.competencia || competenciaDe(r.data, r.metodoKind === "Crédito" ? r.diaFechamento : null)).slice(5, 7));
+  q.set("comp", (r.competencia || competenciaDe(r.data, r.tipo === "saidas" && r.metodoKind === "Crédito" ? r.diaFechamento : null)).slice(5, 7));
   return `${MINIAPP_URL}?${q.toString()}`;
 }
 
@@ -1132,8 +1134,8 @@ Deno.serve(async (req: Request) => {
       };
       // Mês escolhido no formulário (toda despesa; no crédito é o da fatura): o ano acompanha o
       // mês sugerido pela data (+ fechamento, no crédito), ajustando a virada de ano.
-      if (tipoF === "saidas" && /^(0[1-9]|1[0-2])$/.test(String(p.comp ?? ""))) {
-        const padrao = competenciaDe(dataF, metodoF?.metodo_kind === "Crédito" ? metodoF.dia_fechamento : null);
+      if (/^(0[1-9]|1[0-2])$/.test(String(p.comp ?? ""))) {
+        const padrao = competenciaDe(dataF, tipoF === "saidas" && metodoF?.metodo_kind === "Crédito" ? metodoF.dia_fechamento : null);
         const [ap, mp] = padrao.split("-").map(Number);
         const mEsc = Number(p.comp);
         const ano = mEsc - mp > 6 ? ap - 1 : mp - mEsc > 6 ? ap + 1 : ap;
