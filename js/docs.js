@@ -93,8 +93,8 @@ const DOCS_SECOES = [
   {
     id: 'proximos', emoji: '⏰', titulo: 'Próximos',
     itens: [
-      { t: 'O que aparece', r: 'O que ainda vai acontecer no mês: receitas a receber e despesas (faturas em aberto + lançamentos futuros).',
-        m: 'A fatura de cada cartão aparece igual a "A pagar" (veja {ver:listas} e {ver:cartao}): subgrupo com vencimento, botão "paga" e as compras. O total e a contagem da Despesa incluem as faturas em aberto.' },
+      { t: 'O que aparece', r: 'O que ainda vai acontecer, do mês em exibição em diante: um grupo por mês (só os que têm lançamento), com Despesas e Receitas dentro.',
+        m: 'O mês em exibição vem aberto e os seguintes fechados; ao trocar o mês no calendário, ele vira o início da lista e os anteriores somem. Subgrupo vazio não aparece e, se só houver um, abre junto do mês. A fatura de cada cartão aparece igual a "A pagar" (veja {ver:listas} e {ver:cartao}): subgrupo com vencimento, botão "paga" e as compras. O total e a contagem da Despesa incluem as faturas em aberto.' },
     ],
   },
   {
