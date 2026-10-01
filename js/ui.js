@@ -1947,7 +1947,7 @@ async function _onCliqueProximas(e) {
  */
 /** Aba Próximos: dois grupos — Receita (o que ainda vai entrar) e Despesa (a fatura de cada cartão,
  *  com o botão "paga", e embaixo só os lançamentos que ainda não aconteceram, de cartão ou não). */
-function renderProximasAgrupado(abertos = {}) {
+function renderProximasAgrupado(abertos = {}, futurasMeses = []) {
     const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
     const soma = l => l.reduce((a, t) => a + valorDe(t), 0);
     const futuras = lista => (lista || []).filter(t => !_transacaoRealizada(t))
@@ -1956,7 +1956,8 @@ function renderProximasAgrupado(abertos = {}) {
     const despesas = futuras(estadoApp.transacoes.saidas);
     const faturas = _faturasAPagar().filter(f => !f.paga); // mesma lógica do "A pagar"
     const abertosSub = abertos.__sub || {};
-    const aberto = k => (abertos[k] !== undefined ? abertos[k] : true);
+    // Subgrupo (Despesas/Receitas) de um mês: fechado por padrão, mas abre junto do pai quando é o único
+    const aberto = (k, unico) => (abertos[k] !== undefined ? abertos[k] : !!unico);
     // Compras já feitas no cartão (+ créditos/estornos) que compõem cada fatura em aberto
     const feita = t => _transacaoRealizada(t);
     const estornos = new Set();
@@ -1966,8 +1967,8 @@ function renderProximasAgrupado(abertos = {}) {
         return compras.sort((a, b) => String(b.data).localeCompare(String(a.data)));
     };
     const totalDespesa = soma(despesas) + faturas.reduce((acc, f) => acc + f.total, 0);
-    const grupo = (nome, chave, cor, contagem, total, corpo) => `
-        <details class="fatura-item" data-pend="${chave}" style="--cor-cartao:${cor}" ${aberto(chave) ? 'open' : ''}>
+    const grupo = (nome, chave, cor, contagem, total, corpo, unico = false) => `
+        <details class="fatura-item" data-pend="${chave}" style="--cor-cartao:${cor}" ${aberto(chave, unico) ? 'open' : ''}>
           <summary>
             <span class="fatura-nome">${nome}</span>
             <span class="fatura-contagem">${contagem}</span>
@@ -1976,16 +1977,59 @@ function renderProximasAgrupado(abertos = {}) {
           </summary>
           <div class="fatura-itens">${corpo}</div>
         </details>`;
-    const htmlR = receitas.length
-        ? grupo('Receita', 'receita', 'var(--receita-text)', receitas.length, soma(receitas), receitas.map(t => gerarHTMLTransacao(t, 'entrada')).join(''))
-        : '';
-    // Fatura como único "subgrupo" da Despesa (sem lançamento avulso ao lado) já abre sozinha.
-    const faturaUnica = faturas.length === 1 && despesas.length === 0;
-    const htmlD = (despesas.length || faturas.length)
-        ? grupo('Despesa', 'despesa', 'var(--despesa-text)', despesas.length + faturas.length, totalDespesa,
-            faturas.map(f => _htmlSubgrupoFatura(f, itensDe(f), totalDespesa, 'saida', abertosSub, estornos, faturaUnica)).join('') + despesas.map(t => gerarHTMLTransacao(t, 'saida')).join(''))
-        : '';
-    return htmlR + htmlD;
+    // Um mês (competência): subgrupos Receitas/Despesas, só os que têm lançamento
+    const mesCom = (comp, recs, desps, comFaturas) => {
+        const fats = comFaturas ? faturas : [];
+        const temD = desps.length || fats.length;
+        const unico = !!recs.length !== !!temD;
+        const totD = soma(desps) + fats.reduce((acc, f) => acc + f.total, 0);
+        const faturaUnica = fats.length === 1 && desps.length === 0;
+        const r = recs.length
+            ? grupo('Receitas', `${comp}:receita`, 'var(--receita-text)', recs.length, soma(recs), recs.map(t => gerarHTMLTransacao(t, 'entrada')).join(''), unico)
+            : '';
+        const d = temD
+            ? grupo('Despesas', `${comp}:despesa`, 'var(--despesa-text)', desps.length + fats.length, totD,
+                fats.map(f => _htmlSubgrupoFatura(f, itensDe(f), totD, 'saida', abertosSub, estornos, faturaUnica)).join('') + desps.map(t => gerarHTMLTransacao(t, 'saida')).join(''), unico)
+            : '';
+        return { html: r + d, qtd: recs.length + desps.length + fats.length };
+    };
+    const mesSel = estadoApp.mesAtual || new Date();
+    const compSel = `${mesSel.getFullYear()}-${String(mesSel.getMonth() + 1).padStart(2, '0')}`;
+    const rotuloMes = comp => { const [a, m] = comp.split('-').map(Number); const t = new Date(a, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }); return t.charAt(0).toUpperCase() + t.slice(1); };
+    const meses = new Map([[compSel, mesCom(compSel, receitas, despesas, true)]]);
+    futurasMeses.forEach(([comp, recs, desps]) => meses.set(comp, mesCom(comp, recs, desps, false)));
+    return [...meses.entries()].filter(([, m]) => m.qtd).sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([comp, m]) => `
+        <details class="fatura-item" data-pend="mes:${comp}" ${(abertos['mes:' + comp] !== undefined ? abertos['mes:' + comp] : comp === compSel) ? 'open' : ''}>
+          <summary>
+            <span class="fatura-nome">${rotuloMes(comp)}</span>
+            <span class="fatura-contagem">${m.qtd}</span>
+          </summary>
+          <div class="fatura-itens">${m.html}</div>
+        </details>`).join('');
+}
+
+/** Lançamentos ainda não realizados dos meses DEPOIS do mês em exibição, agrupados por competência:
+ *  [[ 'YYYY-MM', receitas[], despesas[] ], ...] (cronológico). Os do mês em exibição já estão em memória. */
+async function _carregarProximosMesesFuturos() {
+    const mes = estadoApp.mesAtual || new Date();
+    const prox = new Date(mes.getFullYear(), mes.getMonth() + 1, 1);
+    const ini = `${prox.getFullYear()}-${String(prox.getMonth() + 1).padStart(2, '0')}-01`;
+    try {
+        const { data, error } = await sb.from('transacoes').select('*').gte('competencia', ini)
+            .or(`data.gt.${hojeISO()},pendente.eq.true`).order('data', { ascending: true }).limit(2000);
+        if (error) throw error;
+        const porMes = new Map();
+        (data || []).map(r => ({ ...mapearTransacao(r), tipo: r.tipo })).filter(t => !_transacaoRealizada(t)).forEach(t => {
+            const comp = String(t.competencia).slice(0, 7);
+            if (!porMes.has(comp)) porMes.set(comp, [[], []]);
+            porMes.get(comp)[t.tipo === 'entradas' ? 0 : 1].push(t);
+        });
+        return [...porMes.entries()].map(([comp, [r, d]]) => [comp, r, d]);
+    } catch (e) {
+        console.error('Erro ao carregar próximos meses:', e);
+        return [];
+    }
 }
 
 async function atualizarProximasTransacoes() {
@@ -1997,8 +2041,13 @@ async function atualizarProximasTransacoes() {
         const abertosPend = {};
         container.querySelectorAll('details.fatura-item[data-pend]').forEach(d => { abertosPend[d.dataset.pend] = d.open; });
         abertosPend.__sub = _lerAbertosSubgrupo(container);
-        const html = renderProximasAgrupado(abertosPend);
-        container.innerHTML = html || `<p class="empty-message">Nada a receber, a pagar nem fatura neste mês</p>`;
+        // Mudou o mês no calendário: o novo mês de início volta aberto (mesmo que já tenha aparecido fechado)
+        const mA = estadoApp.mesAtual || new Date();
+        const compA = `${mA.getFullYear()}-${String(mA.getMonth() + 1).padStart(2, '0')}`;
+        if (window._proximasCompInicio !== compA) { delete abertosPend['mes:' + compA]; window._proximasCompInicio = compA; }
+        const futuras = await _carregarProximosMesesFuturos();
+        const html = renderProximasAgrupado(abertosPend, futuras);
+        container.innerHTML = html || `<p class="empty-message">Nada a receber, a pagar nem fatura daqui em diante</p>`;
         container.onclick = html ? _onCliqueProximas : null;
         container.querySelectorAll('.faturas-cartao .subgrupo-organizador').forEach(_ajustarLabelsFiltro);
     } catch (error) {
