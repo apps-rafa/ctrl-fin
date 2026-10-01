@@ -40,6 +40,7 @@ import {
   pluggyGet,
 } from "./pluggy.ts";
 import {
+  limparRascunhosAntigos,
   confirmarRascunhoNoBanco,
   PALETA_CHIPS,
   corPadraoChip,
@@ -372,6 +373,8 @@ async function processarTextoLivre(
     parcelas: parcelasFinal,
     metodoOrigem,
   };
+
+  await limparRascunhosAntigos(supabaseAdmin); // melhor esforço: não deixa a fila crescer sem fim
 
   // Cada texto/SMS vira um rascunho independente — vários pendentes ao mesmo
   // tempo é o ponto (SMS chegando em sequência numa noite de compras, por
