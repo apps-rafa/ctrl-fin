@@ -179,3 +179,10 @@ export function urlMiniApp(id: number | string, r: RascunhoLancamento, l: Listas
   q.set("comp", (r.competencia || competenciaDe(r.data, r.tipo === "saidas" && r.metodoKind === "Crédito" ? r.diaFechamento : null)).slice(5, 7));
   return `${MINIAPP_URL}?${q.toString()}`;
 }
+
+/** Rascunhos não confirmados há mais de `dias` dias saem da fila (a tabela não cresce para sempre). */
+export async function limparRascunhosAntigos(admin: ReturnType<typeof createClient>, dias = 7): Promise<void> {
+  const limite = new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString();
+  const { error } = await admin.from("telegram_rascunhos").delete().lt("criado_em", limite);
+  if (error) console.error("Falha ao limpar rascunhos antigos:", error);
+}
