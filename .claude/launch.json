@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["-y", "serve", "-l", "8777", "."],
       "port": 8777
+    },
+    {
+      "name": "mock",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["dev/servir.mjs"],
+      "port": 8778
     }
   ]
 }
