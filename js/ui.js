@@ -1682,6 +1682,19 @@ function irParaMes(competencia) {
     recarregarDados().then(atualizarUI);
 }
 
+/** Leva a tela até o formulário de edição, deixando os campos visíveis (abaixo da barra fixa do topo). */
+function rolarAteFormulario() {
+    const rolar = () => {
+        const form = document.getElementById('adicionar');
+        if (!form) return;
+        const topo = document.querySelector('.topo');
+        const barra = topo && getComputedStyle(topo).position === 'fixed' || topo && getComputedStyle(topo).position === 'sticky' ? topo.offsetHeight : 0;
+        window.scrollTo({ top: Math.max(0, form.getBoundingClientRect().top + window.scrollY - barra - 8) });
+    };
+    rolar();
+    requestAnimationFrame(rolar); // de novo depois que a lista de origem some e a altura da página encolhe
+}
+
 /** Carrega a transação no formulário da aba Adicionar em modo edição */
 function iniciarEdicaoTransacao(trans, tipoTransacao) {
     // Estorno de cartão é gravado como entrada, mas se lança (e edita) como Despesa > categoria Estorno
@@ -1706,7 +1719,7 @@ function iniciarEdicaoTransacao(trans, tipoTransacao) {
     // Tipo (entrada/saída) sem recarregar menus
     // A lista de onde veio (ex.: Recém-lançados) pode ter deixado a página rolada: o formulário
     // é bem menor, então sem isto a tela ficava presa no fim, com o dashboard cortado em cima
-    window.scrollTo(0, 0);
+    rolarAteFormulario();
     estadoApp.tipoAtual = tipoTransacao;
     const tipoField = document.querySelector(SELECTORS.tipoTransacao);
     if (tipoField) tipoField.value = tipoTransacao;

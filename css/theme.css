@@ -435,8 +435,8 @@ body .despesa-actions { flex-direction: row; gap: .15rem; }
    esquerda) — leitura em sequência mais confortável; e chips mais baixos (só o
    chip: o tamanho da fonte não muda). */
 body .despesa-data { flex: 0 0 auto; gap: .25rem; }
-body .despesa-dia { display: inline-block; flex: none; width: 2.9em; text-align: right; }
-body .despesa-dow { display: inline-block; flex: none; width: 2.3em; text-align: left; }
+body .despesa-dia { display: inline-block; flex: none; width: 2.9em; text-align: right; white-space: nowrap; }
+body .despesa-dow { display: inline-block; flex: none; width: 2.6em; text-align: left; white-space: nowrap; }
 body .despesa-valor { flex: 0 0 auto; min-width: 4.9rem; text-align: left; white-space: nowrap; }
 body .chip { padding: .02rem .42rem; line-height: 1.2; }
 body .despesa-conteudo { column-gap: .35rem; }

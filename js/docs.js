@@ -158,7 +158,7 @@ const DOCS_SECOES = [
       { t: 'Forma de pagamento da conta', r: 'Cada conta precisa estar ligada a uma forma de pagamento do app para sincronizar.',
         m: 'Sem essa ligação ("Selecione...") a sincronização é bloqueada, para nunca importar lançamentos sem forma. Escolha quais contas entram na sincronização.' },
       { t: 'Sincronizar e revisar', r: 'A sincronização traz as transações para uma fila de revisão; você confere, ajusta e importa.',
-        m: 'Escolha o período (mês/ano). Na fila você pode editar categoria e descrição, ignorar itens, marcar prontos e importar. O app aprende as categorias que você usa para sugerir melhor e detecta duplicatas de lançamentos que você já tinha. Rendimentos e dividendos podem ser ignorados.' },
+        m: 'Escolha o período (mês/ano) e a conta: os botões das contas são exclusivos (ligar uma desliga a outra). No histórico de um cartão, a lista vem direto, sem subgrupo de despesas nem chip da forma de pagamento. Na fila você pode editar categoria e descrição, ignorar itens, marcar prontos e importar. O app aprende as categorias que você usa para sugerir melhor e detecta duplicatas de lançamentos que você já tinha. Rendimentos e dividendos podem ser ignorados.' },
       { t: 'Histórico e ignoradas', r: 'O que já foi conciliado e o que foi ignorado ficam guardados, com opção de editar, excluir ou reativar.',
         m: 'Assim nada se perde e você pode voltar atrás numa decisão.' },
     ],

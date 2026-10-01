@@ -719,7 +719,7 @@ async function enviarRascunho(
     `Categoria: ${r.categoria}`,
     `Descrição: ${r.descricao || "(em branco)"}`,
     r.tipo === "saidas" ? `Forma de pgto.: ${r.metodo || "nenhuma cadastrada — ajuste no app"}${r.metodoOrigem === "padrao" ? " (padrão)" : ""}` : null,
-    ehCreditoSaida ? `Mês da fatura: ${mesAbrevAno(compFatura)}` : null,
+    ehCreditoSaida ? `Mês da fatura: ${mesAbrevAno(compFatura)}` : `Mês: ${mesAbrevAno(r.competencia || r.data.slice(0, 7) + "-01")}`,
     ehCreditoSaida && r.categoria !== "Estorno" ? (r.parcelas && r.parcelas > 1 ? `Parcelas: ${r.parcelas}x de ${formatarMoedaBR(r.valor / r.parcelas)}` : "Parcelas: à vista") : null,
     "",
     "Confirma?",
