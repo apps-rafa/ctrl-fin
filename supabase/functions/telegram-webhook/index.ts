@@ -693,9 +693,18 @@ async function carregarListasUsuario(admin: ReturnType<typeof createClient>, use
   };
 }
 
+/** Quantos rascunhos pendentes cada chat guarda (os mais antigos saem primeiro). */
+const MAX_RASCUNHOS = 10;
+async function podarRascunhos(admin: ReturnType<typeof createClient>, chatId: number) {
+  const { data } = await admin.from("telegram_rascunhos").select("id").eq("chat_id", chatId).order("criado_em", { ascending: false }).order("id", { ascending: false });
+  const sobra = ((data ?? []) as { id: number }[]).slice(MAX_RASCUNHOS).map((r) => r.id);
+  if (sobra.length) await admin.from("telegram_rascunhos").delete().in("id", sobra);
+}
+
 /** Endereço do mini app (formulário de lançamento) já preenchido com o rascunho. */
-function urlMiniApp(r: RascunhoLancamento, l: ListasUsuario): string {
+function urlMiniApp(r: RascunhoLancamento, l: ListasUsuario, rascunhoId?: number): string {
   const q = new URLSearchParams();
+  if (rascunhoId) q.set("rid", String(rascunhoId)); // o formulário devolve o id: só esse rascunho sai da fila
   q.set("tipo", r.tipo);
   q.set("v", String(r.valor));
   q.set("d", r.data);
@@ -706,16 +715,16 @@ function urlMiniApp(r: RascunhoLancamento, l: ListasUsuario): string {
   q.set("cr", JSON.stringify(l.catsR));
   q.set("cd", JSON.stringify(l.catsD));
   q.set("mt", JSON.stringify(l.metodos.map((m) => [rotuloMetodo(m), m.metodo_kind, m.dia_fechamento])));
-  if (r.metodoKind === "Crédito") q.set("comp", (r.competencia || competenciaDe(r.data, r.diaFechamento)).slice(5, 7));
+  // Toda despesa tem "Mês" no formulário (no crédito, o da fatura; nos outros, o da data)
+  if (r.tipo === "saidas") q.set("comp", (r.competencia || competenciaDe(r.data, r.metodoKind === "Crédito" ? r.diaFechamento : null)).slice(5, 7));
   return `${MINIAPP_URL}?${q.toString()}`;
 }
 
-/** Mensagem do rascunho + teclado Confirmar/Cancelar (embaixo, onde se digita,
- *  em vez de botão dentro da mensagem). "one_time_keyboard" some sozinho depois
- *  de usado. Reenviada também quando o usuário digita uma descrição. */
+/** Mensagem do rascunho com os botões Confirmar / Editar / Cancelar dentro dela (por id do rascunho).
+ *  Reenviada também quando o usuário digita uma descrição. */
 async function enviarRascunho(
   token: string, chatId: number, r: RascunhoLancamento,
-  admin?: ReturnType<typeof createClient>, userId?: string, cabecalho?: string,
+  admin?: ReturnType<typeof createClient>, userId?: string, cabecalho?: string, rascunhoId?: number,
 ) {
   const sinal = r.tipo === "entradas" ? "💰 Receita" : "💸 Despesa";
   const dataFmt = new Date(`${r.data}T00:00:00`).toLocaleDateString("pt-BR");
@@ -734,29 +743,22 @@ async function enviarRascunho(
     "",
     "Confirma?",
     "",
-    "💬 Se responder qualquer outra coisa (sem ser os botões), eu entendo como a descrição do lançamento.",
+    "💬 Se responder qualquer outra coisa (sem ser os botões), eu entendo como a descrição do último lançamento enviado.",
   ].filter((l) => l !== null).join("\n");
-  // Botão "✏️ Editar": abre o formulário (mini app) já preenchido. Só aparece
-  // quando dá pra carregar as listas do usuário.
-  const listas = admin && userId ? await carregarListasUsuario(admin, userId).catch(() => null) : null;
+  // Cada rascunho leva os próprios botões na mensagem (Confirmar / Editar / Cancelar, pelo id dele),
+  // então dá pra ter vários pendentes no chat sem confundir qual é qual. "Editar" não abre o
+  // formulário direto: o mini app só devolve dados quando aberto por botão do TECLADO, então o
+  // bot responde (ver "nleditar") com o botão do formulário daquele rascunho em cima do teclado.
   await tg(token, "sendMessage", {
     chat_id: chatId,
     text: linhas,
-    reply_markup: {
-      keyboard: [[
-        { text: "✅ Confirmar" },
-        ...(listas ? [{ text: "✏️ Editar", web_app: { url: urlMiniApp(r, listas) } }] : []),
-        { text: "❌ Cancelar" },
-      ], [
-        ...(r.tipo === "saidas" ? [{ text: "💳 Forma de pgto." }] : []),
-        { text: "🏷️ Categorias" },
-        { text: "📅 Data" },
+    reply_markup: rascunhoId ? {
+      inline_keyboard: [[
+        { text: "✅ Confirmar", callback_data: `nlconfirmar:${rascunhoId}` },
+        { text: "✏️ Editar", callback_data: `nleditar:${rascunhoId}` },
+        { text: "❌ Cancelar", callback_data: `nlcancelar:${rascunhoId}` },
       ]],
-      resize_keyboard: true,
-      // Teclado FIXO: no celular, tocar fora/na caixa de texto não o esconde.
-      is_persistent: true,
-      one_time_keyboard: false,
-    },
+    } : undefined,
   });
 }
 
@@ -1009,16 +1011,17 @@ Deno.serve(async (req: Request) => {
         parcelas: tipoF === "saidas" && metodoF?.metodo_kind === "Crédito" && nParc > 1 ? nParc : null,
         competencia: null,
       };
-      // Mês da fatura escolhido no formulário (só crédito): o ano acompanha o
-      // mês sugerido pela data + fechamento, ajustando a virada de ano.
-      if (tipoF === "saidas" && metodoF?.metodo_kind === "Crédito" && /^(0[1-9]|1[0-2])$/.test(String(p.comp ?? ""))) {
-        const padrao = competenciaDe(dataF, metodoF.dia_fechamento);
+      // Mês escolhido no formulário (toda despesa; no crédito é o da fatura): o ano acompanha o
+      // mês sugerido pela data (+ fechamento, no crédito), ajustando a virada de ano.
+      if (tipoF === "saidas" && /^(0[1-9]|1[0-2])$/.test(String(p.comp ?? ""))) {
+        const padrao = competenciaDe(dataF, metodoF?.metodo_kind === "Crédito" ? metodoF.dia_fechamento : null);
         const [ap, mp] = padrao.split("-").map(Number);
         const mEsc = Number(p.comp);
         const ano = mEsc - mp > 6 ? ap - 1 : mp - mEsc > 6 ? ap + 1 : ap;
         dadosF.competencia = `${ano}-${String(mEsc).padStart(2, "0")}-01`;
       }
-      await supabaseAdmin.from("telegram_rascunhos").delete().eq("chat_id", chatId);
+      const ridF = Number(p.rid);
+      if (ridF > 0) await supabaseAdmin.from("telegram_rascunhos").delete().eq("id", ridF).eq("chat_id", chatId);
       const { erro: erroF } = await confirmarRascunhoNoBanco(supabaseAdmin, tgUser.user_id, dadosF);
       if (erroF) {
         console.error(erroF);
@@ -1166,10 +1169,10 @@ Deno.serve(async (req: Request) => {
             metodo: met ? rotuloMetodo(met) : null, metodoKind: met?.metodo_kind ?? null, diaFechamento: met?.dia_fechamento ?? null,
             data: escolha.data, parcelas: null,
           };
-          await supabaseAdmin.from("telegram_rascunhos").delete().eq("chat_id", chatId);
-          const { error: errR } = await supabaseAdmin.from("telegram_rascunhos").insert({ user_id: ult.user_id, chat_id: chatId, dados: rascunho });
-          if (!errR) {
-            await enviarRascunho(token, chatId, rascunho, supabaseAdmin, ult.user_id, `🏦 Transação nº ${texto} do banco`);
+          const { data: novoR, error: errR } = await supabaseAdmin.from("telegram_rascunhos").insert({ user_id: ult.user_id, chat_id: chatId, dados: rascunho }).select("id").single();
+          if (!errR && novoR) {
+            await podarRascunhos(supabaseAdmin, chatId);
+            await enviarRascunho(token, chatId, rascunho, supabaseAdmin, ult.user_id, `🏦 Transação nº ${texto} do banco`, novoR.id);
             return json({ ok: true });
           }
         }
@@ -1242,7 +1245,7 @@ Deno.serve(async (req: Request) => {
             const dias = { Hoje: 0, Ontem: -1, Anteontem: -2 } as Record<string, number>;
             const novaD: RascunhoLancamento = { ...dadosC, data: somarDiasISO(hojeBrasiliaISO(), dias[texto.slice(2).trim()] ?? 0), competencia: null };
             await supabaseAdmin.from("telegram_rascunhos").update({ dados: novaD }).eq("id", pendC.id);
-            await enviarRascunho(token, chatId, novaD, supabaseAdmin, tgC.user_id);
+            await enviarRascunho(token, chatId, novaD, supabaseAdmin, tgC.user_id, undefined, pendC.id);
             return json({ ok: true });
           }
           // "🏷️ <categoria>"
@@ -1255,7 +1258,7 @@ Deno.serve(async (req: Request) => {
               let credito = novaC.metodoKind === "Crédito" ? null : listasC.metodos.find((m) => m.metodo_kind === "Crédito");
               if (novaC.metodoKind !== "Crédito" && !credito) {
                 await tg(token, "sendMessage", { chat_id: chatId, text: "Estorno precisa de um cartão de crédito cadastrado (no app, em Configurações)." });
-                await enviarRascunho(token, chatId, dadosC, supabaseAdmin, tgC.user_id);
+                await enviarRascunho(token, chatId, dadosC, supabaseAdmin, tgC.user_id, undefined, pendC.id);
                 return json({ ok: true });
               }
               if (credito) novaC = { ...novaC, metodo: rotuloMetodo(credito), metodoKind: credito.metodo_kind, diaFechamento: credito.dia_fechamento, competencia: null, metodoOrigem: "texto" };
@@ -1263,7 +1266,7 @@ Deno.serve(async (req: Request) => {
               credito = null;
             }
             await supabaseAdmin.from("telegram_rascunhos").update({ dados: novaC }).eq("id", pendC.id);
-            await enviarRascunho(token, chatId, novaC, supabaseAdmin, tgC.user_id);
+            await enviarRascunho(token, chatId, novaC, supabaseAdmin, tgC.user_id, undefined, pendC.id);
             return json({ ok: true });
           }
         }
@@ -1307,7 +1310,7 @@ Deno.serve(async (req: Request) => {
               diaFechamento: escolhidaE.dia_fechamento, competencia: null, metodoOrigem: "texto",
             };
             await supabaseAdmin.from("telegram_rascunhos").update({ dados: novaE }).eq("id", pendE.id);
-            await enviarRascunho(token, chatId, novaE, supabaseAdmin, tgE.user_id);
+            await enviarRascunho(token, chatId, novaE, supabaseAdmin, tgE.user_id, undefined, pendE.id);
             return json({ ok: true });
           }
         }
@@ -1346,6 +1349,10 @@ Deno.serve(async (req: Request) => {
       // de cada vez (um texto novo substitui o anterior), então não precisa
       // de id — o mais recente do chat já resolve. "Cancelar" sempre junto
       // do "Confirmar", nunca só um dos dois.
+      if (texto === "❌ Cancelar edição") {
+        await tg(token, "sendMessage", { chat_id: chatId, text: "Edição cancelada — o lançamento continua pendente nos botões da mensagem dele.", reply_markup: { remove_keyboard: true } });
+        return json({ ok: true });
+      }
       if (texto === "✅ Confirmar" || texto === "❌ Cancelar") {
         if (texto === "❌ Cancelar") await supabaseAdmin.from("telegram_ultimas").delete().eq("chat_id", chatId);
         const { data: tgUser } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
@@ -1395,7 +1402,7 @@ Deno.serve(async (req: Request) => {
           if (dtResp.data && !dtResp.resto) {
             const novaDt: RascunhoLancamento = { ...(pend.dados as RascunhoLancamento), data: dtResp.data, competencia: null };
             await supabaseAdmin.from("telegram_rascunhos").update({ dados: novaDt }).eq("id", pend.id);
-            await enviarRascunho(token, chatId, novaDt, supabaseAdmin, tgU!.user_id);
+            await enviarRascunho(token, chatId, novaDt, supabaseAdmin, tgU!.user_id, undefined, pend.id);
             return json({ ok: true });
           }
           const listasResp = await carregarListasUsuario(supabaseAdmin, tgU!.user_id);
@@ -1406,12 +1413,12 @@ Deno.serve(async (req: Request) => {
               diaFechamento: formaResp.dia_fechamento, competencia: null, metodoOrigem: "texto",
             };
             await supabaseAdmin.from("telegram_rascunhos").update({ dados: trocada }).eq("id", pend.id);
-            await enviarRascunho(token, chatId, trocada, supabaseAdmin, tgU!.user_id);
+            await enviarRascunho(token, chatId, trocada, supabaseAdmin, tgU!.user_id, undefined, pend.id);
             return json({ ok: true });
           }
           const nova: RascunhoLancamento = { ...(pend.dados as RascunhoLancamento), descricao: texto.charAt(0).toUpperCase() + texto.slice(1) };
           await supabaseAdmin.from("telegram_rascunhos").update({ dados: nova }).eq("id", pend.id);
-          await enviarRascunho(token, chatId, nova, supabaseAdmin, tgU!.user_id);
+          await enviarRascunho(token, chatId, nova, supabaseAdmin, tgU!.user_id, undefined, pend.id);
           return json({ ok: true });
         }
         await tg(token, "sendMessage", {
@@ -1492,8 +1499,7 @@ Deno.serve(async (req: Request) => {
         metodoOrigem,
       };
 
-      // Só 1 rascunho pendente por vez por chat — um novo texto substitui o anterior.
-      await supabaseAdmin.from("telegram_rascunhos").delete().eq("chat_id", chatId);
+      // Os rascunhos se acumulam (cada mensagem tem os próprios botões); só os mais antigos são podados.
       const { data: novoRascunho, error: erroRascunho } = await supabaseAdmin
         .from("telegram_rascunhos")
         .insert({ user_id: tgUser.user_id, chat_id: chatId, dados: rascunho })
@@ -1504,7 +1510,8 @@ Deno.serve(async (req: Request) => {
         return json({ ok: true });
       }
 
-      await enviarRascunho(token, chatId, rascunho, supabaseAdmin, tgUser.user_id);
+      await podarRascunhos(supabaseAdmin, chatId);
+      await enviarRascunho(token, chatId, rascunho, supabaseAdmin, tgUser.user_id, undefined, novoRascunho.id);
       return json({ ok: true });
     }
 
@@ -1522,6 +1529,32 @@ Deno.serve(async (req: Request) => {
         await tg(token, "editMessageText", {
           chat_id: chatId, message_id: cq.message.message_id,
           text: `${cq.message.text}\n\n❌ Cancelado`,
+        });
+        return json({ ok: true });
+      }
+
+      // "✏️ Editar" na mensagem de um rascunho: o mini app só devolve os dados quando aberto por botão
+      // do TECLADO, então responde com o botão do formulário DESTE rascunho (e diz qual é).
+      if (acao === "nleditar" && chatId) {
+        const rascunhoId = Number(idStr);
+        const { data: tgUser } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+        const { data: rascunho } = tgUser
+          ? await supabaseAdmin.from("telegram_rascunhos").select("dados").eq("id", rascunhoId).eq("chat_id", chatId).eq("user_id", tgUser.user_id).maybeSingle()
+          : { data: null };
+        if (!tgUser || !rascunho) {
+          await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Esse rascunho já não existe mais" });
+          return json({ ok: true });
+        }
+        const d = rascunho.dados as RascunhoLancamento;
+        const listas = await carregarListasUsuario(supabaseAdmin, tgUser.user_id);
+        await tg(token, "answerCallbackQuery", { callback_query_id: cq.id });
+        await tg(token, "sendMessage", {
+          chat_id: chatId,
+          text: `Toque em ✏️ Editar para alterar o lançamento referente à ${d.tipo === "entradas" ? "receita" : "despesa"} de ${formatarMoedaBR(d.valor)} no dia ${new Date(`${d.data}T00:00:00`).toLocaleDateString("pt-BR")}${d.descricao ? ` (${d.descricao})` : ""}.`,
+          reply_markup: {
+            keyboard: [[{ text: "✏️ Editar", web_app: { url: urlMiniApp(d, listas, rascunhoId) } }], [{ text: "❌ Cancelar edição" }]],
+            resize_keyboard: true, is_persistent: true, one_time_keyboard: false,
+          },
         });
         return json({ ok: true });
       }

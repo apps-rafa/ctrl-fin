@@ -435,8 +435,8 @@ body .despesa-actions { flex-direction: row; gap: .15rem; }
    esquerda) — leitura em sequência mais confortável; e chips mais baixos (só o
    chip: o tamanho da fonte não muda). */
 body .despesa-data { flex: 0 0 auto; gap: .25rem; }
-body .despesa-dia { display: inline-block; min-width: 1.15rem; text-align: right; }
-body .despesa-dow { display: inline-block; min-width: 1.9rem; text-align: left; }
+body .despesa-dia { display: inline-block; flex: none; width: 1.4em; text-align: right; }
+body .despesa-dow { display: inline-block; flex: none; width: 2.3em; text-align: left; }
 body .despesa-valor { flex: 0 0 auto; min-width: 4.9rem; text-align: left; white-space: nowrap; }
 body .chip { padding: .02rem .42rem; line-height: 1.2; }
 body .despesa-conteudo { column-gap: .35rem; }
@@ -527,7 +527,8 @@ body .rec-grupo { margin-bottom: 0; }
 body .rec-grupo + .rec-grupo { margin-top: -1px; }
 
 /* Valor mais perto da data (dia da semana ocupa só o que precisa) */
-body .despesa-dow { min-width: 1.55rem; }
+/* (largura FIXA em em: "QUA" e "SEG" têm larguras diferentes — com min-width o valor ia tremendo de linha em linha) */
+body .despesa-dow { min-width: 0; }
 body .despesa-conteudo { column-gap: .3rem; }
 
 /* Histórico Pluggy: valores alinhados à esquerda, colados na data (a regra

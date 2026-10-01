@@ -179,7 +179,7 @@
 
   function atualizarCampoParcelas() {
     const cred = ehCredito();
-    $('competenciaGroup').hidden = !cred;
+    $('competenciaGroup').hidden = tipo !== 'saidas'; // toda despesa tem o "Mês" (no crédito, o da fatura; nos outros, o da data)
     const parc = cred && !ehEstorno();
     $('parceleGroup').hidden = !parc;
     if (!parc) $('parcelas').value = parcelasTexto(1);
@@ -187,7 +187,7 @@
     if (document.activeElement !== $('parcelas')) $('parcelas').value = parcelasTexto(n);
     $('valorTotalGroup').hidden = !(parc && n > 1);
     $('valorTotal').value = fmt(numero($('valor').value) * n);
-    if (cred) recalcularCompetencia();
+    if (tipo === 'saidas') recalcularCompetencia();
   }
 
   function atualizarTipo() {
@@ -221,7 +221,7 @@
     if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2);
     e.target.value = v;
     delete $('competencia').dataset.editado;
-    if (ehCredito()) recalcularCompetencia();
+    if (tipo === 'saidas') recalcularCompetencia();
   });
   $('valor').addEventListener('input', () => { $('valorTotal').value = fmt(numero($('valor').value) * parcelasNumero()); });
   $('parcelas').addEventListener('focus', () => { $('parcelas').value = parcelasNumero() > 1 ? String(parcelasNumero()) : ''; });
@@ -344,7 +344,8 @@
       metodo: met || null,
       descricao: $('descricao').value.trim(),
       parcelas: n,
-      comp: ehCredito() ? $('competencia').value : null,
+      comp: tipo === 'saidas' ? $('competencia').value : null,
+      rid: q.get('rid') || null, // rascunho do bot que está sendo editado (só ele sai da fila)
       novaCategoria: novasCats.filter(c => c.tipo === tipo && c.nome.toLowerCase() === cat.toLowerCase())[0] || null,
       novoMetodo: novosMetodos.filter(m => m.rotulo === met)[0] || null,
     };

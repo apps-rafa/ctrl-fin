@@ -153,6 +153,9 @@ function preencherDropdownCategorias() {
         return;
     }
     
+    // Recriar as opções não pode perder a categoria já escolhida (ex.: edição aberta enquanto os
+    // menus recarregam ao voltar pra janela do app)
+    const atual = selectCategoria.value;
     selectCategoria.innerHTML = '<option value="">Selecione...</option>';
 
     // Lista específica conforme o tipo do lançamento (receita x despesa)
@@ -167,6 +170,7 @@ function preencherDropdownCategorias() {
         option.textContent = categoria;
         selectCategoria.appendChild(option);
     });
+    if (atual) selectCategoria.value = atual; // fora da lista do tipo atual, volta a "Selecione..."
 }
 
 /**
