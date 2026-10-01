@@ -427,7 +427,8 @@ body .despesa-item {
     background: transparent;
     animation: none;
 }
-body .despesa-item:nth-of-type(even) { background: color-mix(in srgb, var(--surface-3) 55%, transparent); }
+/* zebrado só com 3 ou mais itens (com 2, o 2º seria o único listrado) */
+body .despesa-item:nth-of-type(even):not(:nth-of-type(2):last-of-type) { background: color-mix(in srgb, var(--surface-3) 55%, transparent); }
 body .rec-grupo-itens, body .fatura-itens, body .historico-lista { gap: 0; }
 body .despesa-actions { flex-direction: row; gap: .15rem; }
 
