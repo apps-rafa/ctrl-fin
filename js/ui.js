@@ -1542,9 +1542,9 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     return `
         <div class="${classes}" data-id="${trans.id}" data-tipo-transacao="${tipo === 'entrada' ? 'entradas' : 'saidas'}">
             <div class="despesa-conteudo">
+                ${(estadoApp.conciliadas && estadoApp.conciliadas.has(trans.id) && trans.origem !== 'pluggy') ? '<span class="conc-selo" title="Conciliado com uma transação do banco (Open Finance)">🏦</span>' : ''}
                 ${lado}
                 <span class="despesa-valor">${sinal} ${valorFormatado}</span>
-                ${(estadoApp.conciliadas && estadoApp.conciliadas.has(trans.id) && trans.origem !== 'pluggy') ? '<span class="conc-selo" title="Conciliado com uma transação do banco (Open Finance)">🏦</span>' : ''}
                 ${parcelaTag}
                 ${quitarCheckbox}
                 ${(metaChip || catChip || quandoTag || quitadoTag) ? `<span class="despesa-badges">${metaChip}${catChip}${quandoTag}${quitadoTag}</span>` : ''}
