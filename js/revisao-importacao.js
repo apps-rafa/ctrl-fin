@@ -81,8 +81,11 @@ function htmlSubgruposRevisao({ idPai, abertos, itens, tipoDe, colunas, htmlLinh
         </table>
     </div>`;
     }
+    const listaS = itens.filter(i => tipoDe(i) !== 'entradas'), listaE = itens.filter(i => tipoDe(i) === 'entradas');
+    // Subgrupo único (só Despesas ou só Receitas): abre junto com o pai (o estado manual ainda vence)
+    const unico = !!listaS.length !== !!listaE.length;
     const sub = (tipo, lista) => !lista.length ? '' : _grupoColapsavelConciliar({
-        id: `${idPai}-${tipo}`, abertos, padraoAberto: subAberto,
+        id: `${idPai}-${tipo}`, abertos, padraoAberto: subAberto || unico,
         titulo: `${tipo === 'entradas' ? 'Receitas' : 'Despesas'} (${lista.length})`,
         corpo: `
     <div class="import-csv-tabela-wrap import-csv-tabela-wrap--solta">
@@ -92,8 +95,7 @@ function htmlSubgruposRevisao({ idPai, abertos, itens, tipoDe, colunas, htmlLinh
         </table>
     </div>`
     });
-    return sub('saidas', itens.filter(i => tipoDe(i) !== 'entradas'))
-         + sub('entradas', itens.filter(i => tipoDe(i) === 'entradas'));
+    return sub('saidas', listaS) + sub('entradas', listaE);
 }
 
 /** Grupo pai (details) com os subgrupos Despesas/Receitas dentro (ou uma
