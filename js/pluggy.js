@@ -331,9 +331,15 @@ function _renderSeletorContasSyncPluggy(conectadas) {
         const btn = e.target.closest('button[data-id]');
         if (!btn) return;
         const ligar = btn.dataset.sincronizar !== '1';
+        // Uma conta por vez: ligar uma desliga as outras (ex.: Mercado Pago x cartão de crédito)
+        const desligadas = ligar ? [...box.querySelectorAll('button[data-id].active')].filter(b => b !== btn) : [];
+        desligadas.forEach(b => { b.classList.remove('active'); b.dataset.sincronizar = '0'; });
         btn.classList.toggle('active', ligar);
         btn.dataset.sincronizar = ligar ? '1' : '0';
-        Promise.resolve(associarSincronizarConta(Number(btn.dataset.id), ligar)).then(() => carregarRevisaoPluggy());
+        Promise.all([
+            ...desligadas.map(b => associarSincronizarConta(Number(b.dataset.id), false)),
+            associarSincronizarConta(Number(btn.dataset.id), ligar),
+        ]).then(() => carregarRevisaoPluggy());
         _atualizarBotaoSincronizarPluggy();
     };
     _atualizarBotaoSincronizarPluggy();
@@ -1037,7 +1043,10 @@ async function carregarRevisaoPluggy() {
     const tabelaHistorico = !historicoValido.length ? '' : _grupoColapsavelConciliar({
         id: 'pluggy-historico', abertos: _abertosPluggy, padraoAberto: false,
         titulo: `📜 Já lançados (histórico) (${historicoValido.length})`,
-        corpo: ['saidas', 'entradas'].map(tipo => {
+        corpo: (!historicoValido.some(i => i.transacao.tipo === 'entradas')
+            // só despesas (ex.: cartão de crédito): sem subgrupo "Despesas", a lista vem direto
+            ? `<div class="historico-lista rec-grupo-itens">${[...historicoValido].sort((x, y) => String(y.transacao.data).localeCompare(String(x.transacao.data))).map(i => gerarHTMLHistoricoPluggy(i)).join('')}</div>`
+            : ['saidas', 'entradas'].map(tipo => {
             const lista = historicoValido.filter(i => (i.transacao.tipo === 'entradas') === (tipo === 'entradas'))
                 .sort((x, y) => String(y.transacao.data).localeCompare(String(x.transacao.data)));
             if (!lista.length) return '';
@@ -1046,7 +1055,7 @@ async function carregarRevisaoPluggy() {
                 titulo: `${tipo === 'entradas' ? 'Receitas' : 'Despesas'} (${lista.length})<span class="hist-total">${formatarMoeda(_somaHist(lista))}</span>`,
                 corpo: `<div class="historico-lista rec-grupo-itens">${lista.map(gerarHTMLHistoricoPluggy).join('')}</div>`,
             });
-        }).join(''),
+        }).join('')),
     });
 
     // Com mais de uma conta na fila, cada conta vira um grupo (Nubank: Crédito,
@@ -1173,7 +1182,7 @@ function gerarHTMLHistoricoPluggy(item) {
     const t = item.transacao;
     // Mesmo card dos lançamentos das páginas de Receitas/Despesas; só as ações
     // são trocadas pelas do histórico (editar/excluir pelo id da fila).
-    const html = gerarHTMLTransacao(mapearTransacao(t), t.tipo === 'entradas' ? 'entrada' : 'saida', { semAcoes: true });
+    const html = gerarHTMLTransacao(mapearTransacao(t), t.tipo === 'entradas' ? 'entrada' : 'saida', { semAcoes: true, semMetodoChip: true }); // a forma de pagamento já é a da conta mostrada nesta tela
     const acoes = `<button class="btn-icon" data-act="editar-historico" data-id="${item.id}" title="Editar">✏️</button><button class="btn-icon btn-danger" data-act="excluir-historico" data-id="${item.id}" title="Excluir">🗑️</button>`;
     return html.replace('<div class="despesa-actions"></div>', `<div class="despesa-actions">${acoes}</div>`);
 }
