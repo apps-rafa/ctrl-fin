@@ -592,6 +592,13 @@ const _descricaoEditadaPluggy = {};
 const _ignoradasPluggy = new Set();
 // Estado aberto/fechado dos grupos — sobrevive a re-renders.
 const _abertosPluggy = {}; // id completo do grupo/subgrupo -> aberto (sem chave = padrão do grupo)
+// Texto da busca desta página — sobrevive a re-renders (ver
+// #pluggyRevisaoBusca / _filtrarRevisaoPluggy). _buscaPluggyAtiva evita que
+// abrir um grupo à força durante a busca "grave" esse estado como se o
+// usuário tivesse clicado nele (o toggle do <details> dispara o evento
+// mesmo quando é o próprio código que abre).
+let _pluggyRevisaoBusca = '';
+let _buscaPluggyAtiva = false;
 // Grupo (revisar/duplicatas/prontas) de cada linha, congelado na 1ª vez que ela
 // aparece — resolver a categoria não muda a linha de grupo, só tira o vermelho.
 const _grupoPluggy = {};
@@ -859,6 +866,38 @@ async function _aplicarCategoriasAprendidasPluggy(itens) {
     });
 }
 
+/** Filtra a página de revisão do Open Finance pelo texto digitado em
+ *  #pluggyRevisaoBusca — esconde linha/card sem bater no texto (qualquer
+ *  coluna: data, valor, categoria, descrição) e some com o grupo inteiro se
+ *  nenhuma linha dele sobrar visível; com busca ativa, abre à força os
+ *  grupos que têm resultado (e devolve ao estado normal quando ela é
+ *  apagada). Funciona nas duas formas de linha desta página: <tr> das
+ *  tabelas normais e os cards (.despesa-item) do histórico. */
+function _filtrarRevisaoPluggy(termoBruto) {
+    const container = document.getElementById('pluggyRevisaoLista');
+    if (!container) return;
+    const termo = String(termoBruto || '').trim().toLowerCase();
+    _buscaPluggyAtiva = !!termo;
+
+    const seletorLinha = 'tbody tr, .historico-lista .despesa-item';
+    container.querySelectorAll(seletorLinha).forEach(el => {
+        const bate = !termo || el.textContent.toLowerCase().includes(termo);
+        el.classList.toggle('pluggy-busca-oculta', !bate);
+    });
+
+    container.querySelectorAll('details.import-csv-grupo').forEach(det => {
+        const temVisivel = !!det.querySelector(
+            'tbody tr:not(.pluggy-busca-oculta), .historico-lista .despesa-item:not(.pluggy-busca-oculta)'
+        );
+        det.classList.toggle('pluggy-busca-oculta', !!termo && !temVisivel);
+        if (termo) {
+            if (temVisivel) det.open = true;
+        } else {
+            det.open = _abertosPluggy[det.dataset.grupoId] !== undefined ? _abertosPluggy[det.dataset.grupoId] : false;
+        }
+    });
+}
+
 /** Carrega e renderiza a fila de revisão (Importar > Pluggy): pendentes
  *  (divididos em duplicatas/a revisar/prontas, igual CSV/PDF) + um
  *  histórico do que já foi confirmado (revisável, não editável aqui). */
@@ -986,8 +1025,8 @@ async function carregarRevisaoPluggy() {
     // Mesmo layout do CSV/PDF (js/revisao-importacao.js): grupo → subgrupos
     // Despesas/Receitas → tabela X/Data/Valor/Categoria/Descrição. Sem
     // "Forma de pgto." — o método já vem fixado pela conta em "Método do app".
-    const grupo = (id, titulo, itens, nota = '') => htmlGrupoRevisao({
-        id, titulo: titulo, abertos: _abertosPluggy, padraoAberto: false, subAberto: false, itens, nota,
+    const grupo = (id, titulo, itens, nota = '', semSubgrupos = false) => htmlGrupoRevisao({
+        id, titulo: titulo, abertos: _abertosPluggy, padraoAberto: false, subAberto: false, itens, nota, semSubgrupos,
         tipoDe: i => i.tipo, colunas: ['Data', 'Valor', 'Categoria', 'Descrição'],
         htmlLinha: gerarHTMLImportadaPluggy,
     });
@@ -1014,12 +1053,18 @@ async function carregarRevisaoPluggy() {
     // Mercado Pago: Conta...) com os 3 grupos de sempre dentro; com uma só, fica
     // como sempre foi.
     const notaDup = `<p class="import-csv-nota">Mesmo tipo, data (± 2 dias) e valor de algo já lançado no app. Vêm com X: ao importar, cada uma é conciliada com o lançamento que já existe (ele ganha o selo 🏦), sem duplicar — clique no ↺ se for mesmo um lançamento novo.</p>`;
-    const doisGrupos = (pref, lRev, lDup) =>
-        grupo(`${pref}revisar`, '⚠️ Para revisar', lRev) +
-        grupo(`${pref}duplicatas`, '🔁 Possíveis duplicatas — já existe algo parecido no app', lDup, notaDup);
+    // Cartão de crédito é praticamente sempre despesa — o subgrupo
+    // "Despesas" vira uma camada de clique inútil (não existe "Receitas"
+    // pra justificar o split); pula direto pra tabela.
+    const doisGrupos = (pref, lRev, lDup, semSubgrupos = false) =>
+        grupo(`${pref}revisar`, '⚠️ Para revisar', lRev, '', semSubgrupos) +
+        grupo(`${pref}duplicatas`, '🔁 Possíveis duplicatas — já existe algo parecido no app', lDup, notaDup, semSubgrupos);
     const blocosPorConta = () => {
         const ids = [...new Set(marcados.map(i => i.conta_id))];
-        if (ids.length <= 1) return doisGrupos('pluggy-', revisar, duplicatas);
+        if (ids.length <= 1) {
+            const semSub = ids.length === 1 && contasPorId[ids[0]]?.tipo_conta === 'CREDIT';
+            return doisGrupos('pluggy-', revisar, duplicatas, semSub);
+        }
         const nomes = ids.map(id => contasPorId[id] ? tituloContaPluggyCurto(contasPorId[id]) : 'Conta');
         return ids.map((id, k) => {
             const dela = l => l.filter(i => i.conta_id === id);
@@ -1031,7 +1076,7 @@ async function carregarRevisaoPluggy() {
             return _grupoColapsavelConciliar({
                 id: `pluggy-conta-${id}`, abertos: _abertosPluggy, padraoAberto: false,
                 titulo: `🏦 ${nome} (${total})`,
-                corpo: doisGrupos(`pluggy-c${id}-`, lRev, lDup),
+                corpo: doisGrupos(`pluggy-c${id}-`, lRev, lDup, c?.tipo_conta === 'CREDIT'),
             });
         }).join('');
     };
@@ -1054,11 +1099,17 @@ async function carregarRevisaoPluggy() {
             ${aRevisarAoVivo.length ? ` · <span class="alerta">${aRevisarAoVivo.length} para revisar</span>` : ''}
             ${duplicatas.length ? ` · <span class="alerta">${duplicatas.length} possível${duplicatas.length === 1 ? '' : 'is'} duplicata${duplicatas.length === 1 ? '' : 's'}</span>` : ''}
         </p>
-        <p class="pluggy-legenda">🏦 Gasto confirmado pelo extrato</p>`,
+        <p class="pluggy-legenda">🏦 Gasto confirmado pelo extrato</p>
+        <input type="search" id="pluggyRevisaoBusca" class="docs-busca pluggy-revisao-busca"
+            placeholder="🔎 Buscar por descrição ou categoria..." autocomplete="off"
+            aria-label="Buscar nesta página" value="${escAttrRevisao(_pluggyRevisaoBusca)}">`,
         blocosPorConta(),
         jaIgnoradasHTML,
-        tabelaHistorico,
         grupo('pluggy-prontas', '✓ Prontas', prontas),
+        // "Já lançados (histórico)" sempre por último — é a única lista que
+        // não pede nenhuma ação (as outras têm algo a decidir: revisar,
+        // conferir duplicata, importar).
+        tabelaHistorico,
         `<div class="import-csv-acoes">
             <button type="button" class="btn-submit" id="btnImportarProntasPluggy"
                 title="${totalIgnoradas ? `As ${totalIgnoradas} linha(s) com X serão descartadas da fila.` : ''}"
@@ -1070,10 +1121,19 @@ async function carregarRevisaoPluggy() {
     ].join('');
 
     container.querySelectorAll('details[data-grupo-id]').forEach(det => {
-        det.addEventListener('toggle', () => { _abertosPluggy[det.dataset.grupoId] = det.open; });
+        det.addEventListener('toggle', () => { if (!_buscaPluggyAtiva) _abertosPluggy[det.dataset.grupoId] = det.open; });
     });
 
+    document.getElementById('pluggyRevisaoBusca')?.addEventListener('input', e => {
+        _pluggyRevisaoBusca = e.target.value;
+        _filtrarRevisaoPluggy(_pluggyRevisaoBusca);
+    });
+    // Reaplica o filtro depois de um re-render (ex.: trocou a categoria de
+    // uma linha) — sem isso a busca "esquecia" o que estava filtrado.
+    if (_pluggyRevisaoBusca) _filtrarRevisaoPluggy(_pluggyRevisaoBusca);
+
     document.getElementById('btnImportarProntasPluggy')?.addEventListener('click', importarProntasPluggy);
+
 
     container.onclick = onRevisaoPluggyClick;
     container.onchange = onRevisaoPluggyChange;
@@ -1367,6 +1427,9 @@ async function alternarIgnorarImportadaPluggy(id) {
 
 /** Chamado ao entrar na sub-aba "Pluggy" de Importar (ver menus-ui.js). */
 function iniciarPluggy() {
+    document.getElementById('btnPluggyCred')?.addEventListener('click', () => { if (typeof alternarPluggyCredPainel === 'function') alternarPluggyCredPainel(); });
+    if (typeof iniciarPluggyCredenciais === 'function') iniciarPluggyCredenciais();
+    if (typeof carregarPluggyCredStatus === 'function') carregarPluggyCredStatus();
     document.getElementById('btnConectarPluggy')?.addEventListener('click', conectarContaPluggy);
     document.getElementById('btnSincronizarPluggy')?.addEventListener('click', sincronizarPluggyAgora);
     const btnLimpar = document.getElementById('btnLimparRevisaoPluggy');

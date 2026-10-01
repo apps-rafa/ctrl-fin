@@ -69,7 +69,7 @@ const DOCS_SECOES = [
         m: '<ul><li><b>Pago</b>: PIX/dinheiro até hoje + faturas pagas.</li><li><b>A pagar</b>: faturas em aberto (compras já feitas) + o que ainda não aconteceu, inclusive compra de cartão futura, agrupada em "Crédito".</li></ul>Dentro de cada grupo os lançamentos se dividem em subgrupos por forma de pagamento, cada um com contagem, total e %.' },
       { t: 'Fatura do cartão', r: 'Subgrupo "Fatura &lt;cartão&gt;" com o box de vencimento, o botão "paga" e as compras do cartão.',
         m: 'O botão <b>paga</b> marca/desmarca a fatura como paga. Ela é marcada automaticamente pelo vencimento (vencida = paga, riscada), mas você pode alterar à mão e isso vale mais que a data. O vencimento cai em dia útil. Estornos aparecem dentro da fatura com "+".' },
-      { t: 'Filtros: Categoria e Forma de pgto.', r: 'O funil dentro de cada grupo reorganiza os itens por categoria ou por forma de pagamento.',
+      { t: 'Filtros: Categoria e Forma de pagamento', r: 'O funil dentro de cada grupo reorganiza os itens por categoria ou por forma de pagamento.',
         m: 'Na Despesa é possível filtrar por categoria; na Receita, também. O chip que já é igual ao do filtro some (sem repetição), inclusive filtro dentro de filtro. Nas Receitas não há filtro por forma de pagamento.' },
       { t: 'Carregar mais', r: 'Grupos longos mostram 5 itens por vez; "Carregar mais 5" abre mais, com o "restam X" ao lado.',
         m: 'O limite vale para cada grupo e subgrupo e é reaplicado quando a lista muda.' },
@@ -81,7 +81,7 @@ const DOCS_SECOES = [
     id: 'cartao', emoji: '💳', titulo: 'Cartão de crédito e faturas',
     itens: [
       { t: 'Competência (mês da fatura)', r: 'Uma compra no crédito pertence ao mês da fatura, não ao mês da data da compra (usado em {ver:mes} e {ver:anual}).',
-        m: 'Regra: compra no dia do fechamento ou depois cai na fatura do mês seguinte. O fechamento e o vencimento são configurados em {ver:config} > Formas de pgto. Veja também {ver:lancar} e {ver:regras}.' },
+        m: 'Regra: compra no dia do fechamento ou depois cai na fatura do mês seguinte. O fechamento e o vencimento são configurados em {ver:config} > Formas de pagamento. Veja também {ver:lancar} e {ver:regras}.' },
       { t: 'Fatura em aberto x paga', r: 'Fatura em aberto entra em "a pagar"; fatura paga (ou vencida) entra em "pago".',
         m: 'Só contam as compras já feitas (data até hoje); compras futuras do cartão ficam soltas em "A pagar" até chegarem. A marcação automática usa o vencimento; a manual prevalece e é guardada.' },
       { t: 'Cartão desativado', r: 'Cartão inativo não tem fatura nos meses depois de desativado, mas mantém a dos meses em que foi usado.',
@@ -118,7 +118,7 @@ const DOCS_SECOES = [
     itens: [
       { t: 'Abrir a visão anual', r: 'Botão 📈 no cabeçalho: uma página que compara mês a mês o ano inteiro.',
         m: 'Ao abrir, o resto do app se esconde; clicar no 📈 de novo volta. As setas ◂ ▸ trocam o ano.' },
-      { t: 'Agrupar por Categoria ou Forma de pgto.', r: 'Escolha como enxergar o ano: por categoria (🏷️) ou por forma de pagamento (💳).',
+      { t: 'Agrupar por Categoria ou Forma de pagamento', r: 'Escolha como enxergar o ano: por categoria (🏷️) ou por forma de pagamento (💳).',
         m: 'Cada categoria/forma tem a sua cor (a mesma escolhida em {ver:config}; receita e despesa têm cores próprias).' },
       { t: 'Cartões-resumo', r: 'No topo, quatro cartões: receitas no ano, despesas no ano, saldo do ano e despesa média por mês.',
         m: 'Ao focar num mês, os cartões mostram as receitas, as despesas e o saldo daquele mês e a variação da despesa em relação ao mês anterior. Verde é bom e vermelho é ruim, conforme o tipo (mais receita é bom; mais despesa é ruim).' },
@@ -140,7 +140,7 @@ const DOCS_SECOES = [
     itens: [
       { t: 'Categorias', r: 'Categorias de Receita e de Despesa: criar, renomear, reordenar (▲▼), ordenar A→Z, ativar/desativar, remover e trocar a cor.',
         m: 'Receita e Despesa são listas separadas (o mesmo nome pode existir nas duas, cada uma com a sua cor). Fixas: <b>Reembolso</b> e <b>Dinheiro</b> (Receita) e <b>Estorno</b> (Despesa, só aparece com cartão de crédito). Renomear uma categoria atualiza todos os lançamentos antigos.' },
-      { t: 'Formas de pgto.', r: 'Cadastre PIX, Dinheiro e cartões de crédito (banco, dia de fechamento, dia de vencimento, melhor dia de compra).',
+      { t: 'Formas de pagamento', r: 'Cadastre PIX, Dinheiro e cartões de crédito (banco, dia de fechamento, dia de vencimento, melhor dia de compra).',
         m: 'O <b>melhor dia de compra</b> é sugerido a partir do fechamento. Desativar uma forma a tira dos formulários, mas ela continua valendo nos lançamentos antigos e mantém a cor. A ordem que você definir é a do dropdown do lançamento.' },
       { t: 'Cores', r: 'Toque na bolinha de cor de uma categoria ou forma para escolher a cor do chip.',
         m: 'A cor vale no app inteiro: listas, busca, barras, gráficos e visão anual — e é retroativa para lançamentos antigos.' },
@@ -173,7 +173,7 @@ const DOCS_SECOES = [
       { t: 'Datas no texto', r: 'Diga a data: "ontem uber 10 reais", "25/09 uber 10 reais", "25 de setembro", "dia 25". Sem data vale hoje.',
         m: 'Entende hoje, ontem, anteontem, dd/mm, dd/mm/aaaa, "25 de setembro" e "dia 25". Sem o ano, usa o ano atual (ou o anterior se a data ficaria muito no futuro). Também dá para digitar só a data com um rascunho aberto.' },
       { t: 'Botões do rascunho', r: 'Cada rascunho traz na própria mensagem ✅ Confirmar, ✏️ Editar e ❌ Cancelar, então dá para ter vários pendentes e tratar um por um.',
-        m: 'Ao tocar em ✏️ Editar, o bot responde "Toque em Editar para alterar o lançamento referente à despesa de R$ 10,00 no dia 05/10/2026" e põe o botão do formulário em cima do teclado, já preenchido com aquele rascunho (o Telegram só devolve os dados do formulário quando ele é aberto por esse botão). Ao salvar, só aquele rascunho sai da fila; ❌ Cancelar edição fecha o botão. O bot guarda até 10 rascunhos pendentes; uma resposta em texto vira a descrição do último enviado. Os menus de /atualizar e /pgtopadrao ficam no teclado, terminam com ❌ Cancelar e não deixam item sozinho na última linha.' },
+        m: 'Ao tocar em ✏️ Editar, o bot responde "Toque em Editar para alterar o lançamento referente à despesa de R$ 10,00 no dia 05/10/2026" e põe o botão do formulário em cima do teclado, já preenchido com aquele rascunho (o Telegram só devolve os dados do formulário quando ele é aberto por esse botão). Ao salvar, só aquele rascunho sai da fila; ❌ Cancelar edição fecha o botão. Os menus de /atualizar e /pgtopadrao ficam no teclado, terminam com ❌ Cancelar e não deixam item sozinho na última linha.' },
       { t: 'Estorno pelo bot', r: 'Diga "estorno 50 uber" ou escolha a categoria Estorno: o bot usa um cartão de crédito e abate a fatura.',
         m: 'A categoria Estorno só existe a partir do primeiro cartão. Nesse rascunho a forma de pagamento aceita só cartão de crédito e não há parcelas.' },
       { t: 'Comandos', r: '/resumo, /diario, /credito, /pix, /ultimos, /atualizar, /pgtopadrao, /lancamento e /backup.',
@@ -256,10 +256,10 @@ const DOCS_DETALHES = {
       <li>Compra de cartão com data futura ainda nem entrou na fatura: conta como pendente.</li>
     </ul>
     <p>Por isso o total do mês não muda quando você paga a fatura: só muda de "a pagar" para "pago".</p>`,
-  'Filtros: Categoria e Forma de pgto.': `
+  'Filtros: Categoria e Forma de pagamento': `
     <ul>
       <li>O ícone de funil de cada grupo tira o filtro; os botões ao lado reorganizam os itens.</li>
-      <li>Filtro por Categoria e por Forma de pgto. se combinam: dentro de uma forma você pode filtrar por categoria (e vice-versa) sem chips repetidos.</li>
+      <li>Filtro por Categoria e por Forma de pagamento se combinam: dentro de uma forma você pode filtrar por categoria (e vice-versa) sem chips repetidos.</li>
       <li>Em Receitas o filtro por forma de pagamento não existe, porque receita não tem forma.</li>
       <li>O filtro escolhido vale enquanto você está na tela; ao reabrir a aba, volta à ordem cronológica.</li>
     </ul>`,
@@ -317,10 +317,10 @@ const DOCS_DETALHES = {
       <li>"25 de setembro", "15 de março de 2026".</li>
       <li>"dia 25": o dia 25 do mês atual, ou do mês anterior se ainda não chegou.</li>
     </ul>
-    <p>A data é retirada da descrição. Datas impossíveis (como 31/02) são ignoradas. Digitar só a data com um rascunho aberto também troca a data do último rascunho.</p>`,
+    <p>A data é retirada da descrição. Datas impossíveis (como 31/02) são ignoradas.</p>`,
   'Comandos': `
     <p>Todos funcionam no chat do bot, depois de vincular. /atualizar e /pgtopadrao abrem menus no teclado (sempre com ❌ Cancelar). Em /atualizar, toque no número de uma transação para transformá-la em rascunho de lançamento (com a forma de pagamento da conta). Veja o vínculo em {ver:openfinance}.</p>`,
-  'Formas de pgto.': `
+  'Formas de pagamento': `
     <ul>
       <li><b>Cartão de crédito</b>: banco, dia de fechamento, dia de vencimento e melhor dia de compra (sugerido: fechamento + 1). Ele alimenta {ver:cartao}.</li>
       <li><b>PIX</b>: forma base, pode ter banco.</li>

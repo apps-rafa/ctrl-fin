@@ -171,7 +171,7 @@
     border-left-color: var(--danger);
 }
 
-/* Dia do mês + tricode do dia da semana (ex.: 28 SEG) */
+/* Dia/mês + tricode do dia da semana (ex.: 28/9 SEG) */
 .despesa-data {
     flex: 0 0 auto;
     display: inline-flex;
@@ -180,6 +180,13 @@
     font-variant-numeric: tabular-nums;
 }
 .despesa-dia {
+    /* Dia e mês sem zero à esquerda, cada um variando entre 1 e 2 dígitos
+       ("1/10" x "26/12") — largura fixa (o pior caso, "31/12") + alinhado
+       à direita pra não desalinhar o dia da semana (nem o resto da linha)
+       de uma transação pra outra por causa disso. */
+    display: inline-block;
+    min-width: 5ch;
+    text-align: right;
     font-size: .88rem;
     line-height: 1;
     font-weight: var(--font-weight-bold);
@@ -225,6 +232,19 @@
 /* contorno preto leve: texto branco continua legível em chips de cor clara */
 .chip { text-shadow: -.5px 0 rgba(0,0,0,.6), .5px 0 rgba(0,0,0,.6), 0 -.5px rgba(0,0,0,.6), 0 .5px rgba(0,0,0,.6), 0 0 2px rgba(0,0,0,.35); }
 .chip--neutro { background: var(--surface-3); color: var(--text-muted); text-shadow: none; }
+
+/* Chips de método/categoria/"quando"/quitado agrupados num item só do flex
+   de fora (.despesa-conteudo) — assim, se a linha não couber tudo, o grupo
+   INTEIRO pula pra próxima linha junto (nunca um chip embaixo e outro em
+   cima); dentro do grupo eles ainda quebram entre si se nem todos couberem
+   na mesma linha. */
+.despesa-badges {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .3rem;
+    min-width: 0;
+}
 
 /* Info da parcela: "3/12" */
 .parcela-tag {
@@ -434,6 +454,10 @@
     margin-right: .35rem;
     font-size: 1.2rem;
     line-height: 1;
+    /* Mesma cor da categoria/forma de pagamento do subgrupo (--cor-rec vem
+       inline no <details>, igual ao .rec-grupo de fora) — sem isso a seta
+       ficava branca/padrão em qualquer subgrupo, não só no de fora. */
+    color: var(--cor-rec, var(--text-muted));
 }
 /* Glifo troca (▸/▾) em vez de girar — sem animação nem "pisca" no hover. */
 .subgrupo[open] > .subgrupo-cab::before { content: '▾'; }
@@ -729,6 +753,15 @@
     .chip .met-tier-media { display: none; }
     .chip .met-tier-curto { display: inline; }
 }
+/* Exceção: os chips (ver .despesa-badges) já quebraram pra linha própria —
+   sozinhos ali, sobra espaço de sobra, então não faz sentido abreviar (a
+   regra acima é só pra quando o chip ainda está espremido ao lado do
+   dia/valor/ações). Especificidade mais alta que as regras de @media acima,
+   então vale nas duas larguras. Classe setada por JS (ver
+   _ajustarBadgesQuebrados em ui.js). */
+.despesa-item.badges-quebrou .chip .met-tier-full { display: inline; }
+.despesa-item.badges-quebrou .chip .met-tier-media,
+.despesa-item.badges-quebrou .chip .met-tier-curto { display: none; }
 
 /* Conferência da fatura do cartão com a do banco (Open Finance) */
 .fatura-confere { font-size: .7rem; font-weight: 700; flex: none; }

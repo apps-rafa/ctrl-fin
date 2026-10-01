@@ -136,45 +136,102 @@ async function carregarAbaMenus() {
 
       <div class="menu-section" data-sub="of" hidden>
         <h3 class="dados-selecao-titulo">Pluggy</h3>
-        <div class="menu-secao-topo">
-          <p class="menu-hint">
-            Conecta suas contas via <a href="https://pluggy.ai" target="_blank" rel="noopener">Pluggy</a> (open finance)
-            e importa os lançamentos automaticamente, você confirma cada um antes de virar um lançamento de verdade,
-            e possíveis duplicatas ficam avisadas à parte.
-          </p>
-          <div class="menu-acoes-linha">
-            <button type="button" class="h3-add" id="btnConectarPluggy" title="Conectar nova conta">+</button>
-          </div>
+        <div class="pluggy-cred-aviso">
+          <button type="button" class="mini-btn" id="btnPluggyCred" aria-expanded="false">🔑 Dados cadastrais</button>
+          <span id="pluggyCredStatusOf" class="menu-hint pluggy-cred-status"></span>
         </div>
-        <div class="menu-list" id="pluggyContasList"></div>
 
-        <div class="pluggy-toolbar">
-          <div class="pluggy-toolbar-item pluggy-sync-periodo">
-            <select id="syncMesPluggy" name="sync-mes" aria-label="Mês a sincronizar" class="pluggy-sync-mes"></select>
-            <button type="button" id="syncAnoMenos" class="pluggy-sync-ano-seta" title="Ano anterior">◂</button>
-            <span id="syncAnoPluggy" class="pluggy-sync-ano-valor"></span>
-            <button type="button" id="syncAnoMais" class="pluggy-sync-ano-seta" title="Próximo ano">▸</button>
+        <!-- Painel "Dados cadastrais" (credencial própria da Pluggy) — troca
+             de lugar com o conteúdo normal do Open Finance quando o botão
+             acima é clicado (ver js/pluggy-credenciais.js). -->
+        <div id="pluggyCredPainel" class="pluggy-cred-painel-inline" hidden>
+          <p class="menu-hint">
+            No plano gratuito da Pluggy só dá pra conectar contas do <b>mesmo titular</b> da conta de
+            desenvolvedor. Como este app usa uma credencial só (a do dono do app), quem não é o dono
+            não consegue conectar o próprio banco de verdade por aqui — só o dele.
+          </p>
+          <p class="menu-hint">
+            Pra conectar <b>seu</b> banco, cadastre sua própria credencial gratuita da Pluggy (leva uns
+            5 minutos, sem cartão de crédito):
+          </p>
+          <ol class="pluggy-cred-passos">
+            <li>Acesse <a href="https://dashboard.pluggy.ai/register" target="_blank" rel="noopener">dashboard.pluggy.ai/register</a> e crie uma conta (com seu e-mail).</li>
+            <li>Confirme o e-mail e entre no <a href="https://dashboard.pluggy.ai" target="_blank" rel="noopener">painel da Pluggy</a>.</li>
+            <li>Na tela inicial do painel (ou em "Applications" / "Configurações da API"), copie o <b>Client ID</b> e o <b>Client Secret</b> — são duas strings, sem espaço.</li>
+            <li>Cole os dois nos campos abaixo e toque em <b>Salvar</b>.</li>
+            <li>Volte em Open Finance e conecte sua conta normalmente — agora usando sua própria credencial.</li>
+          </ol>
+          <p class="menu-hint">
+            Isso fica só entre você e a Pluggy: o app guarda essa credencial pra usar nas chamadas em
+            seu nome, mas quem conecta o banco continua sendo diretamente você e a Pluggy (a mesma
+            tela de login do banco que já aparecia antes). Sem cadastrar nada aqui, tudo continua
+            funcionando como sempre — só que só pro dono do app conectar contas reais.
+          </p>
+          <p class="pluggy-cred-status" id="pluggyCredStatusPagina"></p>
+          <div class="form-group">
+            <label for="pluggyCredClientId">Client ID</label>
+            <input type="text" id="pluggyCredClientId" autocomplete="off" spellcheck="false" placeholder="ex.: a1b2c3d4-..." readonly>
           </div>
-          <div class="pluggy-toolbar-item pluggy-total">
-            <span class="pluggy-toolbar-label">Total</span>
-            <span class="pluggy-total-valor pluggy-total-receita" id="pluggyTotalReceita">+R$ 0</span>
-            <span class="pluggy-total-valor pluggy-total-despesa" id="pluggyTotalDespesa">-R$ 0</span>
-          </div>
-          <div class="pluggy-toolbar-row2">
-            <div class="pluggy-toolbar-item pluggy-rendimentos" role="group" aria-label="Rendimentos">
-              <span class="pluggy-toolbar-label">Rendimentos</span>
-              <button type="button" class="pluggy-toggle-opt" id="btnRendimentosAgrupar" data-rendimentos="agrupar">Agrupar</button>
-              <button type="button" class="pluggy-toggle-opt active" id="btnRendimentosIgnorar" data-rendimentos="ignorar">Ignorar</button>
+          <div class="form-group">
+            <label for="pluggyCredClientSecret">Client Secret</label>
+            <div class="pluggy-cred-secret-linha">
+              <input type="password" id="pluggyCredClientSecret" autocomplete="off" spellcheck="false" placeholder="ex.: e5f6g7h8-..." readonly>
+              <button type="button" class="mini-btn" id="pluggyCredVerSecret" title="Mostrar/esconder">👁</button>
             </div>
-            <div class="pluggy-contas-sync" id="pluggyContasSync" hidden></div>
-            <div class="pluggy-toolbar-btns">
-              <button type="button" class="btn-submit pluggy-toolbar-btn" id="btnSincronizarPluggy">↻ Sincronizar</button>
-              <button type="button" class="mini-btn pluggy-toolbar-btn" id="btnLimparRevisaoPluggy">🧹 Limpar</button>
-            </div>
           </div>
+          <p class="pluggy-cred-aviso-edicao" id="pluggyCredAvisoEdicao" hidden>
+            ⚠️ Trocar isso muda qual conta da Pluggy o app usa pras suas conexões — se errar os dados,
+            pode parar de conseguir sincronizar. Só mexa se tiver certeza dos novos valores.
+          </p>
+          <div class="pluggy-cred-acoes">
+            <button type="button" class="btn-submit" id="pluggyCredSalvar">Salvar</button>
+            <button type="button" class="btn-cancelar" id="pluggyCredCancelarEdicao" hidden>Fechar sem alterações</button>
+            <button type="button" class="btn-cancelar" id="pluggyCredRemover" hidden>Remover (voltar ao padrão)</button>
+          </div>
+          <p class="pluggy-cred-msg" id="pluggyCredMsg"></p>
         </div>
-        <h3 class="dados-selecao-titulo pluggy-origem" id="pluggyOrigemTitulo" hidden></h3>
-        <div id="pluggyRevisaoLista" class="transacoes-lista"></div>
+
+        <div id="pluggyConteudoNormal">
+          <div class="menu-secao-topo">
+            <p class="menu-hint">
+              Conecta suas contas via <a href="https://pluggy.ai" target="_blank" rel="noopener">Pluggy</a> (open finance)
+              e importa os lançamentos automaticamente, você confirma cada um antes de virar um lançamento de verdade,
+              e possíveis duplicatas ficam avisadas à parte.
+            </p>
+            <div class="menu-acoes-linha">
+              <button type="button" class="h3-add" id="btnConectarPluggy" title="Conectar nova conta">+</button>
+            </div>
+          </div>
+          <div class="menu-list" id="pluggyContasList"></div>
+
+          <div class="pluggy-toolbar">
+            <div class="pluggy-toolbar-item pluggy-sync-periodo">
+              <select id="syncMesPluggy" name="sync-mes" aria-label="Mês a sincronizar" class="pluggy-sync-mes"></select>
+              <button type="button" id="syncAnoMenos" class="pluggy-sync-ano-seta" title="Ano anterior">◂</button>
+              <span id="syncAnoPluggy" class="pluggy-sync-ano-valor"></span>
+              <button type="button" id="syncAnoMais" class="pluggy-sync-ano-seta" title="Próximo ano">▸</button>
+            </div>
+            <div class="pluggy-toolbar-item pluggy-total">
+              <span class="pluggy-toolbar-label">Total</span>
+              <span class="pluggy-total-valor pluggy-total-receita" id="pluggyTotalReceita">+R$ 0</span>
+              <span class="pluggy-total-valor pluggy-total-despesa" id="pluggyTotalDespesa">-R$ 0</span>
+            </div>
+            <div class="pluggy-toolbar-row2">
+              <div class="pluggy-toolbar-item pluggy-rendimentos" role="group" aria-label="Rendimentos">
+                <span class="pluggy-toolbar-label">Rendimentos</span>
+                <button type="button" class="pluggy-toggle-opt" id="btnRendimentosAgrupar" data-rendimentos="agrupar">Agrupar</button>
+                <button type="button" class="pluggy-toggle-opt active" id="btnRendimentosIgnorar" data-rendimentos="ignorar">Ignorar</button>
+              </div>
+              <div class="pluggy-contas-sync" id="pluggyContasSync" hidden></div>
+              <div class="pluggy-toolbar-btns">
+                <button type="button" class="btn-submit pluggy-toolbar-btn" id="btnSincronizarPluggy">↻ Sincronizar</button>
+                <button type="button" class="mini-btn pluggy-toolbar-btn" id="btnLimparRevisaoPluggy">🧹 Limpar</button>
+              </div>
+            </div>
+          </div>
+          <h3 class="dados-selecao-titulo pluggy-origem" id="pluggyOrigemTitulo" hidden></h3>
+          <div id="pluggyRevisaoLista" class="transacoes-lista"></div>
+        </div>
       </div>
 
       <div class="menu-section" data-sub="dados" hidden id="secDados"></div>

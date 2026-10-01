@@ -36,6 +36,12 @@
 }
 @media (max-width: 420px) {
   .subtabs-itens > .subtab { grid-column: span 3; }
+  /* 2 por linha aqui (span 3 de 6) dá o dobro de largura por botão que o
+     layout de 3 colunas acima — o clamp geral (pensado pro pior caso, 3
+     colunas com "Formas de pagamento") deixava esses bem maiores sobrando
+     de graça. Sobe o tamanho: "Open Finance"/"Notificações" (os mais
+     longos aqui) ainda cabem numa linha só nessa largura de botão. */
+  .subtabs .subtab { font-size: clamp(0.72rem, 0.5rem + 1.6vw, 0.95rem); }
 }
 
 /* Rótulos longos ("Formas de pagamento", "Frequência") encolhem em níveis
@@ -1300,3 +1306,46 @@ summary [role="button"] { font-family: Arial; text-align: center; }
 /* Respiro entre as contas conectadas/desconectadas do Open Finance */
 .pluggy-contas-grupo > .menu-item + .menu-item { margin-top: .6rem; }
 .pluggy-contas-grupo > .pluggy-contas-grupo-titulo + .menu-item { margin-top: .4rem; }
+
+/* Botão "Dados cadastrais" (credencial própria da Pluggy), embaixo do título
+   "Pluggy" na sub-aba Open Finance, + status ao lado — ver
+   js/pluggy-credenciais.js. Toggle: troca #pluggyConteudoNormal por
+   #pluggyCredPainel no lugar (mesmo botão fecha de novo), fica "aceso"
+   (.active) igual outras sub-abas de Configurações enquanto aberto. */
+.pluggy-cred-aviso {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  flex-wrap: wrap;
+  margin-bottom: .6rem;
+}
+#btnPluggyCred.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+/* .menu-hint tem margin negativa própria (pra colar em cima do parágrafo
+   seguinte) — aqui ela descentralizava o texto em relação ao botão ao lado. */
+.pluggy-cred-status { color: var(--text-muted); font-size: .78rem; margin: 0; }
+
+/* Painel "Dados cadastrais" (#pluggyCredPainel, ver js/menus-ui.js) — fica
+   embutido na própria sub-aba Open Finance, no lugar do conteúdo normal
+   (contas conectadas/sincronização), não numa caixa flutuante por cima. */
+.pluggy-cred-painel-inline { display: flex; flex-direction: column; gap: .8rem; }
+.pluggy-cred-passos { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: .4rem; font-size: .82rem; color: var(--text); }
+.pluggy-cred-passos li { line-height: 1.4; }
+.pluggy-cred-secret-linha { display: flex; gap: .4rem; }
+.pluggy-cred-secret-linha input { flex: 1; min-width: 0; }
+.pluggy-cred-aviso-edicao { color: var(--danger); font-weight: 600; font-size: .82rem; margin: 0; }
+.pluggy-cred-acoes { display: flex; gap: .6rem; margin-top: .2rem; }
+.pluggy-cred-acoes > button { flex: 1 1 0; }
+.pluggy-cred-msg { min-height: 1.2em; font-size: .82rem; margin: 0; }
+.pluggy-cred-msg.ok { color: var(--receita-text); }
+.pluggy-cred-msg.erro { color: var(--danger); }
+
+/* Busca da página de revisão do Open Finance (#pluggyRevisaoBusca, ver
+   js/pluggy.js:_filtrarRevisaoPluggy) — fica em cima do grupo "Para
+   revisar", filtra linha/card por texto e esconde o grupo inteiro se nada
+   dele sobrar visível. */
+.pluggy-revisao-busca { margin-bottom: .6rem; }
+.pluggy-busca-oculta { display: none !important; }

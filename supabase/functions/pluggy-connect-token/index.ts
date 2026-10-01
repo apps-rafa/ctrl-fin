@@ -6,11 +6,49 @@
 // dele (clientUserId = auth.uid()).
 //
 // Segredos usados (Supabase Edge Functions → Secrets):
-//   PLUGGY_CLIENT_ID, PLUGGY_CLIENT_SECRET, PLUGGY_WEBHOOK_SECRET
+//   PLUGGY_WEBHOOK_SECRET (sempre) e, só como fallback pra quem não
+//   cadastrou credencial própria em Configurações > Open Finance > Dados
+//   cadastrais, PLUGGY_CLIENT_ID/PLUGGY_CLIENT_SECRET.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const PLUGGY_API_URL = "https://api.pluggy.ai";
+
+// deno-lint-ignore no-explicit-any
+type ClienteSupabase = any;
+
+// Credencial da Pluggy a usar pra um usuário: a PRÓPRIA (Configurações >
+// Open Finance > Dados cadastrais, tabela pluggy_credenciais) se ele tiver
+// cadastrado uma; senão os secrets globais da função. Duplicado em cada
+// função Pluggy de propósito — são deployadas de forma independente.
+async function getPluggyApiKey(cliente: ClienteSupabase, userId: string): Promise<string> {
+  const { data } = await cliente
+    .from("pluggy_credenciais")
+    .select("client_id, client_secret")
+    .eq("user_id", userId)
+    .maybeSingle();
+  let clientId = data?.client_id as string | undefined;
+  let clientSecret = data?.client_secret as string | undefined;
+  if (!clientId || !clientSecret) {
+    clientId = Deno.env.get("PLUGGY_CLIENT_ID");
+    clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
+  }
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      "Nenhuma credencial da Pluggy disponível (nem própria em Configurações > Open Finance > Dados cadastrais, nem os secrets globais da função)",
+    );
+  }
+  const resp = await fetch(`${PLUGGY_API_URL}/auth`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ clientId, clientSecret }),
+  });
+  if (!resp.ok) {
+    throw new Error(`Pluggy /auth falhou (${resp.status}): ${await resp.text()}`);
+  }
+  const authData = await resp.json();
+  return authData.apiKey as string;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,25 +60,6 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-/** Troca CLIENT_ID/CLIENT_SECRET por uma API Key da Pluggy (expira em 2h). */
-async function getPluggyApiKey(): Promise<string> {
-  const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
-  const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
-  if (!clientId || !clientSecret) {
-    throw new Error("PLUGGY_CLIENT_ID/PLUGGY_CLIENT_SECRET não configurados nos secrets da função");
-  }
-  const resp = await fetch(`${PLUGGY_API_URL}/auth`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clientId, clientSecret }),
-  });
-  if (!resp.ok) {
-    throw new Error(`Pluggy /auth falhou (${resp.status}): ${await resp.text()}`);
-  }
-  const data = await resp.json();
-  return data.apiKey as string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -64,7 +83,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Não autenticado" }, 401);
     }
 
-    const apiKey = await getPluggyApiKey();
+    const apiKey = await getPluggyApiKey(supabaseClient, user.id);
 
     const webhookSecret = Deno.env.get("PLUGGY_WEBHOOK_SECRET") ?? "";
     const projectUrl = Deno.env.get("SUPABASE_URL")!;

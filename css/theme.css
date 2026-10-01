@@ -128,7 +128,8 @@ select option {
 }
 
 input.campo-travado,
-.form-group input.campo-travado {
+.form-group input.campo-travado,
+.form-group input:read-only {
     background-color: var(--surface-3);
     color: var(--text-muted);
     border-color: var(--border);

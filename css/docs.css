@@ -13,8 +13,12 @@
 .docs-secao h3 { margin: .6rem 0 0; font-size: .95rem; }
 .doc-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .6rem .75rem; }
 .doc-item h4 { margin: 0 0 .25rem; font-size: .85rem; }
-.doc-item p { margin: 0; font-size: .78rem; color: var(--text-muted); line-height: 1.45; }
-.doc-extra { margin-top: .45rem; font-size: .8rem; line-height: 1.55; color: var(--text); }
+/* Resumo (r) e complemento (m) são os dois parágrafos "de corpo" do item — mesma
+   cor/peso pra não parecer que um é mais forte que o outro (só o <h4> do título
+   fica em destaque). Antes o resumo usava --text-muted (mais apagado) e o
+   complemento --text (cheio): lado a lado pareciam pesos diferentes. */
+.doc-item p { margin: 0; font-size: .78rem; font-weight: var(--font-weight-normal); color: var(--text); line-height: 1.45; }
+.doc-extra { margin-top: .45rem; font-size: .8rem; font-weight: var(--font-weight-normal); line-height: 1.55; color: var(--text); }
 .doc-extra ul { margin: .3rem 0 .3rem 1.1rem; padding: 0; }
 .doc-extra li { margin: .15rem 0; }
 footer.footer a { color: inherit; font-weight: 600; text-decoration: underline; }

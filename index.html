@@ -10,20 +10,25 @@
     <meta name="theme-color" content="#0F1420">
     
     <!-- CSS - Modular (carregado em ordem de dependência) -->
-    <link rel="stylesheet" href="css/variables.css">
-    <link rel="stylesheet" href="css/base.css">
-    <link rel="stylesheet" href="css/animations.css">
-    <link rel="stylesheet" href="css/layout.css">
-    <link rel="stylesheet" href="css/dashboard.css">
-    <link rel="stylesheet" href="css/tabs.css">
-    <link rel="stylesheet" href="css/transactions.css">
-    <link rel="stylesheet" href="css/charts.css">
-    <link rel="stylesheet" href="css/forms.css">
-    <link rel="stylesheet" href="css/menus.css">
-    <link rel="stylesheet" href="css/responsive.css">
-    <link rel="stylesheet" href="css/anual.css">
-    <link rel="stylesheet" href="css/docs.css">
-    <link rel="stylesheet" href="css/theme.css">
+    <!-- "?v=" nos CSS/JS locais é cache-busting manual (site estático, sem
+         build) — sem isso, navegador/CDN podiam continuar servindo a versão
+         anterior por um tempo depois do deploy, e um ajuste visual "não
+         pegava" até um refresh forçado. Muda algum arquivo em css/ ou js/?
+         Sobe esse número (data de hoje, ou +1 se já usou a data). -->
+    <link rel="stylesheet" href="css/variables.css?v=20261004">
+    <link rel="stylesheet" href="css/base.css?v=20261004">
+    <link rel="stylesheet" href="css/animations.css?v=20261004">
+    <link rel="stylesheet" href="css/layout.css?v=20261004">
+    <link rel="stylesheet" href="css/dashboard.css?v=20261004">
+    <link rel="stylesheet" href="css/tabs.css?v=20261004">
+    <link rel="stylesheet" href="css/transactions.css?v=20261004">
+    <link rel="stylesheet" href="css/charts.css?v=20261004">
+    <link rel="stylesheet" href="css/forms.css?v=20261004">
+    <link rel="stylesheet" href="css/menus.css?v=20261004">
+    <link rel="stylesheet" href="css/responsive.css?v=20261004">
+    <link rel="stylesheet" href="css/anual.css?v=20261004">
+    <link rel="stylesheet" href="css/docs.css?v=20261004">
+    <link rel="stylesheet" href="css/theme.css?v=20261004">
     <script>
         // Aplica o tema antes de renderizar (evita flash)
         (function () {
@@ -185,7 +190,7 @@
                     <div class="modo-lista-linha">
                         <button type="button" class="modo-lista-icone" id="modoSaidasIcone" title="Tirar filtro (ordem cronológica)" aria-label="Tirar filtro"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M3 4h18v2.5l-7 8V19l-4 2v-6.5l-7-8V4z"/></svg></button>
                         <div class="modo-lista" id="modoSaidas">
-                            <button type="button" class="modo-btn" data-modo="metodo" data-full="💳 Forma de pgto." data-emoji="💳">💳 Forma de pgto.</button>
+                            <button type="button" class="modo-btn" data-modo="metodo" data-full="💳 Forma de pagamento" data-emoji="💳">💳 Forma de pagamento</button>
                             <button type="button" class="modo-btn" data-modo="categoria" data-full="🏷️ Categoria" data-emoji="🏷️">🏷️ Categoria</button>
                         </div>
                     </div>
@@ -362,24 +367,25 @@
 
     <!-- Supabase (banco de dados) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-    <script src="js/config.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/state.js"></script>
-    <script src="js/recorrencia.js"></script>
-    <script src="js/feriados.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/data.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/menus-api.js"></script>
-    <script src="js/menus-ui.js"></script>
-    <script src="js/revisao-importacao.js"></script>
-    <script src="js/lixeira.js"></script>
-    <script src="js/dados.js"></script>
-    <script src="js/pluggy.js"></script>
-    <script src="js/anual.js"></script>
-    <script src="js/docs.js"></script>
-    <script src="js/events.js"></script>
-    <script src="js/main.js"></script>
+    <script src="js/config.js?v=20261004"></script>
+    <script src="js/auth.js?v=20261004"></script>
+    <script src="js/state.js?v=20261004"></script>
+    <script src="js/recorrencia.js?v=20261004"></script>
+    <script src="js/feriados.js?v=20261004"></script>
+    <script src="js/api.js?v=20261004"></script>
+    <script src="js/utils.js?v=20261004"></script>
+    <script src="js/data.js?v=20261004"></script>
+    <script src="js/ui.js?v=20261004"></script>
+    <script src="js/menus-api.js?v=20261004"></script>
+    <script src="js/menus-ui.js?v=20261004"></script>
+    <script src="js/revisao-importacao.js?v=20261004"></script>
+    <script src="js/lixeira.js?v=20261004"></script>
+    <script src="js/dados.js?v=20261004"></script>
+    <script src="js/pluggy.js?v=20261004"></script>
+    <script src="js/pluggy-credenciais.js?v=20261004"></script>
+    <script src="js/anual.js?v=20261004"></script>
+    <script src="js/docs.js?v=20261004"></script>
+    <script src="js/events.js?v=20261004"></script>
+    <script src="js/main.js?v=20261004"></script>
 </body>
 </html>

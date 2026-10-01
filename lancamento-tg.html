@@ -339,13 +339,13 @@
     aviso('');
     const cat = $('categoria').value, met = $('metodo').value;
     const dados = {
+      id: q.get('id') || null,
       tipo, data, categoria: cat,
       valor: Math.round(valorParcela * n * 100) / 100,   // o bot recebe o TOTAL da compra
       metodo: met || null,
       descricao: $('descricao').value.trim(),
       parcelas: n,
       comp: tipo === 'saidas' ? $('competencia').value : null,
-      rid: q.get('rid') || null, // rascunho do bot que está sendo editado (só ele sai da fila)
       novaCategoria: novasCats.filter(c => c.tipo === tipo && c.nome.toLowerCase() === cat.toLowerCase())[0] || null,
       novoMetodo: novosMetodos.filter(m => m.rotulo === met)[0] || null,
     };

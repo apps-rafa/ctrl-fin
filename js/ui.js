@@ -148,10 +148,10 @@ async function _carregarIndicadoresJanela(idxsAbs) {
  * conteúdo caber numa linha só, sem cortar — nunca usa "…": regra é sempre
  * diminuir a fonte até caber, em vez de truncar o texto.
  */
-function ajustarFonteParaCaber(el, minPx = 10) {
+function ajustarFonteParaCaber(el, minPx = 10, tamanhoInicial = null) {
     if (!el) return;
-    el.style.fontSize = '';
-    let tamanho = parseFloat(getComputedStyle(el).fontSize);
+    el.style.fontSize = tamanhoInicial != null ? tamanhoInicial + 'px' : '';
+    let tamanho = tamanhoInicial != null ? tamanhoInicial : parseFloat(getComputedStyle(el).fontSize);
     if (!Number.isFinite(tamanho)) return;
     while (el.scrollWidth > el.clientWidth + 1 && tamanho > minPx) {
         tamanho -= 1;
@@ -162,10 +162,19 @@ function ajustarFonteParaCaber(el, minPx = 10) {
 /** Elementos de valor que podem precisar encolher — reavaliados também no
  *  resize (a largura do card muda, então o que cabia pode deixar de caber). */
 function ajustarFontesDashboard() {
-    ['totalEntradas', 'totalSaidas', 'balanco', 'gastoDiario']
-        .forEach(id => ajustarFonteParaCaber(document.getElementById(id)));
-    // Balanço e Gasto diário lado a lado: mesmo tamanho (o menor dos dois)
+    ['totalEntradas', 'totalSaidas'].forEach(id => ajustarFonteParaCaber(document.getElementById(id)));
+    // Balanço e Gasto diário ficam na 3ª coluna, bem mais estreita que Receita/
+    // Despesa — pelo cqw do próprio card (ver .summary-card .amount) ficariam
+    // desproporcionalmente grandes pro valor curto que mostram. Usa o mesmo
+    // tamanho do total de Receita/Despesa (o menor dos dois) como ponto de
+    // partida, só encolhendo se mesmo assim não couber na 3ª coluna.
+    const totalEntradasEl = document.getElementById('totalEntradas');
+    const totalSaidasEl = document.getElementById('totalSaidas');
+    const tamanhosTotais = [totalEntradasEl, totalSaidasEl].filter(Boolean).map(el => parseFloat(getComputedStyle(el).fontSize));
+    const tamanhoBase = tamanhosTotais.length ? Math.min(...tamanhosTotais) : null;
     const par = ['balanco', 'gastoDiario'].map(id => document.getElementById(id)).filter(Boolean);
+    par.forEach(el => ajustarFonteParaCaber(el, 10, tamanhoBase));
+    // Lado a lado: mesmo tamanho entre os dois (o menor dos dois, caso um precise encolher mais que o outro)
     if (par.length === 2) {
         const menor = Math.min(...par.map(el => parseFloat(getComputedStyle(el).fontSize)));
         par.forEach(el => { el.style.fontSize = menor + 'px'; });
@@ -200,18 +209,27 @@ function atualizarResumo() {
     const pagoLinha = document.getElementById('saidasPagoDetalheLinha');
     if (pagoLinha) {
         const cred = estadoApp.resumo.saidasPagoCredito || 0;
-        pagoLinha.classList.toggle('vazio', !(cred > 0.004));
+        const pix = estadoApp.resumo.saidasPagoPix || 0;
+        // Antes só aparecia com fatura paga no mês (cred > 0) — um mês só com PIX/dinheiro
+        // (sem fatura paga) tem o que mostrar (o próprio pix) e ficava sem quebra nenhuma.
+        const temQuebraPago = pix > 0.004 || cred > 0.004;
+        pagoLinha.classList.toggle('vazio', !temQuebraPago);
         const fmtP = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
         const detP = document.getElementById('saidasPagoDetalhe');
-        if (detP) { const px = fmtP(estadoApp.resumo.saidasPagoPix), cr = fmtP(cred); _ajustarDetalhe(detP, cred > 0.004 ? [`pix ${px} + crédito ${cr}`, `pix ${px} + créd. ${cr}`, `pix ${px} + c.c. ${cr}`, `${px} + ${cr}`].map(mask) : null); }
+        if (detP) { const px = fmtP(pix), cr = fmtP(cred); _ajustarDetalhe(detP, temQuebraPago ? [`pix ${px} + crédito ${cr}`, `pix ${px} + créd. ${cr}`, `pix ${px} + c.c. ${cr}`, `${px} + ${cr}`].map(mask) : null); }
     }
     const detLinha = document.getElementById('saidasDetalheLinha');
     if (detLinha) {
         const fat = estadoApp.resumo.saidasFatura || 0;
-        detLinha.classList.toggle('vazio', !(fat > 0.004)); // mantém a altura pra alinhar com Receita
+        const avulsos = estadoApp.resumo.saidasAvulsos || 0;
+        // Antes só aparecia com fatura em aberto (fat > 0) — num mês futuro com parcela de
+        // cartão, a compra ainda não bateu em nenhuma fatura (fat fica 0), mas já é "pendente"
+        // (avulsos > 0) e ficava sem quebra nenhuma, mesmo tendo o que mostrar.
+        const temQuebra = avulsos > 0.004 || fat > 0.004;
+        detLinha.classList.toggle('vazio', !temQuebra); // mantém a altura pra alinhar com Receita
         const fmt = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
         const det = document.getElementById('saidasDetalhe');
-        if (det) { const av = fmt(estadoApp.resumo.saidasAvulsos), fa = fmt(fat); _ajustarDetalhe(det, fat > 0.004 ? [`pendentes ${av} + crédito ${fa}`, `pend. ${av} + crédito ${fa}`, `pend. ${av} + créd. ${fa}`, `pend. ${av} + c.c. ${fa}`, `${av} + ${fa}`].map(mask) : null); }
+        if (det) { const av = fmt(avulsos), fa = fmt(fat); _ajustarDetalhe(det, temQuebra ? [`pendentes ${av} + crédito ${fa}`, `pend. ${av} + crédito ${fa}`, `pend. ${av} + créd. ${fa}`, `pend. ${av} + c.c. ${fa}`, `${av} + ${fa}`].map(mask) : null); }
     }
 
     if (balancoEl) {
@@ -264,9 +282,12 @@ function atualizarResumo() {
 
     _atualizarAvisoDuplicatas();
 
-    // Depois do texto assentado (e do layout dos cards, que só é conhecido
-    // após o DOM aplicar), reavalia se algum valor precisa encolher.
-    requestAnimationFrame(ajustarFontesDashboard);
+    // Chamada direta (não requestAnimationFrame): getComputedStyle já força o
+    // layout synchronously, então não precisa esperar o próximo frame — com
+    // rAF, o texto pintava 1 frame com o tamanho errado (ex.: o da atualização
+    // anterior) antes de corrigir, um "flicker" visível a cada atualização do
+    // dashboard.
+    ajustarFontesDashboard();
 }
 
 /** Aviso "⚠️ Duplicatas" no card de Receita/Despesa do dashboard, só quando
@@ -1082,10 +1103,11 @@ function _htmlFaturaVirtual(f, compacta = false) {
 
 /** Subgrupo colapsável "Fatura <cartão>" (nome, contagem, total, %), com o box de vencimento/"paga" e as compras dentro.
  *  Usado em "A pagar" (Despesas) e em Próximos. `estornos`: lançamentos de crédito na fatura (mostrados com "+"). */
-function _htmlSubgrupoFatura(f, its, totalRef, tipoUI, abertosSub, estornos) {
+function _htmlSubgrupoFatura(f, its, totalRef, tipoUI, abertosSub, estornos, forcarAberto = false) {
     const nome = `Fatura ${f.rot}`;
+    const cor = ((estadoApp.menus && estadoApp.menus.cores && estadoApp.menus.cores.metodo) || {})[f.rot] || corPadraoChip(f.rot);
     return `
-        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" ${abertosSub[nome] ? 'open' : ''}>
+        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}"${forcarAberto ? ' data-auto="1"' : ''} style="--cor-rec:${cor}" ${forcarAberto || abertosSub[nome] ? 'open' : ''}>
           <summary class="subgrupo-cab">
             <span class="subgrupo-nome">${nome}</span>
             <span class="subgrupo-espaco"></span>
@@ -1133,20 +1155,26 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     const pagasFat = faturas.filter(f => f.paga);
     const abertasFat = faturas.filter(f => !f.paga);
     const abertosSubFat = _lerAbertosSubgrupo(container);
-    const subFaturaHTML = (f, totalRef) => _htmlSubgrupoFatura(f, _ordenarPorGrupo(itensFatura.get(f.rot) || []), totalRef, tipoUI, abertosSubFat, estornos);
+    const subFaturaHTML = (f, totalRef, forcarAberto) => _htmlSubgrupoFatura(f, _ordenarPorGrupo(itensFatura.get(f.rot) || []), totalRef, tipoUI, abertosSubFat, estornos, forcarAberto);
     const totalPagoGrupo = soma(atuais) + pagasFat.reduce((acc, f) => acc + f.total, 0);
     const totalAPagarGrupo = soma(pendentes) + abertasFat.reduce((acc, f) => acc + f.total, 0);
     const nItens = f => (itensFatura.get(f.rot) || []).length;
+    // Quantos subgrupos por forma de pagamento os itens soltos (fora das faturas) de um
+    // grupo formariam — usado junto com o nº de faturas pra saber se a fatura é o ÚNICO
+    // subgrupo do grupo (aí ela já abre sozinha, mesma regra do _renderItensSubagrupados).
+    const contarFormas = (itens, nomeGrupo) => new Set(itens.map(t =>
+        (nomeGrupo === rotuloPendente && faturaDe.has(t.metodo)) ? 'Crédito' : (t.metodo || 'Sem forma de pagamento')
+    )).size;
     grupos.push({
         nome: nomeAtual, cor: corAtual, itens: atuais,
         total: totalPagoGrupo,
-        extraHTML: pagasFat.map(f => subFaturaHTML(f, totalPagoGrupo)).join(''),
+        extraHTML: pagasFat.map(f => subFaturaHTML(f, totalPagoGrupo, pagasFat.length === 1 && contarFormas(atuais, nomeAtual) === 0)).join(''),
         extraContagem: pagasFat.length, // cada fatura conta como 1 item
     });
     grupos.push({
         nome: rotuloPendente, cor: corPendente, itens: pendentes,
         total: totalAPagarGrupo,
-        extraHTML: abertasFat.map(f => subFaturaHTML(f, totalAPagarGrupo)).join(''),
+        extraHTML: abertasFat.map(f => subFaturaHTML(f, totalAPagarGrupo, abertasFat.length === 1 && contarFormas(pendentes, rotuloPendente) === 0)).join(''),
         extraContagem: abertasFat.length,
     });
     grupos.forEach(g => _ordenarPorGrupo(g.itens, `${tipoUI}:cronologica:${g.nome}`));
@@ -1163,11 +1191,14 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     // "abrir" e ver "Nada aqui").
     // Despesas: o que está solto se divide em subgrupos por forma de pagamento (cada PIX, cada cartão);
     // compra de cartão que ainda não bateu na fatura fica em "<cartão> (por vir)".
+    const coresMetodo = (estadoApp.menus && estadoApp.menus.cores && estadoApp.menus.cores.metodo) || {};
     const corpoPorForma = (itens, nomeGrupo) => _renderItensSubagrupados(itens, tipoUI, {
         chaveDe: t => (nomeGrupo === rotuloPendente && faturaDe.has(t.metodo) ? 'Crédito' : t.metodo),
         semChave: 'Sem forma de pagamento',
         campoChip: 'metodo',
-    }, abertosSub, `${tipoUI}:cronologica:${nomeGrupo}`, nomeGrupo === nomeAtual ? totalPagoGrupo : totalAPagarGrupo);
+        corDe: nome => coresMetodo[nome] || corPadraoChip(nome),
+    }, abertosSub, `${tipoUI}:cronologica:${nomeGrupo}`, nomeGrupo === nomeAtual ? totalPagoGrupo : totalAPagarGrupo, {},
+        nomeGrupo === nomeAtual ? pagasFat.length : (nomeGrupo === rotuloPendente ? abertasFat.length : 0));
     const grupoHTML = (nome, cor, itens, total, pct, extraHTML = '', extraContagem = 0) => {
         if (!itens.length && !extraHTML) return `
         <div class="rec-grupo rec-grupo--vazio" style="--cor-rec:${cor}">
@@ -1251,10 +1282,17 @@ function _lerAbertosRecGrupo(container) {
 
 /** Mesma ideia de _lerAbertosRecGrupo, mas pros subgrupos (Categoria/Forma
  *  de pgto. dentro de "Pontual") — fechados por padrão, mas preservando o
- *  que o usuário já abriu manualmente ao trocar de submodo ou re-renderizar. */
+ *  que o usuário já abriu manualmente ao trocar de submodo ou re-renderizar.
+ *  Ignora os marcados `data-auto` (abertos sozinhos por serem o único
+ *  subgrupo do grupo, ver unicoSubgrupo/forcarAberto): sem isso, esse "aberto"
+ *  automático era lido como se o usuário tivesse escolhido abrir, e "vazava"
+ *  pro mesmo nome de subgrupo em outro grupo/mês onde ele NÃO é o único
+ *  (ex.: abrir Despesa de setembro, onde só há 1 forma, abria à toa a mesma
+ *  forma dentro de um grupo de agosto com várias). */
 function _lerAbertosSubgrupo(container) {
     const abertos = {};
     container?.querySelectorAll('details.subgrupo[data-nome]').forEach(d => {
+        if (d.dataset.auto === '1') return;
         abertos[d.dataset.nome] = d.open;
     });
     return abertos;
@@ -1292,9 +1330,9 @@ const _SUBMODOS_POR_MODO = {
 function _dimensaoSubmodo(dim, ehDespesa) {
     switch (dim) {
         case 'categoria':
-            return { chaveDe: t => t.categoria, semChave: 'Sem categoria', emoji: '🏷️', label: 'Categoria', campoChip: 'categoria' };
+            return { chaveDe: t => t.categoria, semChave: 'Sem categoria', emoji: '🏷️', label: 'Categoria', campoChip: 'categoria', corDe: nome => corDaCategoria(nome, ehDespesa ? 'saida' : 'entrada') };
         case 'metodo':
-            return { chaveDe: t => t.metodo, semChave: 'Sem forma de pagamento', emoji: '💳', label: 'Forma de pgto.', campoChip: 'metodo' };
+            return { chaveDe: t => t.metodo, semChave: 'Sem forma de pagamento', emoji: '💳', label: 'Forma de pagamento', campoChip: 'metodo', corDe: nome => ((estadoApp.menus && estadoApp.menus.cores && estadoApp.menus.cores.metodo) || {})[nome] || corPadraoChip(nome) };
         default:
             return null;
     }
@@ -1303,7 +1341,7 @@ function _dimensaoSubmodo(dim, ehDespesa) {
 /** Reorganiza os itens de UM grupo pela dimensão escolhida (maior total
  *  primeiro) em vez de cronológico — cartõezinhos colapsáveis, fechados por
  *  padrão, com contagem e % (igual ao grupo de fora). */
-function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, totalRef, baseOpts = {}) {
+function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, totalRef, baseOpts = {}, extraIrmaos = 0) {
     const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
     const mapa = new Map();
     itens.forEach(t => {
@@ -1315,10 +1353,18 @@ function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, 
     const grupos = [...mapa.entries()]
         .map(([nome, its]) => [nome, _ordenarPorGrupo(its, `${chavePrefixo}:sub:${nome}`), its.reduce((s, t) => s + valorDe(t), 0)])
         .sort((a, b) => b[2] - a[2]);
+    // Um único subgrupo dentro do grupo = não há escolha real a fazer: já vem aberto,
+    // mesmo que o usuário não tenha aberto manualmente antes (não sobrescreve um "fechado" lembrado, já que aqui nunca houve estado lembrado pra ele ser diferente de aberto).
+    // extraIrmaos conta subgrupos irmãos gerados FORA daqui (ex.: as faturas de cartão em
+    // renderListaCronologica, que ficam soltas ao lado destes) — com algum deles, mesmo só 1
+    // grupo aqui não é mais "o único subgrupo do grupo todo".
+    const unicoSubgrupo = grupos.length === 1 && extraIrmaos === 0;
     return grupos.map(([nome, its, total]) => {
         const pct = totalGeral ? (total / totalGeral) * 100 : 0;
+        const aberto = unicoSubgrupo || (abertos && abertos[nome]);
+        const cor = (dimCfg.corDe ? dimCfg.corDe(nome) : null) || corPadraoChip(nome);
         return `
-        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" ${abertos && abertos[nome] ? 'open' : ''}>
+        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}"${unicoSubgrupo ? ' data-auto="1"' : ''} style="--cor-rec:${cor}" ${aberto ? 'open' : ''}>
           <summary class="subgrupo-cab">
             <span class="subgrupo-nome">${nome}</span>
             <span class="subgrupo-espaco"></span>
@@ -1424,10 +1470,11 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     const cor = (mapa, nome) => (mapa && mapa[nome]) || corPadraoChip(nome);
     const chip = (c, txt) => `<span class="chip" style="background:${c}" title="${String(txt).replace(/"/g, '&quot;')}">${txt}</span>`;
 
-    // Dia do mês + tricode do dia da semana (ex.: 07 SEG)
+    // Dia/mês (mês sem zero à esquerda, pra poupar espaço — ex.: 26/9) +
+    // tricode do dia da semana (ex.: 26/9 SÁB).
     const _dowTri = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
     const _dt = trans.data ? parseDataLocal(trans.data) : null;
-    const diaFormatado = _dt ? String(_dt.getDate()).padStart(2, '0') : '--';
+    const diaFormatado = _dt ? `${_dt.getDate()}/${_dt.getMonth() + 1}` : '--';
     const dowFormatado = _dt ? _dowTri[_dt.getDay()] : '';
 
     const quandoTag = opts.quando ? `<span class="quando-tag">${opts.quando}</span>` : '';
@@ -1500,10 +1547,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
                 ${(estadoApp.conciliadas && estadoApp.conciliadas.has(trans.id) && trans.origem !== 'pluggy') ? '<span class="conc-selo" title="Conciliado com uma transação do banco (Open Finance)">🏦</span>' : ''}
                 ${parcelaTag}
                 ${quitarCheckbox}
-                ${metaChip}
-                ${catChip}
-                ${quandoTag}
-                ${quitadoTag}
+                ${(metaChip || catChip || quandoTag || quitadoTag) ? `<span class="despesa-badges">${metaChip}${catChip}${quandoTag}${quitadoTag}</span>` : ''}
                 ${descTxt}
             </div>
             <div class="despesa-actions">${acoes}</div>
@@ -1922,9 +1966,11 @@ function renderProximasAgrupado(abertos = {}) {
     const htmlR = receitas.length
         ? grupo('Receita', 'receita', 'var(--receita-text)', receitas.length, soma(receitas), receitas.map(t => gerarHTMLTransacao(t, 'entrada')).join(''))
         : '';
+    // Fatura como único "subgrupo" da Despesa (sem lançamento avulso ao lado) já abre sozinha.
+    const faturaUnica = faturas.length === 1 && despesas.length === 0;
     const htmlD = (despesas.length || faturas.length)
         ? grupo('Despesa', 'despesa', 'var(--despesa-text)', despesas.length + faturas.length, totalDespesa,
-            faturas.map(f => _htmlSubgrupoFatura(f, itensDe(f), totalDespesa, 'saida', abertosSub, estornos)).join('') + despesas.map(t => gerarHTMLTransacao(t, 'saida')).join(''))
+            faturas.map(f => _htmlSubgrupoFatura(f, itensDe(f), totalDespesa, 'saida', abertosSub, estornos, faturaUnica)).join('') + despesas.map(t => gerarHTMLTransacao(t, 'saida')).join(''))
         : '';
     return htmlR + htmlD;
 }
@@ -1974,7 +2020,7 @@ function renderPendentesProximas(abertos = {}, termo = '') {
         </details>`;
     };
     // Despesas a pagar: um grupo por forma de pagamento ("PIX", "Dinheiro"...; todo "PIX <banco>" é PIX)
-    const nomeForma = t => (/^pix(\s|$)/i.test(String(t.metodo || '').trim()) ? 'PIX' : (t.metodo || 'Sem forma de pgto.'));
+    const nomeForma = t => (/^pix(\s|$)/i.test(String(t.metodo || '').trim()) ? 'PIX' : (t.metodo || 'Sem forma de pagamento'));
     const porForma = new Map();
     pend(estadoApp.transacoes.saidas).forEach(t => { const k = nomeForma(t); porForma.set(k, [...(porForma.get(k) || []), t]); });
     const gruposPagar = [...porForma.entries()]
@@ -2044,10 +2090,13 @@ function renderFaturasCartao(container, termo = '', soNaoRealizadas = false) {
             const gruposSub = [...mapa.entries()]
                 .map(([nome, its]) => [nome, _ordenarPorGrupo(its, `${chaveFatura}:sub:${nome}`), its.reduce((s, t) => s + valorDe(t), 0)])
                 .sort((a, b) => b[2] - a[2]);
+            const unicoSubgrupo = gruposSub.length === 1;
             itensHTML = gruposSub.map(([nome, its, totalSub]) => {
                 const pctSub = total ? (totalSub / total) * 100 : 0;
+                const corSub = (cfg.corDe ? cfg.corDe(nome) : null) || corPadraoChip(nome);
+                const abertoSub = unicoSubgrupo || abertosSub[nome];
                 return `
-                <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" ${abertosSub[nome] ? 'open' : ''}>
+                <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}"${unicoSubgrupo ? ' data-auto="1"' : ''} style="--cor-rec:${corSub}" ${abertoSub ? 'open' : ''}>
                   <summary class="subgrupo-cab">
                     <span class="subgrupo-nome">${nome}</span>
                     <span class="subgrupo-espaco"></span>
@@ -2109,6 +2158,23 @@ function definirLabelResp(sel, full, short) {
     if (!short) return;
     const semEspaco = el.offsetParent !== null && el.scrollWidth > el.clientWidth + 1;
     if (semEspaco) el.textContent = short;
+}
+
+/** O chip de método (Crédito Bradesco etc.) abrevia por causa da LARGURA DA
+ *  TELA (ver CSS .met-tier-… nos @media) — mas se os chips (.despesa-badges)
+ *  já quebraram pra linha própria, longe do dia/valor/ações, sobra espaço
+ *  ali e abreviar deixa de fazer sentido. "Quebrou" = o grupo de chips não
+ *  está mais na mesma linha do valor. Rodado por um MutationObserver (ver
+ *  final do arquivo) depois de qualquer render de lista — mais simples
+ *  observar o resultado do que caçar cada função que desenha um
+ *  despesa-item pela tela. */
+function _ajustarBadgesQuebrados(root) {
+    (root || document).querySelectorAll('.despesa-item').forEach(item => {
+        const badges = item.querySelector('.despesa-badges');
+        const valor = item.querySelector('.despesa-valor');
+        if (!badges || !valor) { item.classList.remove('badges-quebrou'); return; }
+        item.classList.toggle('badges-quebrou', badges.offsetTop > valor.offsetTop + 2);
+    });
 }
 
 /** Mesma ideia de definirLabelResp, mas pra uma FILEIRA inteira de botões de
@@ -2573,3 +2639,20 @@ function iniciarLimiteListas() {
     });
 }
 window.addEventListener('load', iniciarLimiteListas);
+
+/** Reavalia _ajustarBadgesQuebrados depois de qualquer render de lista —
+ *  despesa-item aparece em várias telas/abas (mês corrente, busca,
+ *  Próximos, visão anual...), então observar o documento inteiro é mais
+ *  simples do que caçar cada função que desenha um. Via microtask (roda
+ *  antes da próxima pintura), não requestAnimationFrame, pra não piscar
+ *  "abreviado" e depois "completo" por 1 frame a cada render. */
+function iniciarAjusteBadgesQuebrados() {
+    let agendado = false;
+    const obs = new MutationObserver(() => {
+        if (agendado) return;
+        agendado = true;
+        queueMicrotask(() => { agendado = false; _ajustarBadgesQuebrados(); });
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+}
+window.addEventListener('load', iniciarAjusteBadgesQuebrados);

@@ -9,22 +9,175 @@
 //
 // Roda com a service role key (não há sessão de usuário num webhook) —
 // por isso resolve o usuário só a partir do itemId (que só existe em
-// pluggy_contas de usuários reais), nunca de nada vindo do payload.
+// pluggy_contas de usuários reais), nunca de nada vindo do payload. A API
+// key da Pluggy usada depois é a do PRÓPRIO dono da conta (ver
+// getPluggyApiKey abaixo), não necessariamente a global.
 //
-// Segredos usados: PLUGGY_CLIENT_ID, PLUGGY_CLIENT_SECRET, PLUGGY_WEBHOOK_SECRET.
+// Segredos usados: PLUGGY_WEBHOOK_SECRET (sempre) e, só como fallback pra
+// quem não cadastrou credencial própria em Configurações > Open Finance >
+// Dados cadastrais, PLUGGY_CLIENT_ID/PLUGGY_CLIENT_SECRET.
 // Ver plano da integração: memória "app-financeiro-pluggy-integracao".
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { avisarErroTelegram, notificarTelegramNovas } from "../_shared/telegram.ts";
 
 const PLUGGY_API_URL = "https://api.pluggy.ai";
 const DIAS_HISTORICO_PRIMEIRA_SYNC = 30;
+
+// deno-lint-ignore no-explicit-any
+type ClienteSupabase = any;
+
+// Credencial da Pluggy a usar pra um usuário: a PRÓPRIA (Configurações >
+// Open Finance > Dados cadastrais, tabela pluggy_credenciais) se ele tiver
+// cadastrado uma; senão os secrets globais da função. Duplicado em cada
+// função Pluggy de propósito — são deployadas de forma independente.
+async function getPluggyApiKey(cliente: ClienteSupabase, userId: string): Promise<string> {
+  const { data } = await cliente
+    .from("pluggy_credenciais")
+    .select("client_id, client_secret")
+    .eq("user_id", userId)
+    .maybeSingle();
+  let clientId = data?.client_id as string | undefined;
+  let clientSecret = data?.client_secret as string | undefined;
+  if (!clientId || !clientSecret) {
+    clientId = Deno.env.get("PLUGGY_CLIENT_ID");
+    clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
+  }
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      "Nenhuma credencial da Pluggy disponível (nem própria em Configurações > Open Finance > Dados cadastrais, nem os secrets globais da função)",
+    );
+  }
+  const resp = await fetch(`${PLUGGY_API_URL}/auth`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ clientId, clientSecret }),
+  });
+  if (!resp.ok) {
+    throw new Error(`Pluggy /auth falhou (${resp.status}): ${await resp.text()}`);
+  }
+  const authData = await resp.json();
+  return authData.apiKey as string;
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+// Duplicado aqui de propósito — funções Pluggy são deployadas de forma
+// independente.
+interface ItemNovoTelegram {
+  id: number;
+  tipo: "entradas" | "saidas";
+  valor: number;
+  data: string;
+  descricao_banco: string | null;
+  categoria_sugerida: string | null;
+  metodo_sugerido: number | null;
+}
+
+async function enviarMensagemTelegram(token: string, chatId: number, texto: string, botoes: unknown[][]) {
+  try {
+    const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: texto,
+        parse_mode: "Markdown",
+        reply_markup: { inline_keyboard: botoes },
+      }),
+    });
+    if (!resp.ok) console.error("Telegram sendMessage falhou:", resp.status, await resp.text());
+  } catch (e) {
+    console.error("Erro ao chamar Telegram sendMessage:", e);
+  }
+}
+
+// Só avisa transação com data de até 2 dias atrás — sem isso, qualquer
+// sincronização com janela larga (primeira sync de uma conta nova etc.)
+// manda um aviso por lançamento do período inteiro de uma vez.
+const NOTIFICAR_ATE_DIAS_ATRAS = 2;
+
+async function notificarTelegramNovas(
+  supabaseAdmin: ClienteSupabase,
+  userId: string,
+  itens: ItemNovoTelegram[],
+): Promise<void> {
+  const dataLimite = new Date(Date.now() - NOTIFICAR_ATE_DIAS_ATRAS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  itens = itens.filter((i) => i.data >= dataLimite);
+  if (!itens.length) return;
+  const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
+  if (!token) return;
+
+  const { data: tgUser } = await supabaseAdmin
+    .from("telegram_users")
+    .select("chat_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!tgUser) return; // usuário não vinculou o Telegram — nada a fazer
+
+  const metodoIds = [...new Set(itens.map((i) => i.metodo_sugerido).filter((x): x is number => x != null))];
+  const { data: metodos } = metodoIds.length
+    ? await supabaseAdmin.from("menu_itens").select("id, nome, metodo_kind, banco").in("id", metodoIds)
+    : { data: [] as { id: number; nome: string; metodo_kind: string | null; banco: string | null }[] };
+
+  const nomeMetodo = (id: number | null) => {
+    if (!id) return null;
+    const m = (metodos ?? []).find((x: { id: number }) => x.id === id);
+    return m ? rotuloMetodo(m) : null;
+  };
+
+  const fmtValor = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+  for (const item of itens) {
+    const sinal = item.tipo === "entradas" ? "+" : "-";
+    const emoji = item.tipo === "entradas" ? "💰" : "💸";
+    const dataFmt = new Date(`${item.data}T00:00:00`).toLocaleDateString("pt-BR");
+    const metodoTxt = nomeMetodo(item.metodo_sugerido);
+
+    const texto = [
+      `${emoji} *Novo lançamento via Pluggy*`,
+      `${sinal} ${fmtValor.format(item.valor)} — ${dataFmt}`,
+      item.descricao_banco ? `_${item.descricao_banco}_` : null,
+      item.categoria_sugerida ? `Categoria sugerida: ${item.categoria_sugerida}` : "Sem sugestão de categoria — confirme pelo app",
+      metodoTxt ? `Método: ${metodoTxt}` : null,
+    ].filter(Boolean).join("\n");
+
+    const botoes = item.categoria_sugerida
+      ? [[{ text: "✅ Confirmar", callback_data: `confirmar:${item.id}` }, { text: "❌ Ignorar", callback_data: `ignorar:${item.id}` }]]
+      : [[{ text: "❌ Ignorar", callback_data: `ignorar:${item.id}` }]];
+
+    await enviarMensagemTelegram(token, tgUser.chat_id, texto, botoes);
+  }
+}
+
+/** Avisa no Telegram (todos os chats vinculados) que algo falhou em segundo plano — no
+ *  máximo 1 alerta por hora para a mesma chave (tabela alertas_bot), pra não virar spam. */
+async function avisarErroTelegram(
+  supabaseAdmin: ClienteSupabase,
+  chave: string,
+  texto: string,
+): Promise<void> {
+  try {
+    const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
+    if (!token) return;
+    const { data } = await supabaseAdmin.from("alertas_bot").select("enviado_em").eq("chave", chave).maybeSingle();
+    if (data && Date.now() - new Date(data.enviado_em).getTime() < 60 * 60 * 1000) return;
+    await supabaseAdmin.from("alertas_bot").upsert({ chave, enviado_em: new Date().toISOString() });
+    const { data: users } = await supabaseAdmin.from("telegram_users").select("chat_id");
+    for (const u of (users ?? []) as { chat_id: number }[]) {
+      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: u.chat_id, text: String(texto).slice(0, 900) }),
+      }).catch(() => {});
+    }
+  } catch (e) {
+    console.error("Falha ao avisar erro:", e);
+  }
 }
 
 /** Movimentos que só trocam o dinheiro de lugar (resgate/aplicação, saldo
@@ -162,24 +315,6 @@ async function conciliarComExistentes(
     console.error("Conciliação automática indisponível:", e);
   }
   return conciliados;
-}
-
-async function getPluggyApiKey(): Promise<string> {
-  const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
-  const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
-  if (!clientId || !clientSecret) {
-    throw new Error("PLUGGY_CLIENT_ID/PLUGGY_CLIENT_SECRET não configurados nos secrets da função");
-  }
-  const resp = await fetch(`${PLUGGY_API_URL}/auth`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clientId, clientSecret }),
-  });
-  if (!resp.ok) {
-    throw new Error(`Pluggy /auth falhou (${resp.status}): ${await resp.text()}`);
-  }
-  const data = await resp.json();
-  return data.apiKey as string;
 }
 
 async function pluggyGet(path: string, apiKey: string) {
@@ -391,7 +526,7 @@ Deno.serve(async (req: Request) => {
     const idsAtivos = new Set((metodosAtivos ?? []).map((m: { id: number }) => m.id));
     const contasSemForma = contas.filter((c: { metodo_id: number | null }) => !c.metodo_id || !idsAtivos.has(c.metodo_id));
     for (const c of contasSemForma) {
-      await avisarErroTelegram(supabaseAdmin, `pluggy-sem-forma-${c.id}`, `⚠️ A conta ${c.nome_conta ?? c.id} chegou do Open Finance mas está sem forma de pagamento ativa (Selecione...). Ligue-a a uma forma em Configurações > Open Finance pra ela voltar a sincronizar.`);
+      await avisarErroTelegram(supabaseAdmin, `pluggy-sem-forma-${c.id}`, `⚠️ A conta ${c.nome_conta ?? c.id} chegou do Open Finance mas está sem forma de pagamento ativa (Selecione...). Isso só se resolve no app: abra Configurações > Open Finance e ligue essa conta a uma forma de pagamento pra ela voltar a sincronizar.`);
     }
     const contasOk = contas.filter((c: { metodo_id: number | null }) => c.metodo_id && idsAtivos.has(c.metodo_id));
     if (!contasOk.length) return json({ ok: true, ignorado: "contas sem forma de pagamento ativa" });
@@ -402,7 +537,7 @@ Deno.serve(async (req: Request) => {
       .eq("status", "Ativo")
       .eq("user_id", userId);
 
-    const apiKey = await getPluggyApiKey();
+    const apiKey = await getPluggyApiKey(supabaseAdmin, userId);
     const aprendidas = await carregarCategoriasAprendidas(supabaseAdmin, userId);
     let novasNoTotal = 0;
 

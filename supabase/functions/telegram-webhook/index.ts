@@ -110,24 +110,6 @@ function escaparRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Descrição do rascunho: sobra do texto depois de tirar tudo que já virou
- *  outro campo (valor, forma de pgto., categoria) — em branco se nada sobrar
- *  (o usuário pode digitar uma descrição depois, ver a resposta ao rascunho). */
-function extrairDescricao(resto: string, termos: (string | null | undefined)[]): string {
-  let d = resto;
-  for (const t of termos) {
-    if (t) d = d.replace(new RegExp(escaparRegex(t), "gi"), " ");
-  }
-  d = d.replace(/\b(cr[eé]dito|d[eé]bito|pix|dinheiro|cart[aã]o)\b/gi, " ").replace(/\s+/g, " ").trim();
-  // conectivos sobrando nas pontas ("no", "de", "e"...)
-  const conectivos = new Set(["um", "uma", "uns", "umas", "o", "a", "os", "as", "meu", "minha", "de", "do", "da", "no", "na", "em", "com", "e", "pelo", "pela", "pra", "para"]);
-  const palavras = d.split(" ").filter(Boolean);
-  while (palavras.length && conectivos.has(palavras[0].toLowerCase())) palavras.shift();
-  while (palavras.length && conectivos.has(palavras[palavras.length - 1].toLowerCase())) palavras.pop();
-  d = palavras.join(" ");
-  return d ? d.charAt(0).toUpperCase() + d.slice(1) : "";
-}
-
 interface RascunhoLancamento {
   tipo: "entradas" | "saidas";
   valor: number;
@@ -171,17 +153,6 @@ function detectarMetodoNoTexto(texto: string, lista: MetodoMenu[]): MetodoMenu |
   if (comBanco.length) return comBanco[0];
   if (kinds.size) return candidatos[0] ?? null; // só o tipo: primeira forma desse tipo
   return lista.find((m) => citado(m.nome)) ?? null;
-}
-
-/** Resposta a um rascunho que fala SÓ de forma de pagamento ("paguei no pix", "crédito nubank")
- *  troca a forma; qualquer outra coisa continua sendo descrição. */
-function interpretarRespostaForma(texto: string, lista: MetodoMenu[]): MetodoMenu | null {
-  const t = normalizarTexto(texto).trim();
-  if (!t || t.length > 40) return null;
-  let resto = t.replace(/\b(paguei|pago|pagar|pagamento|foi|no|na|em|com|via|de|do|da|pelo|pela|o|a|cartao|credito|debito|pix|dinheiro)\b/g, " ");
-  for (const m of lista) if (m.banco) resto = resto.replace(new RegExp("(^|[^a-z0-9])" + escaparRegex(normalizarTexto(m.banco)) + "([^a-z0-9]|$)", "g"), " ");
-  if (resto.replace(/[^a-z0-9]/g, "") !== "") return null;
-  return detectarMetodoNoTexto(texto, lista);
 }
 
 /** 'YYYY-MM-DD' de hoje em horário de Brasília (sem lib de timezone —
@@ -247,7 +218,18 @@ const VERBOS_DESPESA = /(?<![\p{L}])(?:gast|compr|pagu|pagar|pagamento)[\p{L}]*/
  *  não é um lançamento (retorna null e o bot cai no "não entendi"). O valor
  *  é sempre o TOTAL da compra; "parcelas" só vem preenchido em "10x"/"em 10
  *  vezes"/"10 parcelas". */
-function interpretarValorETipo(texto: string): { valor: number; tipo: "entradas" | "saidas"; resto: string; parcelas: number | null; data: string | null } | null {
+type LancamentoDetectado = {
+  valor: number;
+  tipo: "entradas" | "saidas";
+  resto: string;
+  parcelas: number | null;
+  data: string | null;
+  /** Só preenchido pelo parser de SMS de cartão — nome do estabelecimento,
+   *  sem a ambiguidade do texto livre digitado pelo usuário. */
+  estabelecimento?: string | null;
+};
+
+function interpretarValorETipo(texto: string): LancamentoDetectado | null {
   const dt = extrairData(texto);
   let corpo = dt.resto;
   let parcelas: number | null = null;
@@ -276,6 +258,40 @@ function interpretarValorETipo(texto: string): { valor: number; tipo: "entradas"
     .replace(/\s+/g, " ")
     .trim();
   return { valor, tipo, resto, parcelas, data: dt.data };
+}
+
+/** SMS de "compra aprovada" no cartão (Bradesco e bancos com o mesmo
+ *  formato) encaminhado pro bot — ex.: "BRADESCO CARTOES: COMPRA APROVADA
+ *  NO CARTAO FINAL 1525 EM 26/09/2026 15:30. VALOR DE R$ 175,05 ASSAI
+ *  ATACADISTA         RIO DE JANEI." ou, em compras de app/online, com um
+ *  código de canal antes do nome real (marcado com "*"): "DL          *UBER
+ *  RIDES   SAO PAULO." Formato fixo o bastante pra extrair valor/data/
+ *  estabelecimento direto, sem a heurística de linguagem natural do
+ *  interpretarValorETipo (que é quem trata o texto se isto não bater). */
+function interpretarSmsCartao(texto: string): LancamentoDetectado | null {
+  const m = texto.match(
+    /CART[AÃ]O\s+FINAL\s*\d{3,4}[\s\S]*?EM\s+(\d{1,2})\/(\d{1,2})\/(\d{4})\s+\d{1,2}:\d{2}[\s\S]*?VALOR\s+DE\s+R\$\s*([\d.,]+)\s+([\s\S]+?)\.?\s*$/i,
+  );
+  if (!m) return null;
+  const [, diaS, mesS, anoS, valorS, estabRaw] = m;
+  const dia = Number(diaS), mes = Number(mesS), ano = Number(anoS);
+  if (mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
+  const valor = parseFloat(valorS.includes(",") ? valorS.replace(/\./g, "").replace(",", ".") : valorS);
+  if (!isFinite(valor) || valor <= 0) return null;
+  // Campos (código de canal / nome / cidade) vêm separados por 2+ espaços.
+  // Compra online costuma prefixar o nome real com "*" (ex.: "DL *UBER RIDES
+  // SAO PAULO") — nesse caso o nome é esse segmento (sem o "*"), não o
+  // código antes dele; sem "*" (loja física), o primeiro segmento já é o
+  // nome ("ASSAI ATACADISTA RIO DE JANEI").
+  const segmentos = estabRaw.split(/\s{2,}/).map((s) => s.trim()).filter(Boolean);
+  const comAsterisco = segmentos.find((s) => s.startsWith("*"));
+  const estabelecimento = (comAsterisco ? comAsterisco.slice(1) : segmentos[0])?.replace(/\s+/g, " ").trim();
+  if (!estabelecimento) return null;
+  return {
+    valor, tipo: "saidas", parcelas: null,
+    data: `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`,
+    resto: estabelecimento, estabelecimento,
+  };
 }
 
 interface ContaPluggy {
@@ -387,31 +403,6 @@ function ehRendimentoPluggy(categoriaBruta: string | null | undefined): boolean 
   return (categoriaBruta || "").trim().toLowerCase() === "proceeds interests and dividends";
 }
 
-interface EscolhaUltima {
-  tipo: "entradas" | "saidas";
-  valor: number;
-  data: string;
-  descricao: string;
-  conta_id: number;
-}
-
-const LIMITE_ESCOLHAS = 12;
-
-/** Botões 1..n do teclado, em linhas de até 4 sem sobrar um sozinho (5 -> 3+2, 7 -> 4+3, 9 -> 3+3+3). */
-function tecladoNumeros(n: number): { text: string }[][] {
-  const linhas = Math.ceil(n / 4);
-  const base = Math.floor(n / linhas);
-  let extra = n % linhas;
-  let k = 1;
-  const out: { text: string }[][] = [];
-  for (let i = 0; i < linhas; i++) {
-    const tam = base + (extra > 0 ? 1 : 0);
-    if (extra > 0) extra--;
-    out.push(Array.from({ length: tam }, () => ({ text: String(k++) })));
-  }
-  return out;
-}
-
 /** Força a Pluggy buscar dados novos AGORA nas contas passadas (PATCH
  *  /items/{id}, mesma chamada do "Sincronizar agora" no app) e manda de
  *  volta um log com as 3 transações mais recentes de cada uma. Usado pelo
@@ -445,7 +436,6 @@ async function executarAtualizacaoPluggy(
     // client.
     const dateFrom = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const blocos: string[] = [];
-    const escolhas: EscolhaUltima[] = [];
     for (const conta of contas) {
       const titulo = escaparHtml(tituloContaPluggyDetalhado(conta));
       try {
@@ -463,9 +453,7 @@ async function executarAtualizacaoPluggy(
           const sinal = t.type === "CREDIT" ? "+" : "-";
           const desc = t.description || t.descriptionRaw || "(sem descrição)";
           const valor = Math.abs(Number(t.amount) || 0);
-          const n = escolhas.length + 1;
-          if (n <= LIMITE_ESCOLHAS) escolhas.push({ tipo: t.type === "CREDIT" ? "entradas" : "saidas", valor, data: String(t.date).slice(0, 10), descricao: t.description || t.descriptionRaw || "", conta_id: conta.id });
-          return `${n <= LIMITE_ESCOLHAS ? `${n}.` : "•"} ${data} ${sinal}${formatarMoedaBR(valor)} — ${escaparHtml(desc)}`;
+          return `• ${data} ${sinal}${formatarMoedaBR(valor)} — ${escaparHtml(desc)}`;
         });
         blocos.push(`🏦 <b>${titulo}</b>\n${linhas.join("\n")}`);
       } catch (e) {
@@ -474,18 +462,10 @@ async function executarAtualizacaoPluggy(
       }
     }
 
-    // Guarda as numeradas pra o toque no número virar um rascunho de lançamento
-    let teclado: unknown = undefined;
-    const { data: tgU } = await admin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
-    if (tgU && escolhas.length) {
-      await admin.from("telegram_ultimas").upsert({ chat_id: chatId, user_id: tgU.user_id, itens: escolhas, criado_em: new Date().toISOString() });
-      teclado = { keyboard: [...tecladoNumeros(escolhas.length), [{ text: "❌ Cancelar" }]], resize_keyboard: true, is_persistent: true, one_time_keyboard: false };
-    }
     await tg(token, "sendMessage", {
       chat_id: chatId,
       parse_mode: "HTML",
-      text: `✅ Atualizado. Últimas transações por conta:\n\n${blocos.join("\n\n")}${teclado ? "\n\n👇 Toque no número pra eu preparar o lançamento." : ""}`,
-      ...(teclado ? { reply_markup: teclado } : {}),
+      text: `✅ Atualizado. Últimas transações por conta:\n\n${blocos.join("\n\n")}`,
     });
   } catch (e) {
     console.error("Erro no /atualizar:", e);
@@ -540,9 +520,9 @@ function addMeses(dataISO: string, n: number): string {
 }
 
 /** Grava de vez um rascunho (ver RascunhoLancamento) como lançamento de
- *  verdade em `transacoes` — chamado tanto pelo teclado (texto exato
- *  "✅ Confirmar") quanto pelo botão inline antigo (callback "nlconfirmar",
- *  mantido por compatibilidade). */
+ *  verdade em `transacoes` — chamado tanto pelo botão inline "✅ Confirmar"
+ *  (callback "nlconfirmar:<id>") quanto pela submissão do mini app
+ *  ("✏️ Editar"). */
 async function confirmarRascunhoNoBanco(
   supabaseAdmin: ReturnType<typeof createClient>,
   userId: string,
@@ -693,18 +673,13 @@ async function carregarListasUsuario(admin: ReturnType<typeof createClient>, use
   };
 }
 
-/** Quantos rascunhos pendentes cada chat guarda (os mais antigos saem primeiro). */
-const MAX_RASCUNHOS = 10;
-async function podarRascunhos(admin: ReturnType<typeof createClient>, chatId: number) {
-  const { data } = await admin.from("telegram_rascunhos").select("id").eq("chat_id", chatId).order("criado_em", { ascending: false }).order("id", { ascending: false });
-  const sobra = ((data ?? []) as { id: number }[]).slice(MAX_RASCUNHOS).map((r) => r.id);
-  if (sobra.length) await admin.from("telegram_rascunhos").delete().in("id", sobra);
-}
-
-/** Endereço do mini app (formulário de lançamento) já preenchido com o rascunho. */
-function urlMiniApp(r: RascunhoLancamento, l: ListasUsuario, rascunhoId?: number): string {
+/** Endereço do mini app (formulário de lançamento) já preenchido com o rascunho.
+ *  Leva o id do rascunho (`id`) pra o mini app devolver junto no envio — assim o
+ *  bot sabe qual dos vários rascunhos pendentes foi editado (ver web_app_data
+ *  em Deno.serve). */
+function urlMiniApp(id: number, r: RascunhoLancamento, l: ListasUsuario): string {
   const q = new URLSearchParams();
-  if (rascunhoId) q.set("rid", String(rascunhoId)); // o formulário devolve o id: só esse rascunho sai da fila
+  q.set("id", String(id));
   q.set("tipo", r.tipo);
   q.set("v", String(r.valor));
   q.set("d", r.data);
@@ -720,11 +695,15 @@ function urlMiniApp(r: RascunhoLancamento, l: ListasUsuario, rascunhoId?: number
   return `${MINIAPP_URL}?${q.toString()}`;
 }
 
-/** Mensagem do rascunho com os botões Confirmar / Editar / Cancelar dentro dela (por id do rascunho).
- *  Reenviada também quando o usuário digita uma descrição. */
+/** Mensagem do rascunho + botões INLINE (grudados nesta mensagem, não um
+ *  teclado embaixo compartilhado pela conversa) — assim vários SMS seguidos
+ *  viram vários rascunhos independentes, cada um com seu próprio Confirmar/
+ *  Editar/Cancelar, resolvíveis em qualquer ordem. "Editar" abre o mini app
+ *  já preenchido; confirmar/cancelar chegam como callback_query
+ *  "nlconfirmar:<id>"/"nlcancelar:<id>" (ver Deno.serve). */
 async function enviarRascunho(
-  token: string, chatId: number, r: RascunhoLancamento,
-  admin?: ReturnType<typeof createClient>, userId?: string, cabecalho?: string, rascunhoId?: number,
+  token: string, chatId: number, rascunhoId: number, r: RascunhoLancamento,
+  admin?: ReturnType<typeof createClient>, userId?: string, cabecalho?: string,
 ) {
   const sinal = r.tipo === "entradas" ? "💰 Receita" : "💸 Despesa";
   const dataFmt = new Date(`${r.data}T00:00:00`).toLocaleDateString("pt-BR");
@@ -736,29 +715,26 @@ async function enviarRascunho(
     `Valor: ${formatarMoedaBR(r.valor)}${r.parcelas && r.parcelas > 1 ? " (total)" : ""}`,
     `Data: ${dataFmt}`,
     `Categoria: ${r.categoria}`,
-    `Descrição: ${r.descricao || "(em branco — digite pra adicionar)"}`,
+    `Descrição: ${r.descricao || "(em branco)"}`,
     r.tipo === "saidas" ? `Forma de pgto.: ${r.metodo || "nenhuma cadastrada — ajuste no app"}${r.metodoOrigem === "padrao" ? " (padrão)" : ""}` : null,
     ehCreditoSaida ? `Mês da fatura: ${mesAbrevAno(compFatura)}` : null,
     ehCreditoSaida && r.categoria !== "Estorno" ? (r.parcelas && r.parcelas > 1 ? `Parcelas: ${r.parcelas}x de ${formatarMoedaBR(r.valor / r.parcelas)}` : "Parcelas: à vista") : null,
     "",
     "Confirma?",
-    "",
-    "💬 Se responder qualquer outra coisa (sem ser os botões), eu entendo como a descrição do último lançamento enviado.",
   ].filter((l) => l !== null).join("\n");
-  // Cada rascunho leva os próprios botões na mensagem (Confirmar / Editar / Cancelar, pelo id dele),
-  // então dá pra ter vários pendentes no chat sem confundir qual é qual. "Editar" não abre o
-  // formulário direto: o mini app só devolve dados quando aberto por botão do TECLADO, então o
-  // bot responde (ver "nleditar") com o botão do formulário daquele rascunho em cima do teclado.
+  // "✏️ Editar" não abre o formulário direto: o Telegram só devolve os dados do mini app (sendData)
+  // quando ele é aberto por um botão do TECLADO, não por botão inline. Então o toque vira o callback
+  // "nleditar:<id>" e o bot responde com o botão do formulário DAQUELE rascunho (ver Deno.serve).
   await tg(token, "sendMessage", {
     chat_id: chatId,
     text: linhas,
-    reply_markup: rascunhoId ? {
+    reply_markup: {
       inline_keyboard: [[
         { text: "✅ Confirmar", callback_data: `nlconfirmar:${rascunhoId}` },
         { text: "✏️ Editar", callback_data: `nleditar:${rascunhoId}` },
         { text: "❌ Cancelar", callback_data: `nlcancelar:${rascunhoId}` },
       ]],
-    } : undefined,
+    },
   });
 }
 
@@ -772,7 +748,7 @@ const TEXTO_AJUDA_LANCAMENTO = [
   "",
   "Escreva como falaria: gastei 35,90 no mercado, recebi 200 de salário, vendi meu casaco por 200 reais, comprei um carro de 80000 parcelado em 10x. Diga a forma de pagamento se quiser: \"gastei 100 no mercado no pix\" (ou no crédito, no nubank...). Sem dizer, uso o padrão que você definir em /pgtopadrao. Diga a data se não for hoje: \"ontem uber 10 reais\", \"25/09 uber 10 reais\". Estorno também: \"estorno 50 uber\" (abate a fatura do cartão).",
   "",
-  "Eu monto um rascunho com valor, categoria e forma de pagamento e só grava depois que você tocar em ✅ Confirmar no teclado. Se responder qualquer outra coisa (sem ser os botões), eu entendo como a descrição do lançamento.",
+  "Eu monto um rascunho com valor, categoria e forma de pagamento, com botões de ✅ Confirmar, ✏️ Editar (abre o formulário) e ❌ Cancelar grudados na mensagem — só grava quando você confirma. Pode chegar mais de um rascunho ao mesmo tempo (ex.: vários SMS seguidos); cada mensagem tem seus próprios botões, independentes.",
 ].join("\n");
 
 const MESES_ABREV = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
@@ -924,6 +900,126 @@ async function executarBackup(
   }
 }
 
+/** Interpreta um texto como lançamento e manda o rascunho de volta pro chat —
+ *  mesma lógica usada tanto quando o TEXTO chega via Telegram (usuário digitou
+ *  ou o Atalho do SMS chamou este endpoint direto, ver "X-Sms-Forward-Secret"
+ *  em Deno.serve). Extraída do handler de mensagem de texto pra ser chamada
+ *  dos dois lugares sem duplicar a regra toda de sugestão de categoria/forma.
+ *  Cada chamada cria um rascunho NOVO e independente (nunca apaga os
+ *  pendentes de antes) — vários SMS seguidos viram vários botões Confirmar/
+ *  Editar/Cancelar separados, resolvíveis em qualquer ordem; ajustar
+ *  categoria/data/forma é sempre pelo "✏️ Editar" (mini app), não por
+ *  responder texto, porque com vários rascunhos ao mesmo tempo não dava pra
+ *  saber a qual deles uma resposta digitada se referia. */
+async function processarTextoLivre(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  token: string,
+  chatId: number,
+  texto: string,
+): Promise<void> {
+  // Texto livre: tenta entender como um lançamento ("gastei 35,90 no
+  // mercado", "recebi 200 de salário"). Sem um valor em dinheiro no
+  // texto, não dá pra saber o que é — cai no "não entendi" de sempre.
+  const achado = interpretarSmsCartao(texto) ?? interpretarValorETipo(texto);
+  if (!achado) {
+    await tg(token, "sendMessage", {
+      chat_id: chatId,
+      text: "Não entendi. Pra lançar por aqui, manda algo tipo \"gastei 35,90 no mercado\" ou \"recebi 200 de salário\" — eu monto um rascunho com botões de Confirmar/Editar/Cancelar. Também entendo os botões de Confirmar/Ignorar (quando chegam da Pluggy) e o comando /atualizar.",
+    });
+    return;
+  }
+
+  const { data: tgUser } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+  if (!tgUser) {
+    await tg(token, "sendMessage", {
+      chat_id: chatId,
+      text: "Pra lançar por aqui eu preciso que você vincule sua conta primeiro — gere o código em Configurações > Open Finance no app e toque no link.",
+    });
+    return;
+  }
+
+  const [{ data: categoriasApp }, { data: metodosApp }] = await Promise.all([
+    supabaseAdmin.from("menu_itens").select("nome, categoria_tipo").eq("tipo", "Categoria").eq("status", "Ativo").eq("user_id", tgUser.user_id),
+    supabaseAdmin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("tipo", "Método").eq("status", "Ativo").eq("user_id", tgUser.user_id).order("ordem"),
+  ]);
+
+  const { valor, tipo, resto, parcelas } = achado;
+  // "Estorno" (Despesa) sempre existe pro usuário (é criada/reativada em carregarListasUsuario).
+  const catsSugestao = [...(categoriasApp ?? [])];
+  const temCartaoTxt = ((metodosApp ?? []) as MetodoMenu[]).some((m) => m.metodo_kind === "Crédito");
+  if (!temCartaoTxt) { const ix = catsSugestao.findIndex((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && c.nome === "Estorno"); if (ix >= 0) catsSugestao.splice(ix, 1); }
+  else if (!catsSugestao.some((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && c.nome === "Estorno")) catsSugestao.push({ nome: "Estorno", categoria_tipo: "saidas" });
+  const cat = sugerirCategoriaTexto(texto, tipo, catsSugestao);
+  const categoria = cat.nome;
+
+  // Forma de pgto.: só faz sentido perguntar/usar em despesa — receita
+  // não pede método no formulário do app (só Estorno/Reembolso, caso
+  // raro demais pra tentar adivinhar por texto livre). Tenta achar o
+  // nome/banco de um método do usuário mencionado no texto; senão
+  // Crédito, depois Pix, depois Dinheiro (o caso comum de "20 no
+  // mercado" sem dizer a forma é ter pago no cartão — Dinheiro só
+  // entra por último, e só se estiver ativo pro usuário).
+  let metodoObj: MetodoMenu | null = null;
+  let metodoOrigem: "texto" | "padrao" | null = null;
+  if (tipo === "saidas") {
+    const lista = (metodosApp ?? []) as MetodoMenu[];
+    const detectado = detectarMetodoNoTexto(texto, lista);
+    const { data: cfgM } = await supabaseAdmin.from("telegram_config").select("metodo_padrao").eq("user_id", tgUser.user_id).maybeSingle();
+    const padrao = !detectado && cfgM?.metodo_padrao ? lista.find((m) => rotuloMetodo(m) === cfgM.metodo_padrao) ?? null : null;
+    metodoObj = detectado
+      || padrao
+      || lista.find((m) => m.metodo_kind === "Crédito")
+      || lista.find((m) => m.metodo_kind === "PIX")
+      || lista.find((m) => m.metodo_kind === "Dinheiro")
+      || lista[0]
+      || null;
+    metodoOrigem = detectado ? "texto" : padrao ? "padrao" : null;
+    // Parcelado só existe no crédito (igual ao formulário do app).
+    if (parcelas && metodoObj?.metodo_kind !== "Crédito") {
+      metodoObj = lista.find((m) => m.metodo_kind === "Crédito") || metodoObj;
+    }
+  }
+  // Estorno abate a fatura de um cartão: só aceita crédito e nunca é parcelado.
+  const ehEstornoTxt = tipo === "saidas" && categoria === "Estorno";
+  if (ehEstornoTxt && metodoObj?.metodo_kind !== "Crédito") {
+    metodoObj = ((metodosApp ?? []) as MetodoMenu[]).find((m) => m.metodo_kind === "Crédito") || metodoObj;
+  }
+  const parcelasFinal = tipo === "saidas" && !ehEstornoTxt && parcelas && metodoObj?.metodo_kind === "Crédito" ? parcelas : null;
+
+  // O bot nunca inventa descrição em texto livre: começa em branco, e o
+  // que o usuário responder (fora dos botões) vira a descrição. Já um
+  // SMS de cartão traz o nome do estabelecimento sem ambiguidade, então
+  // usa ele direto.
+  const descricao = achado.estabelecimento
+    ? achado.estabelecimento.charAt(0).toUpperCase() + achado.estabelecimento.slice(1).toLowerCase()
+    : "";
+
+  const rascunho: RascunhoLancamento = {
+    tipo, valor, descricao, categoria,
+    metodo: metodoObj ? rotuloMetodo(metodoObj) : null,
+    metodoKind: metodoObj?.metodo_kind ?? null,
+    diaFechamento: metodoObj?.dia_fechamento ?? null,
+    data: achado.data ?? hojeBrasiliaISO(),
+    parcelas: parcelasFinal,
+    metodoOrigem,
+  };
+
+  // Cada texto/SMS vira um rascunho independente — vários pendentes ao mesmo
+  // tempo é o ponto (SMS chegando em sequência numa noite de compras, por
+  // exemplo), cada um com seu próprio botão.
+  const { data: novoRascunho, error: erroRascunho } = await supabaseAdmin
+    .from("telegram_rascunhos")
+    .insert({ user_id: tgUser.user_id, chat_id: chatId, dados: rascunho })
+    .select("id").single();
+  if (erroRascunho || !novoRascunho) {
+    console.error(erroRascunho);
+    await tg(token, "sendMessage", { chat_id: chatId, text: "Deu erro ao montar o rascunho — tenta de novo." });
+    return;
+  }
+
+  await enviarRascunho(token, chatId, novoRascunho.id, rascunho, supabaseAdmin, tgUser.user_id);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return json({ error: "Método não suportado" }, 405);
@@ -951,14 +1047,37 @@ Deno.serve(async (req: Request) => {
       return json({ error: String(e) }, 500);
     }
   }
-  if (req.headers.get("X-Telegram-Bot-Api-Secret-Token") !== webhookSecret) {
-    return json({ error: "Não autorizado" }, 401);
-  }
-
   const supabaseAdmin = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
+
+  // Encaminhamento de SMS (Atalho do iPhone) — chama esta função DIRETO, sem
+  // passar pelo Telegram: a API de bot não tem como "fingir" que foi o
+  // usuário quem mandou a mensagem (sendMessage sempre sai como o BOT
+  // falando, nunca populando o webhook), então o próprio Atalho bate aqui
+  // com {chat_id, texto} e a gente roda a mesma interpretação de texto livre
+  // e manda o rascunho de volta pro chat, como se o usuário tivesse digitado.
+  const segredoSms = req.headers.get("x-sms-forward-secret");
+  if (segredoSms) {
+    const { data: seg } = await supabaseAdmin.from("app_cron_segredo").select("valor").eq("nome", "sms_forward").maybeSingle();
+    if (!seg || segredoSms !== seg.valor) return json({ error: "Não autorizado" }, 401);
+    const corpo = await req.json().catch(() => ({}));
+    const chatIdSms = Number(corpo.chat_id);
+    const textoSms = String(corpo.texto ?? "").trim();
+    if (!chatIdSms || !textoSms) return json({ error: "chat_id/texto ausente" }, 400);
+    try {
+      await processarTextoLivre(supabaseAdmin, token, chatIdSms, textoSms);
+      return json({ ok: true });
+    } catch (e) {
+      console.error("Erro no encaminhamento de SMS:", e);
+      return json({ error: String(e) }, 500);
+    }
+  }
+
+  if (req.headers.get("X-Telegram-Bot-Api-Secret-Token") !== webhookSecret) {
+    return json({ error: "Não autorizado" }, 401);
+  }
 
   // deno-lint-ignore no-explicit-any
   let update: any;
@@ -1020,8 +1139,10 @@ Deno.serve(async (req: Request) => {
         const ano = mEsc - mp > 6 ? ap - 1 : mp - mEsc > 6 ? ap + 1 : ap;
         dadosF.competencia = `${ano}-${String(mEsc).padStart(2, "0")}-01`;
       }
-      const ridF = Number(p.rid);
-      if (ridF > 0) await supabaseAdmin.from("telegram_rascunhos").delete().eq("id", ridF).eq("chat_id", chatId);
+      // Só apaga o rascunho que foi editado (pode haver outros pendentes no
+      // mesmo chat — SMS seguidos numa noite de compras, por exemplo).
+      const idEditado = Number(p?.id);
+      if (idEditado) await supabaseAdmin.from("telegram_rascunhos").delete().eq("id", idEditado).eq("chat_id", chatId);
       const { erro: erroF } = await confirmarRascunhoNoBanco(supabaseAdmin, tgUser.user_id, dadosF);
       if (erroF) {
         console.error(erroF);
@@ -1036,6 +1157,12 @@ Deno.serve(async (req: Request) => {
     if (update.message?.text) {
       const chatId = update.message.chat.id;
       const texto = String(update.message.text).trim();
+
+      // Botão do teclado mostrado junto do "Editar" de um rascunho: só tira o teclado (o rascunho continua nos botões dele)
+      if (texto === "❌ Cancelar edição") {
+        await tg(token, "sendMessage", { chat_id: chatId, text: "Edição cancelada — o rascunho continua pendente.", reply_markup: { remove_keyboard: true } });
+        return json({ ok: true });
+      }
 
       if (texto.startsWith("/start")) {
         // Já vinculado antes (ex.: clicou o link de novo, ou mandou o mesmo
@@ -1117,65 +1244,19 @@ Deno.serve(async (req: Request) => {
           return json({ ok: true });
         }
 
-        // Regra: todo botão do bot fica no TECLADO (embaixo, onde se digita),
-        // e todo menu termina com "Cancelar". Cada conta é um botão com o
-        // nome completo ("1. Bradesco: Cartão de crédito VISA ..."); o toque
-        // volta como texto e é reconhecido logo abaixo (sem guardar estado).
-        const botoes: { text: string }[][] = contas.map((c, i) => [{ text: rotuloBotaoConta(c, i) }]);
-        botoes.push([{ text: BOTAO_TODAS_CONTAS }]);
-        botoes.push([{ text: "❌ Cancelar" }]);
+        // Botões INLINE (grudados na mensagem) — cada conta com o nome
+        // completo ("1. Bradesco: Cartão de crédito VISA ..."); o toque
+        // chega como callback_query "atualizarconta:<id>"/"atualizarconta:todas"
+        // (ver Deno.serve), sem precisar guardar estado.
+        const botoes = contas.map((c, i) => [{ text: rotuloBotaoConta(c, i), callback_data: `atualizarconta:${c.id}` }]);
+        botoes.push([{ text: BOTAO_TODAS_CONTAS, callback_data: "atualizarconta:todas" }]);
+        botoes.push([{ text: "❌ Cancelar", callback_data: "cancelar" }]);
         await tg(token, "sendMessage", {
           chat_id: chatId,
           text: "Qual conta você quer atualizar?",
-          reply_markup: { keyboard: botoes, resize_keyboard: true, is_persistent: true, one_time_keyboard: false },
+          reply_markup: { inline_keyboard: botoes },
         });
         return json({ ok: true });
-      }
-
-      // Toque num botão do menu do /atualizar (chega como texto exato).
-      if (texto === BOTAO_TODAS_CONTAS || /^\d+\.\s/.test(texto)) {
-        const { data: tgUserA } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
-        if (tgUserA) {
-          const { contas } = await carregarContasPluggy(supabaseAdmin, tgUserA.user_id);
-          const alvo = texto === BOTAO_TODAS_CONTAS ? contas : contas.filter((c, i) => rotuloBotaoConta(c, i) === texto);
-          if (alvo.length) {
-            await tg(token, "sendMessage", {
-              chat_id: chatId,
-              text: `🔄 Atualizando ${texto === BOTAO_TODAS_CONTAS ? `${alvo.length} conta(s)` : tituloContaPluggyDetalhado(alvo[0])}...`,
-              reply_markup: { remove_keyboard: true },
-            });
-            await executarAtualizacaoPluggy(supabaseAdmin, token, chatId, alvo);
-            return json({ ok: true });
-          }
-        }
-      }
-
-      // Toque num número da lista do /atualizar: prepara o lançamento daquela transação.
-      if (/^([1-9]|1[0-2])$/.test(texto)) {
-        const { data: ult } = await supabaseAdmin.from("telegram_ultimas").select("user_id, itens, criado_em").eq("chat_id", chatId).maybeSingle();
-        const itens = (ult?.itens ?? []) as EscolhaUltima[];
-        const escolha = ult && Date.now() - new Date(ult.criado_em).getTime() < 60 * 60 * 1000 ? itens[Number(texto) - 1] : null;
-        if (ult && escolha) {
-          await supabaseAdmin.from("telegram_ultimas").delete().eq("chat_id", chatId);
-          const listas = await carregarListasUsuario(supabaseAdmin, ult.user_id);
-          const { data: conta } = await supabaseAdmin.from("pluggy_contas").select("metodo_id").eq("id", escolha.conta_id).maybeSingle();
-          const { data: met } = conta?.metodo_id
-            ? await supabaseAdmin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("id", conta.metodo_id).maybeSingle()
-            : { data: null };
-          const cats = [...listas.catsR.map((nome) => ({ nome, categoria_tipo: "entradas" })), ...listas.catsD.map((nome) => ({ nome, categoria_tipo: "saidas" }))];
-          const rascunho: RascunhoLancamento = {
-            tipo: escolha.tipo, valor: escolha.valor, descricao: escolha.descricao,
-            categoria: sugerirCategoriaTexto(escolha.descricao, escolha.tipo, cats).nome,
-            metodo: met ? rotuloMetodo(met) : null, metodoKind: met?.metodo_kind ?? null, diaFechamento: met?.dia_fechamento ?? null,
-            data: escolha.data, parcelas: null,
-          };
-          const { data: novoR, error: errR } = await supabaseAdmin.from("telegram_rascunhos").insert({ user_id: ult.user_id, chat_id: chatId, dados: rascunho }).select("id").single();
-          if (!errR && novoR) {
-            await podarRascunhos(supabaseAdmin, chatId);
-            await enviarRascunho(token, chatId, rascunho, supabaseAdmin, ult.user_id, `🏦 Transação nº ${texto} do banco`, novoR.id);
-            return json({ ok: true });
-          }
-        }
       }
 
       // "/pgtopadrao": escolhe a forma de pagamento usada quando a mensagem não diz qual.
@@ -1187,133 +1268,16 @@ Deno.serve(async (req: Request) => {
         }
         const listasP = await carregarListasUsuario(supabaseAdmin, tgP.user_id);
         const { data: cfg } = await supabaseAdmin.from("telegram_config").select("metodo_padrao").eq("user_id", tgP.user_id).maybeSingle();
-        const linhasP = listasP.metodos.map((m) => [{ text: `⭐ ${rotuloMetodo(m)}` }]);
-        linhasP.push([{ text: "❌ Cancelar" }]);
+        // Botões INLINE — callback_data leva o índice (mesma ordem da consulta,
+        // "order(ordem)") pra reidentificar a forma escolhida sem guardar estado.
+        const linhasP = listasP.metodos.map((m, i) => [{ text: `⭐ ${rotuloMetodo(m)}`, callback_data: `pgtopadrao:${i}` }]);
+        linhasP.push([{ text: "❌ Cancelar", callback_data: "cancelar" }]);
         await tg(token, "sendMessage", {
           chat_id: chatId,
           text: `Qual forma de pagamento usar quando eu não souber?\nAtual: ${cfg?.metodo_padrao || "Crédito (primeiro cartão)"}`,
-          reply_markup: { keyboard: linhasP, resize_keyboard: true, is_persistent: true, one_time_keyboard: false },
+          reply_markup: { inline_keyboard: linhasP },
         });
         return json({ ok: true });
-      }
-
-      // Escolha no menu do /pgtopadrao ("⭐ <forma>")
-      if (texto.startsWith("⭐ ")) {
-        const { data: tgS } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
-        if (tgS) {
-          const listasS = await carregarListasUsuario(supabaseAdmin, tgS.user_id);
-          const escolhida = listasS.metodos.find((m) => rotuloMetodo(m) === texto.slice(2).trim());
-          if (escolhida) {
-            await supabaseAdmin.from("telegram_config").upsert({ user_id: tgS.user_id, metodo_padrao: rotuloMetodo(escolhida) }, { onConflict: "user_id" });
-            await tg(token, "sendMessage", { chat_id: chatId, text: `✅ Forma de pagamento padrão: ${rotuloMetodo(escolhida)}`, reply_markup: { remove_keyboard: true } });
-            return json({ ok: true });
-          }
-        }
-      }
-
-      // Botões "🏷️ Categorias" e "📅 Data" do rascunho, e as escolhas nos menus deles.
-      if (texto === "🏷️ Categorias" || texto === "📅 Data" || texto.startsWith("🏷️ ") || /^📅 (Hoje|Ontem|Anteontem)$/.test(texto)) {
-        const { data: tgC } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
-        const { data: pendC } = tgC
-          ? await supabaseAdmin.from("telegram_rascunhos").select("id, dados").eq("chat_id", chatId).eq("user_id", tgC.user_id).order("criado_em", { ascending: false }).limit(1).maybeSingle()
-          : { data: null };
-        if (tgC && pendC) {
-          const dadosC = pendC.dados as RascunhoLancamento;
-          const listasC = await carregarListasUsuario(supabaseAdmin, tgC.user_id);
-          const menu = (rotulos: string[]) => {
-            const linhasM: { text: string }[][] = [];
-            for (let i = 0; i < rotulos.length; i += 2) linhasM.push(rotulos.slice(i, i + 2).map((text) => ({ text })));
-            // sem item sozinho na última linha
-            if (linhasM.length > 1 && linhasM[linhasM.length - 1].length === 1) linhasM[linhasM.length - 2].push(...linhasM.pop()!);
-            linhasM.push([{ text: "❌ Cancelar" }]);
-            return { keyboard: linhasM, resize_keyboard: true, is_persistent: true, one_time_keyboard: false };
-          };
-          if (texto === "🏷️ Categorias") {
-            const cats = dadosC.tipo === "entradas" ? listasC.catsR : listasC.catsD;
-            await tg(token, "sendMessage", { chat_id: chatId, text: "Qual a categoria deste lançamento?", reply_markup: menu(cats.map((c) => `🏷️ ${c}`)) });
-            return json({ ok: true });
-          }
-          if (texto === "📅 Data") {
-            await tg(token, "sendMessage", {
-              chat_id: chatId,
-              text: "Qual a data? Toque numa opção ou digite (ex.: 25/09, 25/09/2026, dia 25).",
-              reply_markup: { keyboard: [[{ text: "📅 Hoje" }, { text: "📅 Ontem" }, { text: "📅 Anteontem" }], [{ text: "❌ Cancelar" }]], resize_keyboard: true, is_persistent: true, one_time_keyboard: false },
-            });
-            return json({ ok: true });
-          }
-          if (texto.startsWith("📅 ")) {
-            const dias = { Hoje: 0, Ontem: -1, Anteontem: -2 } as Record<string, number>;
-            const novaD: RascunhoLancamento = { ...dadosC, data: somarDiasISO(hojeBrasiliaISO(), dias[texto.slice(2).trim()] ?? 0), competencia: null };
-            await supabaseAdmin.from("telegram_rascunhos").update({ dados: novaD }).eq("id", pendC.id);
-            await enviarRascunho(token, chatId, novaD, supabaseAdmin, tgC.user_id, undefined, pendC.id);
-            return json({ ok: true });
-          }
-          // "🏷️ <categoria>"
-          const nomeCat = texto.slice(texto.indexOf(" ") + 1).trim();
-          const catsAtuais = dadosC.tipo === "entradas" ? listasC.catsR : listasC.catsD;
-          if (catsAtuais.includes(nomeCat)) {
-            let novaC: RascunhoLancamento = { ...dadosC, categoria: nomeCat };
-            if (dadosC.tipo === "saidas" && nomeCat === "Estorno") {
-              // Estorno abate a fatura de um cartão: troca pra crédito e tira as parcelas
-              let credito = novaC.metodoKind === "Crédito" ? null : listasC.metodos.find((m) => m.metodo_kind === "Crédito");
-              if (novaC.metodoKind !== "Crédito" && !credito) {
-                await tg(token, "sendMessage", { chat_id: chatId, text: "Estorno precisa de um cartão de crédito cadastrado (no app, em Configurações)." });
-                await enviarRascunho(token, chatId, dadosC, supabaseAdmin, tgC.user_id, undefined, pendC.id);
-                return json({ ok: true });
-              }
-              if (credito) novaC = { ...novaC, metodo: rotuloMetodo(credito), metodoKind: credito.metodo_kind, diaFechamento: credito.dia_fechamento, competencia: null, metodoOrigem: "texto" };
-              novaC.parcelas = null;
-              credito = null;
-            }
-            await supabaseAdmin.from("telegram_rascunhos").update({ dados: novaC }).eq("id", pendC.id);
-            await enviarRascunho(token, chatId, novaC, supabaseAdmin, tgC.user_id, undefined, pendC.id);
-            return json({ ok: true });
-          }
-        }
-      }
-
-      // Botão "💳 Forma de pgto." do rascunho: lista as formas ativas pra escolher
-      if (texto === "💳 Forma de pgto.") {
-        const { data: tgF } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
-        if (tgF) {
-          const listasF = await carregarListasUsuario(supabaseAdmin, tgF.user_id);
-          const { data: pendF } = await supabaseAdmin.from("telegram_rascunhos").select("dados").eq("chat_id", chatId).eq("user_id", tgF.user_id).order("criado_em", { ascending: false }).limit(1).maybeSingle();
-          const soCredito = (pendF?.dados as RascunhoLancamento | undefined)?.categoria === "Estorno" && (pendF?.dados as RascunhoLancamento).tipo === "saidas";
-          const linhasF = listasF.metodos.filter((m) => !soCredito || m.metodo_kind === "Crédito").map((m) => [{ text: `💳 ${rotuloMetodo(m)}` }]);
-          linhasF.push([{ text: "❌ Cancelar" }]);
-          await tg(token, "sendMessage", {
-            chat_id: chatId,
-            text: "Qual a forma de pagamento deste lançamento?",
-            reply_markup: { keyboard: linhasF, resize_keyboard: true, is_persistent: true, one_time_keyboard: false },
-          });
-          return json({ ok: true });
-        }
-      }
-
-      // Escolha no menu de forma de pagamento do rascunho ("💳 <forma>")
-      if (texto.startsWith("💳 ")) {
-        const { data: tgE } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
-        if (tgE) {
-          const listasE = await carregarListasUsuario(supabaseAdmin, tgE.user_id);
-          const escolhidaE = listasE.metodos.find((m) => rotuloMetodo(m) === texto.slice(2).trim());
-          const { data: pendE } = escolhidaE
-            ? await supabaseAdmin.from("telegram_rascunhos").select("id, dados").eq("chat_id", chatId).eq("user_id", tgE.user_id).order("criado_em", { ascending: false }).limit(1).maybeSingle()
-            : { data: null };
-          const dE = pendE?.dados as RascunhoLancamento | undefined;
-          if (escolhidaE && dE && dE.categoria === "Estorno" && dE.tipo === "saidas" && escolhidaE.metodo_kind !== "Crédito") {
-            await tg(token, "sendMessage", { chat_id: chatId, text: "Estorno só aceita cartão de crédito — escolha um cartão." });
-            return json({ ok: true });
-          }
-          if (escolhidaE && pendE) {
-            const novaE: RascunhoLancamento = {
-              ...(pendE.dados as RascunhoLancamento), metodo: rotuloMetodo(escolhidaE), metodoKind: escolhidaE.metodo_kind,
-              diaFechamento: escolhidaE.dia_fechamento, competencia: null, metodoOrigem: "texto",
-            };
-            await supabaseAdmin.from("telegram_rascunhos").update({ dados: novaE }).eq("id", pendE.id);
-            await enviarRascunho(token, chatId, novaE, supabaseAdmin, tgE.user_id, undefined, pendE.id);
-            return json({ ok: true });
-          }
-        }
       }
 
       // "/lancamento": só explica como lançar por mensagem (mesma explicação
@@ -1343,175 +1307,9 @@ Deno.serve(async (req: Request) => {
         return json({ ok: true });
       }
 
-      // Resposta pelo TECLADO (não um botão dentro da mensagem) do rascunho
-      // de lançamento — texto exato de um dos 2 botões mandados junto do
-      // rascunho, ver mais abaixo. Só existe 1 rascunho pendente por chat
-      // de cada vez (um texto novo substitui o anterior), então não precisa
-      // de id — o mais recente do chat já resolve. "Cancelar" sempre junto
-      // do "Confirmar", nunca só um dos dois.
-      if (texto === "❌ Cancelar edição") {
-        await tg(token, "sendMessage", { chat_id: chatId, text: "Edição cancelada — o lançamento continua pendente nos botões da mensagem dele.", reply_markup: { remove_keyboard: true } });
-        return json({ ok: true });
-      }
-      if (texto === "✅ Confirmar" || texto === "❌ Cancelar") {
-        if (texto === "❌ Cancelar") await supabaseAdmin.from("telegram_ultimas").delete().eq("chat_id", chatId);
-        const { data: tgUser } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
-        const { data: rascunho } = tgUser
-          ? await supabaseAdmin.from("telegram_rascunhos").select("id, dados")
-              .eq("chat_id", chatId).eq("user_id", tgUser.user_id)
-              .order("criado_em", { ascending: false }).limit(1).maybeSingle()
-          : { data: null };
-        if (!rascunho) {
-          await tg(token, "sendMessage", {
-            chat_id: chatId,
-            text: texto === "❌ Cancelar" ? "❌ Cancelado." : "Não tem nenhum rascunho esperando confirmação.",
-            reply_markup: { remove_keyboard: true },
-          });
-          return json({ ok: true });
-        }
-        await supabaseAdmin.from("telegram_rascunhos").delete().eq("id", rascunho.id);
-        if (texto === "❌ Cancelar") {
-          await tg(token, "sendMessage", { chat_id: chatId, text: "❌ Cancelado.", reply_markup: { remove_keyboard: true } });
-          return json({ ok: true });
-        }
-        const { erro } = await confirmarRascunhoNoBanco(supabaseAdmin, tgUser!.user_id, rascunho.dados as RascunhoLancamento);
-        if (erro) {
-          console.error(erro);
-          await tg(token, "sendMessage", { chat_id: chatId, text: "Erro ao confirmar — tenta de novo.", reply_markup: { remove_keyboard: true } });
-          return json({ ok: true });
-        }
-        await tg(token, "sendMessage", { chat_id: chatId, text: "✅ Lançado!", reply_markup: { remove_keyboard: true } });
-        return json({ ok: true });
-      }
-
       // Texto livre: tenta entender como um lançamento ("gastei 35,90 no
-      // mercado", "recebi 200 de salário"). Sem um valor em dinheiro no
-      // texto, não dá pra saber o que é — cai no "não entendi" de sempre.
-      const achado = interpretarValorETipo(texto);
-      if (!achado) {
-        // Sem valor no texto e com rascunho esperando confirmação: o texto é
-        // a descrição — atualiza e repete o rascunho (com Confirmar/Cancelar).
-        const { data: tgU } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
-        const { data: pend } = tgU
-          ? await supabaseAdmin.from("telegram_rascunhos").select("id, dados")
-              .eq("chat_id", chatId).eq("user_id", tgU.user_id)
-              .order("criado_em", { ascending: false }).limit(1).maybeSingle()
-          : { data: null };
-        if (pend) {
-          const dtResp = extrairData(texto);
-          if (dtResp.data && !dtResp.resto) {
-            const novaDt: RascunhoLancamento = { ...(pend.dados as RascunhoLancamento), data: dtResp.data, competencia: null };
-            await supabaseAdmin.from("telegram_rascunhos").update({ dados: novaDt }).eq("id", pend.id);
-            await enviarRascunho(token, chatId, novaDt, supabaseAdmin, tgU!.user_id, undefined, pend.id);
-            return json({ ok: true });
-          }
-          const listasResp = await carregarListasUsuario(supabaseAdmin, tgU!.user_id);
-          const formaResp = interpretarRespostaForma(texto, listasResp.metodos);
-          if (formaResp) {
-            const trocada: RascunhoLancamento = {
-              ...(pend.dados as RascunhoLancamento), metodo: rotuloMetodo(formaResp), metodoKind: formaResp.metodo_kind,
-              diaFechamento: formaResp.dia_fechamento, competencia: null, metodoOrigem: "texto",
-            };
-            await supabaseAdmin.from("telegram_rascunhos").update({ dados: trocada }).eq("id", pend.id);
-            await enviarRascunho(token, chatId, trocada, supabaseAdmin, tgU!.user_id, undefined, pend.id);
-            return json({ ok: true });
-          }
-          const nova: RascunhoLancamento = { ...(pend.dados as RascunhoLancamento), descricao: texto.charAt(0).toUpperCase() + texto.slice(1) };
-          await supabaseAdmin.from("telegram_rascunhos").update({ dados: nova }).eq("id", pend.id);
-          await enviarRascunho(token, chatId, nova, supabaseAdmin, tgU!.user_id, undefined, pend.id);
-          return json({ ok: true });
-        }
-        await tg(token, "sendMessage", {
-          chat_id: chatId,
-          text: "Não entendi. Pra lançar por aqui, manda algo tipo \"gastei 35,90 no mercado\" ou \"recebi 200 de salário\" — eu monto um rascunho e só grava depois de você confirmar no teclado. Também entendo os botões de Confirmar/Ignorar (quando chegam da Pluggy) e o comando /atualizar.",
-        });
-        return json({ ok: true });
-      }
-
-      const { data: tgUser } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
-      if (!tgUser) {
-        await tg(token, "sendMessage", {
-          chat_id: chatId,
-          text: "Pra lançar por aqui eu preciso que você vincule sua conta primeiro — gere o código em Configurações > Open Finance no app e toque no link.",
-        });
-        return json({ ok: true });
-      }
-
-      const [{ data: categoriasApp }, { data: metodosApp }] = await Promise.all([
-        supabaseAdmin.from("menu_itens").select("nome, categoria_tipo").eq("tipo", "Categoria").eq("status", "Ativo").eq("user_id", tgUser.user_id),
-        supabaseAdmin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("tipo", "Método").eq("status", "Ativo").eq("user_id", tgUser.user_id).order("ordem"),
-      ]);
-
-      const { valor, tipo, resto, parcelas } = achado;
-      // "Estorno" (Despesa) sempre existe pro usuário (é criada/reativada em carregarListasUsuario).
-      const catsSugestao = [...(categoriasApp ?? [])];
-      const temCartaoTxt = ((metodosApp ?? []) as MetodoMenu[]).some((m) => m.metodo_kind === "Crédito");
-      if (!temCartaoTxt) { const ix = catsSugestao.findIndex((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && c.nome === "Estorno"); if (ix >= 0) catsSugestao.splice(ix, 1); }
-      else if (!catsSugestao.some((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && c.nome === "Estorno")) catsSugestao.push({ nome: "Estorno", categoria_tipo: "saidas" });
-      const cat = sugerirCategoriaTexto(texto, tipo, catsSugestao);
-      const categoria = cat.nome;
-
-      // Forma de pgto.: só faz sentido perguntar/usar em despesa — receita
-      // não pede método no formulário do app (só Estorno/Reembolso, caso
-      // raro demais pra tentar adivinhar por texto livre). Tenta achar o
-      // nome/banco de um método do usuário mencionado no texto; senão
-      // Crédito, depois Pix, depois Dinheiro (o caso comum de "20 no
-      // mercado" sem dizer a forma é ter pago no cartão — Dinheiro só
-      // entra por último, e só se estiver ativo pro usuário).
-      let metodoObj: MetodoMenu | null = null;
-      let metodoOrigem: "texto" | "padrao" | null = null;
-      if (tipo === "saidas") {
-        const lista = (metodosApp ?? []) as MetodoMenu[];
-        const detectado = detectarMetodoNoTexto(texto, lista);
-        const { data: cfgM } = await supabaseAdmin.from("telegram_config").select("metodo_padrao").eq("user_id", tgUser.user_id).maybeSingle();
-        const padrao = !detectado && cfgM?.metodo_padrao ? lista.find((m) => rotuloMetodo(m) === cfgM.metodo_padrao) ?? null : null;
-        metodoObj = detectado
-          || padrao
-          || lista.find((m) => m.metodo_kind === "Crédito")
-          || lista.find((m) => m.metodo_kind === "PIX")
-          || lista.find((m) => m.metodo_kind === "Dinheiro")
-          || lista[0]
-          || null;
-        metodoOrigem = detectado ? "texto" : padrao ? "padrao" : null;
-        // Parcelado só existe no crédito (igual ao formulário do app).
-        if (parcelas && metodoObj?.metodo_kind !== "Crédito") {
-          metodoObj = lista.find((m) => m.metodo_kind === "Crédito") || metodoObj;
-        }
-      }
-      // Estorno abate a fatura de um cartão: só aceita crédito e nunca é parcelado.
-      const ehEstornoTxt = tipo === "saidas" && categoria === "Estorno";
-      if (ehEstornoTxt && metodoObj?.metodo_kind !== "Crédito") {
-        metodoObj = ((metodosApp ?? []) as MetodoMenu[]).find((m) => m.metodo_kind === "Crédito") || metodoObj;
-      }
-      const parcelasFinal = tipo === "saidas" && !ehEstornoTxt && parcelas && metodoObj?.metodo_kind === "Crédito" ? parcelas : null;
-
-      // O bot nunca inventa descrição: começa em branco; o que o usuário
-      // responder (fora dos botões) vira a descrição.
-      const descricao = "";
-
-      const rascunho: RascunhoLancamento = {
-        tipo, valor, descricao, categoria,
-        metodo: metodoObj ? rotuloMetodo(metodoObj) : null,
-        metodoKind: metodoObj?.metodo_kind ?? null,
-        diaFechamento: metodoObj?.dia_fechamento ?? null,
-        data: achado.data ?? hojeBrasiliaISO(),
-        parcelas: parcelasFinal,
-        metodoOrigem,
-      };
-
-      // Os rascunhos se acumulam (cada mensagem tem os próprios botões); só os mais antigos são podados.
-      const { data: novoRascunho, error: erroRascunho } = await supabaseAdmin
-        .from("telegram_rascunhos")
-        .insert({ user_id: tgUser.user_id, chat_id: chatId, dados: rascunho })
-        .select("id").single();
-      if (erroRascunho || !novoRascunho) {
-        console.error(erroRascunho);
-        await tg(token, "sendMessage", { chat_id: chatId, text: "Deu erro ao montar o rascunho — tenta de novo." });
-        return json({ ok: true });
-      }
-
-      await podarRascunhos(supabaseAdmin, chatId);
-      await enviarRascunho(token, chatId, rascunho, supabaseAdmin, tgUser.user_id, undefined, novoRascunho.id);
+      // mercado", "recebi 200 de salário") ou SMS de cartão (ver processarTextoLivre).
+      await processarTextoLivre(supabaseAdmin, token, chatId, texto);
       return json({ ok: true });
     }
 
@@ -1533,8 +1331,8 @@ Deno.serve(async (req: Request) => {
         return json({ ok: true });
       }
 
-      // "✏️ Editar" na mensagem de um rascunho: o mini app só devolve os dados quando aberto por botão
-      // do TECLADO, então responde com o botão do formulário DESTE rascunho (e diz qual é).
+      // "✏️ Editar" na mensagem de um rascunho: responde dizendo QUAL lançamento é e com o botão do
+      // formulário dele em cima do teclado (único jeito de o mini app devolver os dados).
       if (acao === "nleditar" && chatId) {
         const rascunhoId = Number(idStr);
         const { data: tgUser } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
@@ -1552,7 +1350,7 @@ Deno.serve(async (req: Request) => {
           chat_id: chatId,
           text: `Toque em ✏️ Editar para alterar o lançamento referente à ${d.tipo === "entradas" ? "receita" : "despesa"} de ${formatarMoedaBR(d.valor)} no dia ${new Date(`${d.data}T00:00:00`).toLocaleDateString("pt-BR")}${d.descricao ? ` (${d.descricao})` : ""}.`,
           reply_markup: {
-            keyboard: [[{ text: "✏️ Editar", web_app: { url: urlMiniApp(d, listas, rascunhoId) } }], [{ text: "❌ Cancelar edição" }]],
+            keyboard: [[{ text: "✏️ Editar", web_app: { url: urlMiniApp(rascunhoId, d, listas) } }], [{ text: "❌ Cancelar edição" }]],
             resize_keyboard: true, is_persistent: true, one_time_keyboard: false,
           },
         });
@@ -1626,6 +1424,29 @@ Deno.serve(async (req: Request) => {
           text: `🔄 Atualizando ${contaId ? tituloContaPluggyDetalhado(alvo[0]) : `${alvo.length} conta(s)`}...`,
         });
         await executarAtualizacaoPluggy(supabaseAdmin, token, chatId, alvo);
+        return json({ ok: true });
+      }
+
+      // Escolha no menu inline do /pgtopadrao — idStr é o índice na mesma
+      // lista (ordenada por "ordem") que gerou os botões.
+      if (acao === "pgtopadrao" && chatId) {
+        const { data: tgS } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+        if (!tgS) {
+          await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Conta não vinculada" });
+          return json({ ok: true });
+        }
+        const listasS = await carregarListasUsuario(supabaseAdmin, tgS.user_id);
+        const escolhida = listasS.metodos[Number(idStr)];
+        if (!escolhida) {
+          await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Essa opção já não existe mais" });
+          return json({ ok: true });
+        }
+        await supabaseAdmin.from("telegram_config").upsert({ user_id: tgS.user_id, metodo_padrao: rotuloMetodo(escolhida) }, { onConflict: "user_id" });
+        await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Salvo ✅" });
+        await tg(token, "editMessageText", {
+          chat_id: chatId, message_id: cq.message.message_id,
+          text: `✅ Forma de pagamento padrão: ${rotuloMetodo(escolhida)}`,
+        });
         return json({ ok: true });
       }
 

@@ -5,12 +5,50 @@
 // Pluggy e grava uma linha em public.pluggy_contas por conta/cartão — o
 // usuário associa cada uma a um Método do app depois, manualmente.
 //
-// Segredos usados: PLUGGY_CLIENT_ID, PLUGGY_CLIENT_SECRET.
+// Segredos usados: PLUGGY_CLIENT_ID/PLUGGY_CLIENT_SECRET só como fallback pra
+// quem não cadastrou credencial própria em Configurações > Open Finance >
+// Dados cadastrais (ver getPluggyApiKey abaixo).
 // Ver plano da integração: memória "app-financeiro-pluggy-integracao".
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const PLUGGY_API_URL = "https://api.pluggy.ai";
+
+// deno-lint-ignore no-explicit-any
+type ClienteSupabase = any;
+
+// Credencial da Pluggy a usar pra um usuário: a PRÓPRIA (Configurações >
+// Open Finance > Dados cadastrais, tabela pluggy_credenciais) se ele tiver
+// cadastrado uma; senão os secrets globais da função. Duplicado em cada
+// função Pluggy de propósito — são deployadas de forma independente.
+async function getPluggyApiKey(cliente: ClienteSupabase, userId: string): Promise<string> {
+  const { data } = await cliente
+    .from("pluggy_credenciais")
+    .select("client_id, client_secret")
+    .eq("user_id", userId)
+    .maybeSingle();
+  let clientId = data?.client_id as string | undefined;
+  let clientSecret = data?.client_secret as string | undefined;
+  if (!clientId || !clientSecret) {
+    clientId = Deno.env.get("PLUGGY_CLIENT_ID");
+    clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
+  }
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      "Nenhuma credencial da Pluggy disponível (nem própria em Configurações > Open Finance > Dados cadastrais, nem os secrets globais da função)",
+    );
+  }
+  const resp = await fetch(`${PLUGGY_API_URL}/auth`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ clientId, clientSecret }),
+  });
+  if (!resp.ok) {
+    throw new Error(`Pluggy /auth falhou (${resp.status}): ${await resp.text()}`);
+  }
+  const authData = await resp.json();
+  return authData.apiKey as string;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,24 +60,6 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-async function getPluggyApiKey(): Promise<string> {
-  const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
-  const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
-  if (!clientId || !clientSecret) {
-    throw new Error("PLUGGY_CLIENT_ID/PLUGGY_CLIENT_SECRET não configurados nos secrets da função");
-  }
-  const resp = await fetch(`${PLUGGY_API_URL}/auth`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clientId, clientSecret }),
-  });
-  if (!resp.ok) {
-    throw new Error(`Pluggy /auth falhou (${resp.status}): ${await resp.text()}`);
-  }
-  const data = await resp.json();
-  return data.apiKey as string;
 }
 
 async function pluggyGet(path: string, apiKey: string) {
@@ -76,7 +96,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: "itemId é obrigatório" }, 400);
     }
 
-    const apiKey = await getPluggyApiKey();
+    const apiKey = await getPluggyApiKey(supabaseClient, user.id);
 
     // Nome da instituição vem do item (connector); as contas em si não trazem isso.
     const item = await pluggyGet(`/items/${itemId}`, apiKey);
