@@ -104,7 +104,7 @@
        longo (ex. "R$ 10.615,35") ainda não coube nisso, JS encolhe esse
        font-size em cima do que tiver aqui até caber numa linha só (nunca
        corta com "…" — ver ajustarFonteParaCaber em js/ui.js). */
-    font-size: clamp(1.2rem, 12cqw, 2.6rem);
+    font-size: clamp(.8rem, 14cqw, 2.6rem); /* 14cqw: o pior caso comum ("R$ 12.345,67", ~6,5em de largura) cabe no card sem JS */
     white-space: nowrap;
     display: block;
     max-width: 100%;
@@ -179,7 +179,7 @@
 .summary-card .amount {
     /* Tamanho-base (cqw) — ver comentário em .card-linhas .linha.total
        .amount acima: JS encolhe em cima disso se ainda não couber. */
-    font-size: clamp(1.1rem, 11cqw, 2.3rem);
+    font-size: clamp(.8rem, 14cqw, 2.3rem); /* idem: cabe só com CSS; o JS só corrige se ainda estourar */
     font-weight: var(--font-weight-bold);
     margin: 0;
     white-space: nowrap;

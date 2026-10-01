@@ -165,17 +165,9 @@ function ajustarFonteParaCaber(el, minPx = 10, tamanhoInicial = null) {
  *  resize (a largura do card muda, então o que cabia pode deixar de caber). */
 function ajustarFontesDashboard() {
     ['totalEntradas', 'totalSaidas'].forEach(id => ajustarFonteParaCaber(document.getElementById(id)));
-    // Balanço e Gasto diário ficam na 3ª coluna, bem mais estreita que Receita/
-    // Despesa — pelo cqw do próprio card (ver .summary-card .amount) ficariam
-    // desproporcionalmente grandes pro valor curto que mostram. Usa o mesmo
-    // tamanho do total de Receita/Despesa (o menor dos dois) como ponto de
-    // partida, só encolhendo se mesmo assim não couber na 3ª coluna.
-    const totalEntradasEl = document.getElementById('totalEntradas');
-    const totalSaidasEl = document.getElementById('totalSaidas');
-    const tamanhosTotais = [totalEntradasEl, totalSaidasEl].filter(Boolean).map(el => parseFloat(getComputedStyle(el).fontSize));
-    const tamanhoBase = tamanhosTotais.length ? Math.min(...tamanhosTotais) : null;
+    // Balanço e Gasto diário (3ª coluna, estreita): o CSS (cqw) já faz caber; aqui só encolhe se ainda estourar.
     const par = ['balanco', 'gastoDiario'].map(id => document.getElementById(id)).filter(Boolean);
-    par.forEach(el => ajustarFonteParaCaber(el, 10, tamanhoBase));
+    par.forEach(el => ajustarFonteParaCaber(el, 10));
     if (par.some(el => !el.clientWidth)) return;
     // Lado a lado: mesmo tamanho entre os dois (o menor dos dois, caso um precise encolher mais que o outro)
     if (par.length === 2) {
