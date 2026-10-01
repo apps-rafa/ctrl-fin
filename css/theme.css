@@ -511,8 +511,8 @@ body .tabs-dir .tab-btn-icone { flex: 1 1 0; min-width: 0; padding-left: 0; padd
 /* Revisão Pluggy: espaçamento uniforme entre os grupos */
 #pluggyRevisaoLista { display: flex; flex-direction: column; gap: .5rem; }
 #pluggyRevisaoLista > * { margin: 0; }
-#pluggyRevisaoLista > .import-csv-grupo, #pluggyRevisaoLista > .rec-grupo { margin: 0; }
-#pluggyRevisaoLista .import-csv-acoes { margin-top: 0; }
+#pluggyRevisaoLista > .revisao-grupo, #pluggyRevisaoLista > .rec-grupo { margin: 0; }
+#pluggyRevisaoLista .revisao-acoes { margin-top: 0; }
 
 /* Cabeçalhos de grupo/subgrupo com o mesmo recuo horizontal dos lançamentos:
    setinhas e valores (total à direita) ficam alinhados em toda a lista. */
@@ -549,12 +549,12 @@ body .header-info > #btnTema { width: 1.9rem; padding: 0; border-radius: 999px; 
 
 /* Revisão Pluggy: grupos com a mesma fonte/peso (título e subgrupos), histórico
    sem a faixa colorida; botão Importar em 100%; botões da barra em 50/50. */
-body .import-csv-grupo > .import-csv-grupo-titulo,
+body .revisao-grupo > .revisao-grupo-titulo,
 body .rec-grupo > summary { font-size: .8rem; font-weight: 600; color: var(--text); }
-body .import-csv-grupo .import-csv-grupo > .import-csv-grupo-titulo,
+body .revisao-grupo .revisao-grupo > .revisao-grupo-titulo,
 body .subgrupo-cab { font-size: .75rem; font-weight: 600; color: var(--text); }
 body .rec-grupo--plano { border-left-width: 1px; border-left-color: var(--border); }
-body #pluggyRevisaoLista .import-csv-acoes .btn-submit { width: 100%; flex: 1 1 100%; }
+body #pluggyRevisaoLista .revisao-acoes .btn-submit { width: 100%; flex: 1 1 100%; }
 
 body .pluggy-contas-sync, body .pluggy-toolbar-btns { gap: .5rem; }
 body .pluggy-conta-sync { flex: 1 1 calc(50% - .25rem); min-width: 0; height: var(--pluggy-toolbar-h); font-size: var(--pluggy-toolbar-fs); }

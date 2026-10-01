@@ -1,8 +1,7 @@
 /**
  * REVISÃO DE IMPORTAÇÃO — peças de HTML compartilhadas pelas telas que
- * revisam lançamentos antes de virarem lançamento de verdade: CSV
- * (importar-csv.js), Open Finance (pluggy.js) e PDF/conciliar
- * (conciliar-pdf.js). Existe pra as 3 terem exatamente o mesmo layout:
+ * revisam lançamentos antes de virarem lançamento de verdade (hoje: Open Finance
+ * e Dados). Existe pra terem exatamente o mesmo layout:
  *
  *   grupo (details)  →  subgrupo Despesas / Receitas (details)  →  tabela
  *   colunas: [X] Data · Valor · (específicas da tela) · Descrição (editável)
@@ -40,15 +39,15 @@ function htmlBotaoXRevisao(chave, ignorada) {
  *   descricao     texto; com `editavel` vira <input> (name/attrs via attrsDesc)
  */
 function htmlLinhaRevisao(o) {
-    const classes = o.ignorada ? 'linha-ignorada' : (o.revisar ? 'import-csv-linha-revisar' : '');
+    const classes = o.ignorada ? 'linha-ignorada' : (o.revisar ? 'revisao-linha-revisar' : '');
     const acao = o.celulaAcao !== undefined
         ? o.celulaAcao
         : (o.chaveX !== undefined && o.chaveX !== null ? htmlBotaoXRevisao(o.chaveX, !!o.ignorada) : '');
     const desc = o.editavel
-        ? `<td class="import-csv-desc-edit"><input type="text" class="import-desc-input" data-campo="descricao" ${o.attrsDesc || ''}
+        ? `<td class="revisao-desc-edit"><input type="text" class="import-desc-input" data-campo="descricao" ${o.attrsDesc || ''}
               name="descricao" aria-label="Descrição" value="${escAttrRevisao(o.descricao)}" placeholder="${escAttrRevisao(o.placeholderDesc || '')}"
               title="Descrição (editável)" ${o.ignorada ? 'disabled' : ''}></td>`
-        : `<td class="import-csv-desc" title="${escAttrRevisao(o.descricao)}">${escAttrRevisao(o.descricao)}</td>`;
+        : `<td class="revisao-desc" title="${escAttrRevisao(o.descricao)}">${escAttrRevisao(o.descricao)}</td>`;
     return `
     <tr ${o.atributos || ''}${classes ? ` class="${classes}"` : ''}>
         <td>${acao}</td>
@@ -74,8 +73,8 @@ function htmlSubgruposRevisao({ idPai, abertos, itens, tipoDe, colunas, htmlLinh
     if (semSubgrupos) {
         if (!itens.length) return '';
         return `
-    <div class="import-csv-tabela-wrap import-csv-tabela-wrap--solta">
-        <table class="import-csv-tabela import-csv-tabela--compacta">
+    <div class="revisao-tabela-wrap revisao-tabela-wrap--solta">
+        <table class="revisao-tabela revisao-tabela--compacta">
             ${cab}
             <tbody>${itens.map(htmlLinha).join('')}</tbody>
         </table>
@@ -88,8 +87,8 @@ function htmlSubgruposRevisao({ idPai, abertos, itens, tipoDe, colunas, htmlLinh
         id: `${idPai}-${tipo}`, abertos, padraoAberto: subAberto || unico,
         titulo: `${tipo === 'entradas' ? 'Receitas' : 'Despesas'} (${lista.length})`,
         corpo: `
-    <div class="import-csv-tabela-wrap import-csv-tabela-wrap--solta">
-        <table class="import-csv-tabela import-csv-tabela--compacta">
+    <div class="revisao-tabela-wrap revisao-tabela-wrap--solta">
+        <table class="revisao-tabela revisao-tabela--compacta">
             ${cab}
             <tbody>${lista.map(htmlLinha).join('')}</tbody>
         </table>
@@ -119,8 +118,8 @@ function _diffDias(iso1, iso2) {
 function _grupoColapsavelConciliar({ id, abertos, padraoAberto, titulo, corpo }) {
     const aberto = abertos[id] !== undefined ? abertos[id] : padraoAberto;
     return `
-        <details class="import-csv-grupo" data-grupo-id="${id}" ${aberto ? 'open' : ''}>
-          <summary class="import-csv-grupo-titulo">${titulo}</summary>
+        <details class="revisao-grupo" data-grupo-id="${id}" ${aberto ? 'open' : ''}>
+          <summary class="revisao-grupo-titulo">${titulo}</summary>
           ${corpo}
         </details>`;
 }

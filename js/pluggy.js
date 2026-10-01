@@ -1,7 +1,7 @@
 /**
  * PLUGGY — conexão de contas bancárias (open finance).
  * Vive dentro de Configurações > Importar > Pluggy, com a mesma cara de
- * CSV/PDF: conectar/gerenciar contas, sincronizar, e revisar os
+ * a antiga importação por arquivo: conectar/gerenciar contas, sincronizar, e revisar os
  * lançamentos importados numa lista com grupo de possíveis duplicatas —
  * confirmar grava um lançamento de verdade, ignorar só marca a linha.
  */

@@ -11,7 +11,7 @@ let _revisaoPluggyCache = {};
 let _historicoPluggyCache = {};
 // Escolhas do usuário ainda não gravadas no banco — sobrevivem a
 // re-renders (selecionar categoria move a linha de "Para revisar" pra
-// "Prontas" na hora, igual ao CSV/PDF; só grava de verdade quando aperta
+// "Prontas" na hora, como nos outros grupos; só grava de verdade quando aperta
 // "Importar N lançamentos"). Chave = id da transacoes_importadas.
 const _categoriaEscolhidaPluggy = {};
 const _descricaoEditadaPluggy = {};
@@ -212,7 +212,7 @@ function _mesmaFormaPgto(a, b) {
  *  valor (tolerância de 1 centavo), data a até 2 dias e, quando os dois lados
  *  têm forma de pgto., a MESMA forma — de algum lançamento já gravado no app.
  *  Busca no banco o período dos pendentes (o estadoApp só tem o mês em tela,
- *  então sincronizar outro mês nunca achava nada). Grupo à parte, igual CSV/PDF. */
+ *  então sincronizar outro mês nunca achava nada). Grupo à parte. */
 async function _marcarDuplicatasPluggy(itens) {
     if (!itens.length) return [];
     const datas = itens.map(i => String(i.data).slice(0, 10)).sort();
@@ -313,7 +313,7 @@ function _filtrarRevisaoPluggy(termoBruto) {
         el.classList.toggle('pluggy-busca-oculta', !bate);
     });
 
-    container.querySelectorAll('details.import-csv-grupo').forEach(det => {
+    container.querySelectorAll('details.revisao-grupo').forEach(det => {
         const temVisivel = !!det.querySelector(
             'tbody tr:not(.pluggy-busca-oculta), .historico-lista .despesa-item:not(.pluggy-busca-oculta)'
         );
@@ -327,7 +327,7 @@ function _filtrarRevisaoPluggy(termoBruto) {
 }
 
 /** Carrega e renderiza a fila de revisão (Importar > Pluggy): pendentes
- *  (divididos em duplicatas/a revisar/prontas, igual CSV/PDF) + um
+ *  (divididos em duplicatas/a revisar/prontas, como nos outros grupos) + um
  *  histórico do que já foi confirmado (revisável, não editável aqui). */
 async function carregarRevisaoPluggy() {
     const container = document.getElementById('pluggyRevisaoLista');
@@ -403,7 +403,7 @@ async function carregarRevisaoPluggy() {
     _historicoPluggyCache = Object.fromEntries(historicoValido.map(item => [item.id, item]));
 
     // Em qual grupo cada linha cai é CONGELADO na 1ª vez que ela aparece
-    // (mesma regra do CSV): resolver a categoria de uma linha "para revisar"
+    // : resolver a categoria de uma linha "para revisar"
     // só tira o destaque vermelho, NÃO muda ela de grupo.
     const categoriasDoTipo = item => (estadoApp.menus &&
         (item.tipo === 'entradas' ? estadoApp.menus.categoriasReceita : estadoApp.menus.categoriasDespesa)) || [];
@@ -412,7 +412,7 @@ async function carregarRevisaoPluggy() {
         if (!_grupoPluggy[item.id]) {
             _grupoPluggy[item.id] = item._duplicataSuspeita ? 'duplicatas' : (veioComSugestao(item) ? 'prontas' : 'revisar');
         }
-        // Possível duplicata já nasce com X (não entra), igual ao CSV/PDF —
+        // Possível duplicata já nasce com X (não entra), como nos outros grupos —
         // o usuário reativa (↺) se for mesmo um lançamento novo.
         if (item._duplicataSuspeita && !_duplicatasIniciadasPluggy.has(item.id)) {
             _duplicatasIniciadasPluggy.add(item.id);
@@ -450,7 +450,7 @@ async function carregarRevisaoPluggy() {
         || Object.keys(_categoriaEscolhidaPluggy).length > 0
         || Object.keys(_descricaoEditadaPluggy).length > 0;
 
-    // Mesmo layout do CSV/PDF (js/revisao-importacao.js): grupo → subgrupos
+    // Layout compartilhado (js/revisao-importacao.js): grupo → subgrupos
     // Despesas/Receitas → tabela X/Data/Valor/Categoria/Descrição. Sem
     // "Forma de pgto." — o método já vem fixado pela conta em "Método do app".
     const grupo = (id, titulo, itens, nota = '', semSubgrupos = false, abrir = false) => htmlGrupoRevisao({
@@ -459,7 +459,7 @@ async function carregarRevisaoPluggy() {
         htmlLinha: gerarHTMLImportadaPluggy,
     });
 
-    // Histórico: MESMO markup dos outros grupos desta página (import-csv-grupo),
+    // Histórico: MESMO markup dos outros grupos desta página (revisao-grupo),
     // com um subgrupo por tipo cujo corpo são os cards dos lançamentos.
     const _somaHist = l => l.reduce((acc, i) => acc + (parseFloat(i.transacao.valor) || 0), 0);
     const tabelaHistorico = !historicoValido.length ? '' : _grupoColapsavelConciliar({
@@ -483,7 +483,7 @@ async function carregarRevisaoPluggy() {
     // Com mais de uma conta na fila, cada conta vira um grupo (Nubank: Crédito,
     // Mercado Pago: Conta...) com os 3 grupos de sempre dentro; com uma só, fica
     // como sempre foi.
-    const notaDup = `<p class="import-csv-nota">Mesmo tipo, data (± 2 dias) e valor de algo já lançado no app. Vêm com X: ao importar, cada uma é conciliada com o lançamento que já existe (ele ganha o selo 🏦), sem duplicar — clique no ↺ se for mesmo um lançamento novo.</p>`;
+    const notaDup = `<p class="revisao-nota">Mesmo tipo, data (± 2 dias) e valor de algo já lançado no app. Vêm com X: ao importar, cada uma é conciliada com o lançamento que já existe (ele ganha o selo 🏦), sem duplicar — clique no ↺ se for mesmo um lançamento novo.</p>`;
     // Cartão de crédito é praticamente sempre despesa — o subgrupo
     // "Despesas" vira uma camada de clique inútil (não existe "Receitas"
     // pra justificar o split); pula direto pra tabela.
@@ -523,11 +523,11 @@ async function carregarRevisaoPluggy() {
         id: 'pluggy-ja-ignoradas', titulo: '🗑️ Descartadas (não entraram)', abertos: _abertosPluggy, padraoAberto: false, subAberto: false,
         itens: jaIgnoradas, tipoDe: i => i.tipo, colunas: ['Data', 'Valor', 'Categoria', 'Descrição'],
         htmlLinha: gerarHTMLIgnoradaDbPluggy,
-        nota: `<p class="import-csv-nota">Ficam aqui riscadas — nunca somem da página, nem depois de "Limpar". Clique no ↺ pra mandar de volta pra "Para revisar".</p>`,
+        nota: `<p class="revisao-nota">Ficam aqui riscadas — nunca somem da página, nem depois de "Limpar". Clique no ↺ pra mandar de volta pra "Para revisar".</p>`,
     });
 
     container.innerHTML = [
-        `<p class="import-csv-resumo">
+        `<p class="revisao-resumo">
             <b>${pendentesBrutos.length}</b> linha${pendentesBrutos.length === 1 ? '' : 's'} na fila —
             <span class="ok">${prontasAoVivo.length} pronta${prontasAoVivo.length === 1 ? '' : 's'}</span>
             ${aRevisarAoVivo.length ? ` · <span class="alerta">${aRevisarAoVivo.length} para revisar</span>` : ''}
@@ -544,14 +544,14 @@ async function carregarRevisaoPluggy() {
         // não pede nenhuma ação (as outras têm algo a decidir: revisar,
         // conferir duplicata, importar).
         tabelaHistorico,
-        `<div class="import-csv-acoes">
+        `<div class="revisao-acoes">
             <button type="button" class="btn-submit" id="btnImportarProntasPluggy"
                 title="${totalIgnoradas ? `As ${totalIgnoradas} linha(s) com X serão descartadas da fila.` : ''}"
                 ${prontasAoVivo.length || totalIgnoradas ? '' : 'disabled'}>
                 Importar ${prontasAoVivo.length} lançamento${prontasAoVivo.length === 1 ? '' : 's'}
             </button>
         </div>
-        <div id="pluggyImportProgresso" class="import-csv-progresso" hidden></div>`,
+        <div id="pluggyImportProgresso" class="revisao-progresso" hidden></div>`,
     ].join('');
 
     container.querySelectorAll('details[data-grupo-id]').forEach(det => {
@@ -724,7 +724,7 @@ function onRevisaoPluggyChange(e) {
 }
 
 /** Grava de vez todas as "Prontas" (via adicionarTransacaoAPI, uma de cada
- *  vez, igual CSV/PDF) e marca cada uma como confirmada na fila. */
+ *  vez, como nos outros grupos) e marca cada uma como confirmada na fila. */
 async function importarProntasPluggy() {
     const prontas = Object.values(_revisaoPluggyCache)
         .filter(item => _categoriaAoVivoPluggy(item) && !_ignoradasPluggy.has(item.id));

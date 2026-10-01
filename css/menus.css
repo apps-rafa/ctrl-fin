@@ -631,7 +631,7 @@
 .dados-selecao-titulo { margin: 0 0 .4rem; font-size: .95rem; }
 
 /* Grupos "Conectadas"/"Desconectadas" dentro da lista de contas — igual
-   collapsible ao .import-csv-grupo (duplicatas do CSV/PDF/Pluggy), com
+   collapsible ao .revisao-grupo (duplicatas do Open Finance), com
    "Conectadas" aberto e "Desconectadas" fechado por padrão. */
 .pluggy-contas-grupo + .pluggy-contas-grupo { margin-top: .8rem; }
 .pluggy-contas-grupo-titulo {
@@ -925,21 +925,21 @@
   color: var(--text);
 }
 .campo-com-add--mini select:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
-.import-csv-resumo { font-size: .82rem; color: var(--text-muted); margin: .3rem 0 .6rem; }
-.import-csv-resumo .ok { color: var(--receita-text); font-weight: 700; }
-.import-csv-resumo .alerta { color: var(--despesa-text); font-weight: 700; }
+.revisao-resumo { font-size: .82rem; color: var(--text-muted); margin: .3rem 0 .6rem; }
+.revisao-resumo .ok { color: var(--receita-text); font-weight: 700; }
+.revisao-resumo .alerta { color: var(--despesa-text); font-weight: 700; }
 
 /* Cada grupo ganha um contorno próprio — antes só o <summary> (título)
    tinha qualquer estilo; o corpo (tabela/nota) ficava "solto", sem nada
    delimitando onde um grupo acaba e o próximo começa. */
-.import-csv-grupo {
+.revisao-grupo {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   padding: 0 .7rem .7rem;
   margin: .7rem 0;
 }
-.import-csv-grupo-titulo {
+.revisao-grupo-titulo {
   font-size: .8rem;
   font-weight: 700;
   color: var(--text-muted);
@@ -949,31 +949,31 @@
   list-style: none;
   user-select: none;
 }
-.import-csv-grupo[open] > .import-csv-grupo-titulo { margin-bottom: .3rem; border-bottom: 1px solid var(--border); }
+.revisao-grupo[open] > .revisao-grupo-titulo { margin-bottom: .3rem; border-bottom: 1px solid var(--border); }
 /* Grupo dentro de grupo (subgrupos Despesas/Receitas): sem sobra de
    preenchimento — cada nível a mais tirava ~1,4rem de largura da tabela. */
-.import-csv-grupo .import-csv-grupo { padding: 0 .25rem .25rem; margin: .35rem 0; }
-.import-csv-grupo .import-csv-grupo > .import-csv-grupo-titulo { margin: 0 -.25rem; padding: .4rem .5rem; }
-.import-csv-grupo .import-csv-grupo[open] > .import-csv-grupo-titulo { margin-bottom: 0; }
+.revisao-grupo .revisao-grupo { padding: 0 .25rem .25rem; margin: .35rem 0; }
+.revisao-grupo .revisao-grupo > .revisao-grupo-titulo { margin: 0 -.25rem; padding: .4rem .5rem; }
+.revisao-grupo .revisao-grupo[open] > .revisao-grupo-titulo { margin-bottom: 0; }
 @media (max-width: 600px) {
-  .import-csv-grupo { padding: 0 .35rem .35rem; margin: .5rem 0; }
-  .import-csv-grupo-titulo { margin: 0 -.35rem; padding: .45rem .5rem; }
-  .import-csv-grupo .import-csv-grupo { padding: 0 .15rem .15rem; margin: .3rem 0; }
-  .import-csv-grupo .import-csv-grupo > .import-csv-grupo-titulo { margin: 0 -.15rem; padding: .35rem .45rem; }
+  .revisao-grupo { padding: 0 .35rem .35rem; margin: .5rem 0; }
+  .revisao-grupo-titulo { margin: 0 -.35rem; padding: .45rem .5rem; }
+  .revisao-grupo .revisao-grupo { padding: 0 .15rem .15rem; margin: .3rem 0; }
+  .revisao-grupo .revisao-grupo > .revisao-grupo-titulo { margin: 0 -.15rem; padding: .35rem .45rem; }
 }
-.import-csv-grupo-titulo::-webkit-details-marker { display: none; }
+.revisao-grupo-titulo::-webkit-details-marker { display: none; }
 /* Seta troca de glifo (▸ fechado / ▾ aberto) — sem rotação nem transição
    (a regra global *:hover::before{transform:none!important} de
    animations.css desfazia a rotação no hover e a seta "piscava"). */
-.import-csv-grupo-titulo::before {
+.revisao-grupo-titulo::before {
   content: '▸';
   display: inline-block;
   margin-right: .35rem;
   font-size: 1.2rem;
   line-height: 1;
 }
-.import-csv-grupo[open] > .import-csv-grupo-titulo::before { content: '▾'; }
-.import-csv-tabela-wrap {
+.revisao-grupo[open] > .revisao-grupo-titulo::before { content: '▾'; }
+.revisao-tabela-wrap {
   max-height: 420px;
   overflow: auto;
   border: 1px solid var(--border);
@@ -981,15 +981,15 @@
 }
 /* Tabelas do Pluggy dentro dos grupos: sem invólucro próprio (borda/altura
    máxima/rolagem vertical) — o grupo já é o recipiente. */
-.import-csv-tabela-wrap--solta {
+.revisao-tabela-wrap--solta {
   max-height: none;
   overflow-x: auto;
   overflow-y: visible;
   border: 0;
   border-radius: 0;
 }
-.import-csv-tabela { width: 100%; border-collapse: collapse; font-size: .78rem; }
-.import-csv-tabela th {
+.revisao-tabela { width: 100%; border-collapse: collapse; font-size: .78rem; }
+.revisao-tabela th {
   position: sticky;
   top: 0;
   background: var(--surface-2, var(--surface));
@@ -998,12 +998,12 @@
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
-.import-csv-tabela td {
+.revisao-tabela td {
   padding: .35rem .5rem;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
-.import-csv-tabela select {
+.revisao-tabela select {
   width: 100%;
   max-width: 160px;
   padding: .2rem .3rem;
@@ -1014,11 +1014,11 @@
 /* Revisão do Pluggy: colunas coladas (só a Descrição, que é editável, cresce
    e ocupa o resto), botão "X" e linha ignorada (esmaecida/travada até o
    "Importar"). */
-.import-csv-tabela--compacta th,
-.import-csv-tabela--compacta td { width: 1%; white-space: nowrap; }
-.import-csv-tabela--compacta th:last-child,
-.import-csv-tabela--compacta td:last-child { width: auto; white-space: normal; }
-.import-csv-tabela--compacta select { width: auto; }
+.revisao-tabela--compacta th,
+.revisao-tabela--compacta td { width: 1%; white-space: nowrap; }
+.revisao-tabela--compacta th:last-child,
+.revisao-tabela--compacta td:last-child { width: auto; white-space: normal; }
+.revisao-tabela--compacta select { width: auto; }
 .import-desc-input {
   box-sizing: border-box;
   width: 100%;
@@ -1054,34 +1054,34 @@
 .linha-ignorada .import-desc-input { pointer-events: none; }
 /* Celular: fonte bem menor em toda a tabela de revisão. */
 @media (max-width: 600px) {
-  .import-csv-tabela { font-size: .62rem; }
+  .revisao-tabela { font-size: .62rem; }
   .import-desc-input { min-width: 5.5rem; font-size: .6rem; padding: .1rem .2rem; }
   /* O "* { font-size }" do celular (responsive.css) crava o tamanho em
      CADA elemento (tr inclusive), então nada herda da tabela — precisa
      valor explícito em th/td/span. */
-  .import-csv-tabela tr,
-  .import-csv-tabela th,
-  .import-csv-tabela td,
-  .import-csv-tabela td span,
-  .import-csv-tabela th span { font-size: .62rem; }
-  .import-csv-tabela th { padding: .3rem .3rem; }
-  .import-csv-tabela td { padding: .25rem .3rem; }
-  .import-csv-tabela select { max-width: 92px; padding: .1rem .15rem; font-size: .6rem; }
-  .import-csv-tabela .chip-tipo { font-size: .58rem; padding: .02rem .3rem; }
-  .import-csv-desc { max-width: 110px; }
+  .revisao-tabela tr,
+  .revisao-tabela th,
+  .revisao-tabela td,
+  .revisao-tabela td span,
+  .revisao-tabela th span { font-size: .62rem; }
+  .revisao-tabela th { padding: .3rem .3rem; }
+  .revisao-tabela td { padding: .25rem .3rem; }
+  .revisao-tabela select { max-width: 92px; padding: .1rem .15rem; font-size: .6rem; }
+  .revisao-tabela .chip-tipo { font-size: .58rem; padding: .02rem .3rem; }
+  .revisao-desc { max-width: 110px; }
   .import-x { width: 1.1rem; height: 1.1rem; font-size: .55rem; }
 }
-.import-csv-linha-revisar { background: color-mix(in srgb, var(--despesa-text) 8%, transparent); }
-.import-csv-linha-revisar select { border-color: var(--despesa-text); }
-.import-csv-desc {
+.revisao-linha-revisar { background: color-mix(in srgb, var(--despesa-text) 8%, transparent); }
+.revisao-linha-revisar select { border-color: var(--despesa-text); }
+.revisao-desc {
   max-width: 220px;
   white-space: normal;
   overflow-wrap: break-word;
 }
 /* Texto corrido fora da tabela (avisos/notas) — largura cheia, fonte
-   menor; não usa .import-csv-desc, que é pras células estreitas da
+   menor; não usa .revisao-desc, que é pras células estreitas da
    tabela (220px encolhia esse texto numa coluna estreitinha). */
-.import-csv-nota {
+.revisao-nota {
   max-width: 100%;
   font-size: .8rem;
   color: var(--text-muted);
@@ -1098,14 +1098,14 @@
 .chip-tipo--entradas { background: var(--receita-bg); color: var(--receita-text); }
 .chip-tipo--saidas { background: var(--despesa-bg); color: var(--despesa-text); }
 
-.import-csv-acoes {
+.revisao-acoes {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: .7rem;
   margin-top: .7rem;
 }
-.import-csv-acoes .btn-submit {
+.revisao-acoes .btn-submit {
   width: auto;
   flex: 0 0 auto;
   padding: .55rem 1.1rem;
@@ -1113,7 +1113,7 @@
   text-align: center;
   white-space: nowrap;
 }
-.import-csv-progresso { font-size: .8rem; color: var(--text-muted); margin-top: .5rem; }
+.revisao-progresso { font-size: .8rem; color: var(--text-muted); margin-top: .5rem; }
 
 /* ============ Dados (backup / apagar) ============ */
 .dados-incluir { margin-bottom: .5rem; }
@@ -1184,9 +1184,9 @@ summary [role="button"] { font-family: Arial; text-align: center; }
 .subgrupo-modo-icone[role="button"] { font-size: 13.3333px; font-weight: 400; }
 /* Tabela do subgrupo vai de borda a borda (anula o padding do subgrupo) — o
    vermelho das linhas a revisar preenche 100% da largura. */
-.import-csv-grupo .import-csv-grupo > .import-csv-tabela-wrap--solta { margin: 0 -.25rem; }
+.revisao-grupo .revisao-grupo > .revisao-tabela-wrap--solta { margin: 0 -.25rem; }
 @media (max-width: 600px) {
-  .import-csv-grupo .import-csv-grupo > .import-csv-tabela-wrap--solta { margin: 0 -.15rem; }
+  .revisao-grupo .revisao-grupo > .revisao-tabela-wrap--solta { margin: 0 -.15rem; }
 }
 
 /* Botões "+" de todo o app (círculos .h3-add e quadrados .btn-mini-add): o
@@ -1225,52 +1225,52 @@ summary [role="button"] { font-family: Arial; text-align: center; }
   #pluggyContasList .campo-com-add--mini .btn-mini-add { flex: 0 0 2.2rem; width: 2.2rem; }
 }
 
-/* ---- Revisão/Histórico do Pluggy (e CSV/PDF): cabe na largura, sem "caderno
+/* ---- Revisão/Histórico do Pluggy: cabe na largura, sem "caderno
    dentro de caderno". Só o grupo de fora tem caixa; subgrupos (Despesas/
    Receitas) e tabelas ficam sem contorno nem linhas de divisão. ---- */
 #pluggyRevisaoLista, #pluggyRevisaoLista > * { min-width: 0; max-width: 100%; }
-.import-csv-grupo { min-width: 0; max-width: 100%; box-sizing: border-box; overflow-wrap: anywhere; }
-.import-csv-grupo-titulo { white-space: normal; }
-.import-csv-grupo[open] > .import-csv-grupo-titulo { border-bottom: 0; }
-.import-csv-grupo .import-csv-grupo {
+.revisao-grupo { min-width: 0; max-width: 100%; box-sizing: border-box; overflow-wrap: anywhere; }
+.revisao-grupo-titulo { white-space: normal; }
+.revisao-grupo[open] > .revisao-grupo-titulo { border-bottom: 0; }
+.revisao-grupo .revisao-grupo {
   border: 0; background: transparent; border-radius: 0; padding: 0; margin: .2rem 0;
 }
-.import-csv-grupo .import-csv-grupo > .import-csv-grupo-titulo { margin: 0; padding: .35rem 0; }
-.import-csv-tabela-wrap--solta { overflow-x: visible; }
-.import-csv-tabela th { position: static; background: transparent; border-bottom: 0; }
-.import-csv-tabela td { border-bottom: 0; }
-.import-csv-tabela--compacta {
+.revisao-grupo .revisao-grupo > .revisao-grupo-titulo { margin: 0; padding: .35rem 0; }
+.revisao-tabela-wrap--solta { overflow-x: visible; }
+.revisao-tabela th { position: static; background: transparent; border-bottom: 0; }
+.revisao-tabela td { border-bottom: 0; }
+.revisao-tabela--compacta {
   table-layout: fixed; width: 100%;
 }
-.import-csv-tabela--compacta th,
-.import-csv-tabela--compacta td { width: auto; white-space: normal; overflow-wrap: anywhere; }
-.import-csv-tabela--compacta th:nth-child(1), .import-csv-tabela--compacta td:nth-child(1) { width: 2.2rem; }
-.import-csv-tabela--compacta th:nth-child(2), .import-csv-tabela--compacta td:nth-child(2) { width: 3.6rem; white-space: nowrap; }
-.import-csv-tabela--compacta th:nth-child(3), .import-csv-tabela--compacta td:nth-child(3) { width: 6rem; white-space: nowrap; }
-.import-csv-tabela--compacta th:nth-child(4), .import-csv-tabela--compacta td:nth-child(4) { width: 26%; }
-.import-csv-tabela--compacta select { width: 100%; max-width: none; }
-.import-csv-tabela--compacta .import-desc-input { min-width: 0; }
-.import-csv-tabela--compacta .btn-icon { min-width: 0; width: 1.2rem; padding: 0; font-size: .62rem; }
+.revisao-tabela--compacta th,
+.revisao-tabela--compacta td { width: auto; white-space: normal; overflow-wrap: anywhere; }
+.revisao-tabela--compacta th:nth-child(1), .revisao-tabela--compacta td:nth-child(1) { width: 2.2rem; }
+.revisao-tabela--compacta th:nth-child(2), .revisao-tabela--compacta td:nth-child(2) { width: 3.6rem; white-space: nowrap; }
+.revisao-tabela--compacta th:nth-child(3), .revisao-tabela--compacta td:nth-child(3) { width: 6rem; white-space: nowrap; }
+.revisao-tabela--compacta th:nth-child(4), .revisao-tabela--compacta td:nth-child(4) { width: 26%; }
+.revisao-tabela--compacta select { width: 100%; max-width: none; }
+.revisao-tabela--compacta .import-desc-input { min-width: 0; }
+.revisao-tabela--compacta .btn-icon { min-width: 0; width: 1.2rem; padding: 0; font-size: .62rem; }
 @media (max-width: 600px) {
-  .import-csv-tabela, .import-csv-tabela tr, .import-csv-tabela th, .import-csv-tabela td,
-  .import-csv-tabela td span, .import-csv-tabela th span { font-size: .7rem; }
-  .import-csv-tabela select, .import-desc-input { font-size: .7rem; }
-  .import-csv-desc { max-width: none; }
+  .revisao-tabela, .revisao-tabela tr, .revisao-tabela th, .revisao-tabela td,
+  .revisao-tabela td span, .revisao-tabela th span { font-size: .7rem; }
+  .revisao-tabela select, .import-desc-input { font-size: .7rem; }
+  .revisao-desc { max-width: none; }
 }
 
 /* Celular (iPhone SE 320-375px): cada linha vira 2 — X/Data/Valor/Categoria em
    cima, Descrição em largura total embaixo (antes ficava com 58-99px). */
 @media (max-width: 600px) {
-  .import-csv-tabela--compacta, .import-csv-tabela--compacta thead,
-  .import-csv-tabela--compacta tbody { display: block; width: 100%; }
-  .import-csv-tabela--compacta tr {
+  .revisao-tabela--compacta, .revisao-tabela--compacta thead,
+  .revisao-tabela--compacta tbody { display: block; width: 100%; }
+  .revisao-tabela--compacta tr {
     display: grid; grid-template-columns: 2rem 2.6rem 4.2rem minmax(0, 1fr);
     column-gap: .3rem; row-gap: .15rem; align-items: center; padding: .3rem 0;
   }
-  .import-csv-tabela--compacta th, .import-csv-tabela--compacta td { width: auto !important; padding: .1rem 0; min-width: 0; }
-  .import-csv-tabela--compacta th:nth-child(5) { display: none; }
-  .import-csv-tabela--compacta td:nth-child(5) { grid-column: 1 / -1; }
-  .import-csv-tabela--compacta td:nth-child(1) { white-space: nowrap; }
+  .revisao-tabela--compacta th, .revisao-tabela--compacta td { width: auto !important; padding: .1rem 0; min-width: 0; }
+  .revisao-tabela--compacta th:nth-child(5) { display: none; }
+  .revisao-tabela--compacta td:nth-child(5) { grid-column: 1 / -1; }
+  .revisao-tabela--compacta td:nth-child(1) { white-space: nowrap; }
 }
 
 /* Histórico: lista de cards iguais aos das páginas de Receitas/Despesas */
@@ -1279,18 +1279,18 @@ summary [role="button"] { font-family: Arial; text-align: center; }
 /* Revisão no celular: TUDO numa linha só (X · Data · Valor · Categoria · Descrição),
    colunas coladas e só o quanto o conteúdo precisa. */
 @media (max-width: 600px) {
-  .import-csv-tabela--compacta tr {
+  .revisao-tabela--compacta tr {
     grid-template-columns: 1.25rem 2rem 3.3rem minmax(0, .85fr) minmax(0, 1fr);
     column-gap: .2rem; row-gap: 0; padding: .15rem 0;
   }
-  .import-csv-tabela--compacta th:nth-child(5) { display: block; }
-  .import-csv-tabela--compacta td:nth-child(5) { grid-column: auto; }
-  .import-csv-tabela--compacta,
-  .import-csv-tabela--compacta th, .import-csv-tabela--compacta td,
-  .import-csv-tabela--compacta td span { font-size: .62rem; }
-  .import-csv-tabela--compacta select { font-size: .62rem; padding: .1rem .5rem .1rem .15rem; background-size: .45rem; background-position: right .15rem center; }
-  .import-csv-tabela--compacta .import-desc-input { font-size: .62rem; padding: .1rem .2rem; }
-  .import-csv-tabela--compacta .import-x { width: 1rem; height: 1rem; font-size: .5rem; }
+  .revisao-tabela--compacta th:nth-child(5) { display: block; }
+  .revisao-tabela--compacta td:nth-child(5) { grid-column: auto; }
+  .revisao-tabela--compacta,
+  .revisao-tabela--compacta th, .revisao-tabela--compacta td,
+  .revisao-tabela--compacta td span { font-size: .62rem; }
+  .revisao-tabela--compacta select { font-size: .62rem; padding: .1rem .5rem .1rem .15rem; background-size: .45rem; background-position: right .15rem center; }
+  .revisao-tabela--compacta .import-desc-input { font-size: .62rem; padding: .1rem .2rem; }
+  .revisao-tabela--compacta .import-x { width: 1rem; height: 1rem; font-size: .5rem; }
 }
 
 /* Histórico usa o card normal de lançamento: anula as larguras fixas do layout
