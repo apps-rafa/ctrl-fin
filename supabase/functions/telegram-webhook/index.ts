@@ -684,7 +684,7 @@ async function carregarListasUsuario(admin: ReturnType<typeof createClient>, use
  *  Leva o id do rascunho (`id`) pra o mini app devolver junto no envio — assim o
  *  bot sabe qual dos vários rascunhos pendentes foi editado (ver web_app_data
  *  em Deno.serve). */
-function urlMiniApp(id: number, r: RascunhoLancamento, l: ListasUsuario): string {
+function urlMiniApp(id: number | string, r: RascunhoLancamento, l: ListasUsuario): string {
   const q = new URLSearchParams();
   q.set("id", String(id));
   q.set("tipo", r.tipo);
@@ -780,21 +780,27 @@ async function responderComandoConsulta(
   }
   if (comando === "ultimos") {
     const { data: ult, error: erroUlt } = await admin.from("transacoes")
-      .select("tipo, valor, data, categoria, descricao, metodo")
+      .select("id, tipo, valor, data, categoria, descricao, metodo")
       .eq("user_id", tgUser.user_id).order("criado_em", { ascending: false }).limit(5);
     if (erroUlt) {
       console.error(erroUlt);
       await tg(token, "sendMessage", { chat_id: chatId, text: "Deu erro ao consultar seus lançamentos — tenta de novo." });
       return;
     }
-    const linhasUlt = (ult ?? []).map((t: { tipo: string; valor: number; data: string; categoria: string | null; descricao: string | null; metodo: string | null }, i: number) => {
+    const linhasUlt = (ult ?? []).map((t: { id: number; tipo: string; valor: number; data: string; categoria: string | null; descricao: string | null; metodo: string | null }, i: number) => {
       const dataFmt = String(t.data).slice(0, 10).split("-").reverse().slice(0, 2).join("/");
       const sinal = t.tipo === "entradas" ? "+" : "-";
       return `${i + 1}. ${dataFmt} ${sinal}${formatarMoedaBR(Number(t.valor) || 0)} — ${[t.categoria, t.descricao, t.metodo].filter(Boolean).join(" · ")}`;
     });
+    // Botões 1-5 na própria mensagem: o toque escolhe qual lançamento editar (ver callback "ultedit")
+    const idsUlt = ((ult ?? []) as { id: number }[]).map((t) => t.id);
     await tg(token, "sendMessage", {
       chat_id: chatId,
-      text: linhasUlt.length ? `🕓 Últimos 5 lançamentos\n\n${linhasUlt.join("\n")}` : "Nenhum lançamento ainda.",
+      text: linhasUlt.length ? `🕓 Últimos 5 lançamentos\n\n${linhasUlt.join("\n")}\n\nToque no número para editar:` : "Nenhum lançamento ainda.",
+      ...(idsUlt.length ? { reply_markup: { inline_keyboard: [
+        idsUlt.map((id, i) => ({ text: String(i + 1), callback_data: `ultedit:${id}` })),
+        [{ text: "❌ Cancelar", callback_data: "cancelar" }],
+      ] } } : {}),
     });
     return;
   }
@@ -1148,6 +1154,21 @@ Deno.serve(async (req: Request) => {
       }
       // Só apaga o rascunho que foi editado (pode haver outros pendentes no
       // mesmo chat — SMS seguidos numa noite de compras, por exemplo).
+      // Edição de um lançamento JÁ gravado (vindo do /ultimos: id "t<id>"): atualiza em vez de criar
+      const mT = /^t(\d+)$/.exec(String(p?.id ?? ""));
+      if (mT) {
+        const ehEst = dadosF.tipo === "saidas" && dadosF.categoria === "Estorno";
+        if (ehEst && dadosF.metodoKind !== "Crédito") {
+          await tg(token, "sendMessage", { chat_id: chatId, text: "Estorno exige um cartão de crédito — tenta de novo.", reply_markup: remover });
+          return json({ ok: true });
+        }
+        const { error: erroU } = await supabaseAdmin.from("transacoes").update({
+          tipo: ehEst ? "entradas" : dadosF.tipo, data: dadosF.data, valor: dadosF.valor, metodo: dadosF.metodo, categoria: dadosF.categoria,
+          descricao: dadosF.descricao, competencia: dadosF.competencia || competenciaDe(dadosF.data, dadosF.metodoKind === "Crédito" ? dadosF.diaFechamento : null),
+        }).eq("id", Number(mT[1])).eq("user_id", tgUser.user_id);
+        await tg(token, "sendMessage", { chat_id: chatId, text: erroU ? "Erro ao salvar — tenta de novo." : "✅ Lançamento atualizado!", reply_markup: remover });
+        return json({ ok: true });
+      }
       const idEditado = Number(p?.id);
       if (idEditado) await supabaseAdmin.from("telegram_rascunhos").delete().eq("id", idEditado).eq("chat_id", chatId);
       const { erro: erroF } = await confirmarRascunhoNoBanco(supabaseAdmin, tgUser.user_id, dadosF);
@@ -1334,6 +1355,42 @@ Deno.serve(async (req: Request) => {
         await tg(token, "editMessageText", {
           chat_id: chatId, message_id: cq.message.message_id,
           text: `${cq.message.text}\n\n❌ Cancelado`,
+        });
+        return json({ ok: true });
+      }
+
+      // Número (1-5) do /ultimos: abre o formulário (mini app) com os dados DAQUELE lançamento já gravado.
+      if (acao === "ultedit" && chatId) {
+        const { data: tgUser } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+        const { data: t } = tgUser
+          ? await supabaseAdmin.from("transacoes").select("*").eq("id", Number(idStr)).eq("user_id", tgUser.user_id).maybeSingle()
+          : { data: null };
+        if (!tgUser || !t) {
+          await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Esse lançamento já não existe mais" });
+          return json({ ok: true });
+        }
+        if (t.parcelas_total && t.parcelas_total > 1) {
+          await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Lançamento parcelado: edite pelo app", show_alert: true });
+          return json({ ok: true });
+        }
+        const listas = await carregarListasUsuario(supabaseAdmin, tgUser.user_id);
+        const met = listas.metodos.find((m) => rotuloMetodo(m) === t.metodo) ?? null;
+        // Estorno é gravado como entrada no cartão, mas se edita como Despesa > Estorno
+        const ehEstornoGravado = t.tipo === "entradas" && met?.metodo_kind === "Crédito";
+        const d: RascunhoLancamento = {
+          tipo: ehEstornoGravado ? "saidas" : (t.tipo === "entradas" ? "entradas" : "saidas"),
+          valor: Number(t.valor), descricao: t.descricao ?? "", categoria: ehEstornoGravado ? "Estorno" : (t.categoria ?? ""),
+          metodo: t.metodo || null, metodoKind: met?.metodo_kind ?? null, diaFechamento: met?.dia_fechamento ?? null,
+          data: String(t.data).slice(0, 10), competencia: t.competencia ? String(t.competencia).slice(0, 10) : null,
+        };
+        await tg(token, "answerCallbackQuery", { callback_query_id: cq.id });
+        await tg(token, "sendMessage", {
+          chat_id: chatId,
+          text: `Toque em ✏️ Editar para alterar o lançamento referente à ${d.tipo === "entradas" ? "receita" : "despesa"} de ${formatarMoedaBR(d.valor)} no dia ${new Date(`${d.data}T00:00:00`).toLocaleDateString("pt-BR")}${d.descricao ? ` (${d.descricao})` : ""}.`,
+          reply_markup: {
+            keyboard: [[{ text: "✏️ Editar", web_app: { url: urlMiniApp(`t${t.id}`, d, listas) } }], [{ text: "❌ Cancelar edição" }]],
+            resize_keyboard: true, is_persistent: true, one_time_keyboard: false,
+          },
         });
         return json({ ok: true });
       }
