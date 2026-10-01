@@ -776,8 +776,10 @@
 .conc-selo { font-size: .7rem; line-height: 1; flex: none; opacity: .9; }
 /* 🏦 conciliado: fica na margem esquerda da linha (antes da data), sem empurrar as colunas */
 .despesa-item { position: relative; }
-.despesa-item:has(.conc-selo) { padding-left: 1.35rem !important; }
-.despesa-item > .despesa-conteudo > .conc-selo { position: absolute; left: .3rem; top: .5rem; }
+/* margem esquerda um pouco maior em TODAS as linhas (as colunas seguem alinhadas) pro ícone não apertar */
+body .despesa-item { padding-left: 1.25rem !important; }
+@media (max-width: 480px) { body .despesa-item { padding-left: 1rem !important; } }
+.despesa-item > .despesa-conteudo > .conc-selo { position: absolute; left: .25rem; top: .5rem; }
 
 /* Busca em todos os meses */
 .busca-ampla-btn { display: block; width: 100%; box-sizing: border-box; margin: 0 0 .6rem; padding: .55rem .7rem; background: var(--surface); border: 1px dashed var(--border-strong, var(--border)); border-radius: var(--radius-sm); color: var(--text); font-size: .8rem; font-weight: 600; cursor: pointer; text-align: left; }
