@@ -1470,11 +1470,11 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     const cor = (mapa, nome) => (mapa && mapa[nome]) || corPadraoChip(nome);
     const chip = (c, txt) => `<span class="chip" style="background:${c}" title="${String(txt).replace(/"/g, '&quot;')}">${txt}</span>`;
 
-    // Dia/mês (mês sem zero à esquerda, pra poupar espaço — ex.: 26/9) +
+    // Dia/mês (com zero à esquerda — ex.: 01/10, 29/09) +
     // tricode do dia da semana (ex.: 26/9 SÁB).
     const _dowTri = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
     const _dt = trans.data ? parseDataLocal(trans.data) : null;
-    const diaFormatado = _dt ? `${_dt.getDate()}/${_dt.getMonth() + 1}` : '--';
+    const diaFormatado = _dt ? `${String(_dt.getDate()).padStart(2, '0')}/${String(_dt.getMonth() + 1).padStart(2, '0')}` : '--';
     const dowFormatado = _dt ? _dowTri[_dt.getDay()] : '';
 
     const quandoTag = opts.quando ? `<span class="quando-tag">${opts.quando}</span>` : '';
