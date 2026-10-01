@@ -1,6 +1,6 @@
 // /atualizar do bot: contas do Open Finance (Pluggy) do usuário e leitura das últimas transações.
 
-import { createClient } from "npm:@supabase/supabase-js@2";
+import type { createClient } from "npm:@supabase/supabase-js@2";
 import { tg, escaparHtml, formatarMoedaBR } from "./util.ts";
 
 export const PLUGGY_API_URL = "https://api.pluggy.ai";

@@ -1,6 +1,6 @@
 // Gravação de lançamentos/menus pelo bot e montagem do endereço do Mini App.
 
-import { createClient } from "npm:@supabase/supabase-js@2";
+import type { createClient } from "npm:@supabase/supabase-js@2";
 import { rotuloMetodo } from "./util.ts";
 import { competenciaDe, addMeses, type RascunhoLancamento } from "./parser.ts";
 
