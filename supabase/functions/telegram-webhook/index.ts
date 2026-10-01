@@ -46,6 +46,11 @@ function rotuloMetodo(m: { nome: string; metodo_kind: string | null; banco: stri
   return m.banco ? `${m.metodo_kind} ${m.banco}` : m.metodo_kind;
 }
 
+/** Texto preenchido sozinho (banco/SMS) sem endereço de site ("apple.com/bill" -> "Apple"): campos automáticos não levam link. */
+function limparLinks(t: string): string {
+  return String(t ?? "").replace(/(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+)\.(?:com|net|org|io|app|co|me|tv|gov|edu|br)(?:\.[a-z]{2})?(?:\/\S*)?/gi, (_m, nome: string) => nome.charAt(0).toUpperCase() + nome.slice(1));
+}
+
 // ---------- Linguagem natural: "gastei 35,90 no mercado" vira um rascunho de
 // lançamento (mesma ideia da fila de revisão — nada é gravado sem um toque
 // em "✅ Confirmar"). Fase 2 prometida no comentário antigo aqui embaixo. ----------
@@ -993,7 +998,7 @@ async function processarTextoLivre(
   // SMS de cartão traz o nome do estabelecimento sem ambiguidade, então
   // usa ele direto.
   const descricao = achado.estabelecimento
-    ? achado.estabelecimento.charAt(0).toUpperCase() + achado.estabelecimento.slice(1).toLowerCase()
+    ? limparLinks(achado.estabelecimento.charAt(0).toUpperCase() + achado.estabelecimento.slice(1).toLowerCase())
     : "";
 
   const rascunho: RascunhoLancamento = {
@@ -1508,7 +1513,7 @@ Deno.serve(async (req: Request) => {
           valor: item.valor,
           metodo: metodoObj ? rotuloMetodo(metodoObj) : null,
           categoria: item.categoria_sugerida,
-          descricao: item.descricao_banco || "",
+          descricao: limparLinks(item.descricao_banco || ""),
           forma_pagamento: "À vista",
           tipo_recorrencia: "Pontual",
           competencia,
