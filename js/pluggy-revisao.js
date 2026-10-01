@@ -465,8 +465,8 @@ async function carregarRevisaoPluggy() {
     const tabelaHistorico = !historicoValido.length ? '' : _grupoColapsavelConciliar({
         id: 'pluggy-historico', abertos: _abertosPluggy, padraoAberto: false,
         titulo: `📜 Já lançados (histórico) (${historicoValido.length})`,
-        corpo: (!historicoValido.some(i => i.transacao.tipo === 'entradas')
-            // só despesas (ex.: cartão de crédito): sem subgrupo "Despesas", a lista vem direto
+        corpo: ((historicoValido.every(i => contasPorId[i.conta_id]?.tipo_conta === 'CREDIT') || !historicoValido.some(i => i.transacao.tipo === 'entradas'))
+            // cartão de crédito (em qualquer mês, mesmo com estorno/crédito na fatura) ou só despesas: sem subgrupos, a lista vem direto
             ? `<div class="historico-lista rec-grupo-itens">${[...historicoValido].sort((x, y) => String(y.transacao.data).localeCompare(String(x.transacao.data))).map(i => gerarHTMLHistoricoPluggy(i)).join('')}</div>`
             : ['saidas', 'entradas'].map(tipo => {
             const lista = historicoValido.filter(i => (i.transacao.tipo === 'entradas') === (tipo === 'entradas'))
