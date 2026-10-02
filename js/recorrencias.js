@@ -208,9 +208,10 @@ function _recCardHTML(r) {
             <div class="despesa-conteudo">
                 <span class="rec-nome">${r.descricao || r.categoria}</span>
                 <span class="despesa-valor">${despesa ? '-' : '+'} ${formatarMoeda(r.valor)}</span>
-                <span class="chip chip--neutro">🔁 ${_recRotuloFrequencia(r)}</span>
-                <span class="chip" style="background:${corCat}">${r.categoria}</span>
-                <span class="chip" style="background:${corMet}">${r.metodo}</span>
+                <span class="rec-chips">
+                    <span class="chip chip--neutro">🔁 ${_recRotuloFrequencia(r)}</span>
+                    <span class="rec-chips-par"><span class="chip" style="background:${corCat}">${r.categoria}</span><span class="chip" style="background:${corMet}">${r.metodo}</span></span>
+                </span>
                 <span class="despesa-desc">Total: ${_recTotalTexto(r)} · Desde ${_recMesCriacaoTexto(r.criadoEm)}</span>
             </div>
             <div class="despesa-actions">
@@ -231,7 +232,7 @@ function _recOrganizadorHTML(chave, itens) {
     ].filter(([dim, , tem]) => tem || _recFiltro[chave] === dim);
     if (!opcoes.length) return '';
     const atual = _recFiltro[chave];
-    const botoes = opcoes.map(([dim, rotulo]) => `<span role="button" tabindex="0" class="subgrupo-modo-btn${atual === dim ? ' active' : ''}" data-submodo="${dim}" data-full="${rotulo}" data-emoji="${rotulo.split(' ')[0]}">${rotulo}</span>`).join('');
+    const botoes = opcoes.map(([dim, rotulo]) => `<span role="button" tabindex="0" class="subgrupo-modo-btn${atual === dim ? ' active' : ''}" data-submodo="${dim}" data-full="${rotulo}"${dim === 'metodo' ? ' data-med="💳 Forma de pgto." data-curto="💳 Pgto."' : ''} data-emoji="${rotulo.split(' ')[0]}">${rotulo}</span>`).join('');
     return `<div class="grupo-barra"><span class="subgrupo-organizador" data-grupo-chave="${chave}">
         <span role="button" tabindex="0" class="subgrupo-modo-icone${atual !== 'cronologica' ? ' ativo' : ''}" data-submodo-icone="1" title="Tirar filtro"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M3 4h18v2.5l-7 8V19l-4 2v-6.5l-7-8V4z"/></svg></span>
         ${botoes}</span></div>`;

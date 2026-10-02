@@ -41,11 +41,12 @@ function _ajustarLabelsFiltro(rowEl) {
     if (!rowEl) return;
     const btns = [...rowEl.querySelectorAll('[data-full]')];
     if (!btns.length) return;
-    btns.forEach(b => { b.textContent = b.dataset.full; });
+    // do mais longo ao mais curto (os níveis médio/curto são opcionais: "Forma de pgto." e "Pgto.")
+    const niveis = [b => b.dataset.full, b => b.dataset.med, b => b.dataset.curto, b => b.dataset.emoji];
+    const aplica = i => btns.forEach(b => { b.textContent = niveis[i](b) || niveis[i - 1 >= 0 ? i - 1 : 0](b) || b.dataset.full; });
+    aplica(0);
     requestAnimationFrame(() => {
-        if (rowEl.scrollWidth > rowEl.clientWidth + 1) {
-            btns.forEach(b => { b.textContent = b.dataset.emoji; });
-        }
+        for (let i = 1; i < niveis.length && rowEl.scrollWidth > rowEl.clientWidth + 1; i++) aplica(i);
     });
 }
 

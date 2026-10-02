@@ -765,7 +765,7 @@ function _renderOrganizadorInline(tipoUI, modo, grupoChave, ehDespesa, itens) {
     const botoes = visiveis.map(dim => {
         const cfg = _dimensaoSubmodo(dim, ehDespesa);
         const full = `${cfg.emoji} ${cfg.label}`;
-        return `<span role="button" tabindex="0" class="subgrupo-modo-btn${subAtual === dim ? ' active' : ''}" data-submodo="${dim}" data-full="${full}" data-emoji="${cfg.emoji}">${full}</span>`;
+        return `<span role="button" tabindex="0" class="subgrupo-modo-btn${subAtual === dim ? ' active' : ''}" data-submodo="${dim}" data-full="${full}"${dim === 'metodo' ? ` data-med="${cfg.emoji} Forma de pgto." data-curto="${cfg.emoji} Pgto."` : ''} data-emoji="${cfg.emoji}">${full}</span>`;
     }).join('');
     return `
         <span class="subgrupo-organizador" data-grupo-chave="${String(grupoChave).replace(/"/g, '&quot;')}">
