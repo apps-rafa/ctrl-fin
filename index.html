@@ -352,11 +352,8 @@
 
             <!-- Tab: Recorrências (lançamentos fixos) — por ora só o layout (prévia, sem banco) -->
             <section id="recorrencias" class="tab-content">
-                <div class="rec-cabecalho">
-                    <h2 class="rec-titulo">🔁 Recorrências</h2>
-                    <button type="button" id="recBtnCriar" class="btn-submit rec-btn-criar">+ Criar</button>
-                </div>
-                <p class="rec-aviso">Prévia do layout: o que você cadastrar aqui ainda não é salvo nem gera lançamentos.</p>
+                <button type="button" id="recBtnCriar" class="btn-submit rec-btn-criar">+ Criar</button>
+                <p id="recAviso" class="rec-aviso">Prévia do layout: o que você cadastrar aqui ainda não é salvo nem gera lançamentos.</p>
 
                 <form id="recForm" class="form-transacao rec-form" hidden novalidate>
                     <div class="form-header">
@@ -372,40 +369,42 @@
                     </div>
                     <input type="hidden" id="recTipo" value="saidas">
 
-                    <div class="rec-linha">
-                        <div class="form-group">
+                    <!-- Linha 1: Recorrência (+ dia da semana se semanal) | Valor | Duração | Total -->
+                    <div class="rec-linha rec-linha--1">
+                        <div class="form-group rec-c-freq">
                             <label for="recFrequencia">Recorrência</label>
                             <select id="recFrequencia"><option value="mensal">Mensal</option><option value="semanal">Semanal</option></select>
                         </div>
-                        <div class="form-group" id="recDiaSemanaGrupo" hidden>
-                            <label for="recDiaSemana">Dia da semana</label>
+                        <div class="form-group rec-c-dia" id="recDiaSemanaGrupo" hidden>
+                            <label for="recDiaSemana">Dia</label>
                             <select id="recDiaSemana">
-                                <option value="">Sem dia fixo</option>
-                                <option value="1">Segunda</option><option value="2">Terça</option><option value="3">Quarta</option>
-                                <option value="4">Quinta</option><option value="5">Sexta</option><option value="6">Sábado</option><option value="0">Domingo</option>
+                                <option value="">Variável</option>
+                                <option value="1">SEG</option><option value="2">TER</option><option value="3">QUA</option>
+                                <option value="4">QUI</option><option value="5">SEX</option><option value="6">SÁB</option><option value="0">DOM</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label for="recValor">Valor por ocorrência</label>
+                        <div class="form-group rec-c-valor">
+                            <label for="recValor">Valor</label>
                             <input type="text" id="recValor" inputmode="decimal" autocomplete="off" placeholder="0,00">
                         </div>
-                    </div>
-
-                    <div class="rec-linha">
-                        <fieldset class="rec-duracao">
-                            <legend>Duração</legend>
-                            <label class="rec-radio"><input type="radio" name="recDuracao" id="recDuracaoContinua" checked> Contínua (sem prazo)</label>
-                            <label class="rec-radio"><input type="radio" name="recDuracao" id="recDuracaoMeses"> Por</label>
-                            <span id="recMesesGrupo" class="rec-meses" hidden><input type="text" id="recMeses" inputmode="numeric" maxlength="3" value="12" aria-label="Quantidade de meses"> meses</span>
-                        </fieldset>
-                        <div class="form-group">
-                            <label for="recTotal">Valor total estimado</label>
+                        <div class="form-group rec-c-dur">
+                            <label for="recDuracao">Duração</label>
+                            <div class="campo-com-stepper">
+                                <input type="text" id="recDuracao" inputmode="numeric" maxlength="9" value="Contínua" autocomplete="off">
+                                <div class="stepper-v">
+                                    <button type="button" class="btn-icon btn-mini-seta" data-stepper="recDuracao" data-dir="1" data-min="1" data-max="360" tabindex="-1" title="Aumentar">▲</button>
+                                    <button type="button" class="btn-icon btn-mini-seta" data-stepper="recDuracao" data-dir="-1" data-min="1" data-max="360" tabindex="-1" title="Diminuir">▼</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group rec-c-total">
+                            <label for="recTotal">Total</label>
                             <input type="text" id="recTotal" class="campo-travado" readonly tabindex="-1" value="Sem prazo">
-                            <small id="recTotalNota" class="rec-nota"></small>
                         </div>
                     </div>
 
-                    <div class="rec-linha">
+                    <!-- Linha 2: Forma de pagamento | Categoria | Descrição -->
+                    <div class="rec-linha rec-linha--2">
                         <div class="form-group">
                             <label for="recMetodo">Forma de pagamento</label>
                             <select id="recMetodo"><option value="">Selecione...</option></select>
@@ -414,10 +413,10 @@
                             <label for="recCategoria">Categoria</label>
                             <select id="recCategoria"><option value="">Selecione...</option></select>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="recDescricao">Descrição (opcional)</label>
-                        <input type="text" id="recDescricao" placeholder="Ex: Terapia, Aluguel, Salário">
+                        <div class="form-group">
+                            <label for="recDescricao">Descrição (opcional)</label>
+                            <input type="text" id="recDescricao" placeholder="Ex: Terapia, Aluguel, Salário">
+                        </div>
                     </div>
 
                     <div id="recErro" class="erro-form"></div>
