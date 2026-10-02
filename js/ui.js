@@ -380,6 +380,7 @@ function _transacaoRealizada(t) {
     // Hoje (data local) já conta como realizado: o que tem data <= hoje sai de
     // "Próximos" e fica só em Despesas/Receitas — vale também pro cartão de crédito
     // (o vencimento da fatura não muda isso).
+    if (t.aConfirmar) return false; // recorrência aguardando decisão: segue em "a pagar"/"a receber", mesmo vencida
     const hoje = hojeISO();
     return !t.pendente && String(t.data).slice(0, 10) <= hoje;
 }

@@ -1,14 +1,55 @@
 /**
  * RECORRÊNCIAS — lançamentos fixos (conta mensal, assinatura, salário...).
- * Cadastro separado dos lançamentos comuns; por enquanto SÓ O LAYOUT (prévia): os dados ficam em memória
- * e somem ao recarregar. Banco, geração dos lançamentos e integração com o resto vêm depois.
+ * O cadastro mora na tabela `recorrencias`; as OCORRÊNCIAS são lançamentos reais em `transacoes`
+ * (recorrencia_id + a_confirmar), geradas pela função `recorrencias` (ver supabase/functions/_shared/ocorrencias.ts):
+ * 1 mês à frente no mensal e 5 semanas no semanal. Aqui ficam a página de cadastro e as ações sobre elas.
  */
 
 const _DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 const _DIAS_TRI = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
-let _recorrencias = (typeof window !== 'undefined' && window.__SEED__ && window.__SEED__.recorrencias) ? [...window.__SEED__.recorrencias] : [];
+let _recorrencias = [];
 let _recEditandoId = null;
-let _recProximoId = 1;
+
+function mapearRecorrencia(r) {
+    return {
+        id: r.id, tipo: r.tipo, frequencia: r.frequencia, diaSemana: r.dia_semana, diaMes: r.dia_mes, valor: Number(r.valor),
+        meses: r.meses, metodo: r.metodo, categoria: r.categoria, descricao: r.descricao || '', inicio: String(r.inicio).slice(0, 10),
+        criadoEm: String(r.inicio).slice(0, 7), status: r.status, encerradaEm: r.encerrada_em,
+    };
+}
+
+async function carregarRecorrencias() {
+    const { data, error } = await sb.from('recorrencias').select('*').order('id');
+    if (error) { console.error('Erro ao carregar recorrências:', error); return; }
+    _recorrencias = (data || []).map(mapearRecorrencia);
+}
+
+/** Pede à função `recorrencias` para gerar o que falta (1 mês à frente no mensal, 5 semanas no semanal). */
+async function gerarOcorrenciasRecorrencias() {
+    try {
+        const { data, error } = await sb.functions.invoke('recorrencias', { body: {} });
+        if (error) throw error;
+        return (data && data.criadas) || 0;
+    } catch (e) { console.error('Erro ao gerar ocorrências:', e); return 0; }
+}
+
+/** Depois de mexer nas recorrências: gera o que falta e atualiza o app (listas, dashboard, Próximos). */
+async function _recAtualizarTudo() {
+    await gerarOcorrenciasRecorrencias();
+    await carregarRecorrencias();
+    if (typeof recarregarDados === 'function') await recarregarDados();
+    if (typeof atualizarUI === 'function') atualizarUI();
+    renderListaRecorrencias();
+}
+
+/** Uma vez por dia, ao abrir o app: garante que as ocorrências estejam em dia (a tarefa diária faz o mesmo no servidor). */
+async function garantirOcorrenciasDoDia() {
+    const hoje = hojeISO();
+    try { if (localStorage.getItem('recorrenciasGeradasEm') === hoje) return; } catch (_) {}
+    const criadas = await gerarOcorrenciasRecorrencias();
+    try { localStorage.setItem('recorrenciasGeradasEm', hoje); } catch (_) {}
+    if (criadas > 0 && typeof recarregarDados === 'function') { await recarregarDados(); if (typeof atualizarUI === 'function') atualizarUI(); }
+}
 
 /** Soma `n` meses a uma data (dia limitado ao último do mês). */
 function _recSomarMeses(data, n) {
@@ -135,7 +176,7 @@ function abrirFormRecorrencia(rec) {
     e.painel.hidden = false;
     e.btnCriar.hidden = true;
     e.lista.hidden = true;
-    e.aviso.hidden = true;
+    if (e.aviso) e.aviso.hidden = true;
     e.erro.textContent = '';
     _recDefinirTipo(rec ? rec.tipo : 'saidas');
     e.freq.value = rec ? rec.frequencia : 'mensal';
@@ -156,28 +197,79 @@ function fecharFormRecorrencia() {
     e.painel.hidden = true;
     e.btnCriar.hidden = false;
     e.lista.hidden = false;
-    e.aviso.hidden = false;
+    if (e.aviso) e.aviso.hidden = false;
     _recEditandoId = null;
 }
 
-function salvarRecorrencia(ev) {
+async function salvarRecorrencia(ev) {
     ev.preventDefault();
     const e = _recElementos();
     const valor = valorCampoParaNumero(e.valor);
     if (!(valor > 0)) { e.erro.textContent = 'Informe o valor por ocorrência.'; return; }
     if (!e.metodo.value) { e.erro.textContent = 'Escolha a forma de pagamento.'; return; }
     if (!e.categoria.value) { e.erro.textContent = 'Escolha a categoria.'; return; }
-    const rec = {
-        id: _recEditandoId || _recProximoId++, tipo: e.tipo.value, frequencia: e.freq.value,
-        diaSemana: e.freq.value === 'semanal' && e.dia.value !== '' ? Number(e.dia.value) : null,
+    const freq = e.freq.value;
+    const campos = {
+        tipo: e.tipo.value, frequencia: freq,
+        dia_semana: freq === 'semanal' && e.dia.value !== '' ? Number(e.dia.value) : null,
         valor, meses: _recMesesDe(_recDuracaoAtual()) || null, metodo: e.metodo.value, categoria: e.categoria.value,
         descricao: e.descricao.value.trim(),
-        criadoEm: (_recorrencias.find(r => r.id === _recEditandoId) || {}).criadoEm || new Date().toISOString().slice(0, 7),
     };
-    const i = _recorrencias.findIndex(r => r.id === rec.id);
-    if (i >= 0) _recorrencias[i] = rec; else _recorrencias.push(rec);
-    fecharFormRecorrencia();
-    renderListaRecorrencias();
+    const btn = e.painel.querySelector('.rec-btn-salvar');
+    btn.disabled = true;
+    try {
+        if (_recEditandoId) await _recSalvarEdicao(_recEditandoId, campos);
+        else {
+            const hoje = hojeISO();
+            const { error } = await sb.from('recorrencias').insert({ ...campos, dia_mes: freq === 'mensal' ? Number(hoje.slice(8, 10)) : null, inicio: hoje });
+            if (error) throw error;
+        }
+        fecharFormRecorrencia();
+        await _recAtualizarTudo();
+    } catch (err) {
+        console.error(err);
+        e.erro.textContent = 'Não consegui salvar. Tente de novo.';
+    } finally { btn.disabled = false; }
+}
+
+/** Edita a recorrência: só as ocorrências FUTURAS ainda "a confirmar" acompanham; confirmadas/editadas à mão e passadas ficam. */
+async function _recSalvarEdicao(id, campos) {
+    const atual = _recorrencias.find(r => r.id === id);
+    const hoje = hojeISO();
+    const mudouAgenda = atual.frequencia !== campos.frequencia || (atual.diaSemana ?? null) !== campos.dia_semana || (atual.meses || null) !== campos.meses;
+    const { error } = await sb.from('recorrencias').update(campos).eq('id', id);
+    if (error) throw error;
+    const comuns = { valor: campos.valor, metodo: campos.metodo, categoria: campos.categoria, descricao: campos.descricao };
+    await sb.from('transacoes').update(comuns).eq('recorrencia_id', id).eq('a_confirmar', true).gte('data', hoje);
+    if (mudouAgenda) { // novo ritmo/duração: apaga as futuras a confirmar e recomeça a geração de hoje em diante
+        await sb.from('transacoes').delete().eq('recorrencia_id', id).eq('a_confirmar', true).gte('data', hoje);
+        const ontem = new Date(); ontem.setDate(ontem.getDate() - 1);
+        const upd = { gerado_ate: formatarDataISO(ontem) };
+        if (campos.frequencia === 'mensal' && atual.frequencia !== 'mensal') upd.dia_mes = Number(hoje.slice(8, 10));
+        await sb.from('recorrencias').update(upd).eq('id', id);
+    }
+}
+
+/** Encerra: some das ativas (vai para "Encerradas") e as ocorrências futuras a confirmar são apagadas. */
+async function encerrarRecorrencia(id) {
+    const hoje = hojeISO();
+    await sb.from('transacoes').delete().eq('recorrencia_id', id).eq('a_confirmar', true).gte('data', hoje);
+    const { error } = await sb.from('recorrencias').update({ status: 'encerrada', encerrada_em: hoje }).eq('id', id);
+    if (error) throw error;
+}
+
+/** Volta uma recorrência encerrada: reativa e gera de hoje em diante. */
+async function reativarRecorrencia(id) {
+    const ontem = new Date(); ontem.setDate(ontem.getDate() - 1);
+    const { error } = await sb.from('recorrencias').update({ status: 'ativa', encerrada_em: null, gerado_ate: formatarDataISO(ontem) }).eq('id', id);
+    if (error) throw error;
+}
+
+/** Exclui a recorrência de vez: as futuras a confirmar somem; o que já foi confirmado continua como lançamento normal. */
+async function excluirRecorrencia(id) {
+    await sb.from('transacoes').delete().eq('recorrencia_id', id).eq('a_confirmar', true).gte('data', hojeISO());
+    const { error } = await sb.from('recorrencias').delete().eq('id', id);
+    if (error) throw error;
 }
 
 function _recTotalTexto(r) {
@@ -215,7 +307,9 @@ function _recCardHTML(r) {
                 <span class="despesa-desc">Total: ${_recTotalTexto(r)} · Desde ${_recMesCriacaoTexto(r.criadoEm)}</span>
             </div>
             <div class="despesa-actions">
-                <button type="button" class="btn-icon" data-rec-act="editar" title="Editar">✏️</button>
+                ${r.status === 'encerrada'
+                    ? '<button type="button" class="btn-icon" data-rec-act="voltar" title="Voltar (reativar a recorrência)">↩️</button>'
+                    : '<button type="button" class="btn-icon" data-rec-act="editar" title="Editar">✏️</button><button type="button" class="btn-icon" data-rec-act="encerrar" title="Encerrar a recorrência">⏹️</button>'}
                 <button type="button" class="btn-icon btn-danger" data-rec-act="excluir" title="Excluir">🗑️</button>
             </div>
         </div>`;
@@ -275,26 +369,46 @@ function _recGrupoHTML(chave, nome, cor, itens, aberto) {
     </details>`;
 }
 
+/** Grupo "Encerradas": subgrupos Despesa e Receita (sem filtros), cada linha com o botão "Voltar". */
+function _recEncerradasHTML(encerradas, aberto) {
+    const sub = (chave, nome, cor, lista) => !lista.length ? '' : `
+        <details class="subgrupo" data-rec-chave="${chave}" style="--cor-rec:${cor}" ${(_recAbertos[chave] !== undefined ? _recAbertos[chave] : (!!encerradas.filter(r => r.tipo === 'saidas').length !== !!encerradas.filter(r => r.tipo === 'entradas').length)) ? 'open' : ''}>
+            <summary class="subgrupo-cab"><span class="subgrupo-nome">${nome}</span><span class="subgrupo-espaco"></span><span class="subgrupo-contagem">${lista.length}</span></summary>
+            ${_recItensHTML(lista)}
+        </details>`;
+    return `
+    <details class="rec-grupo" data-rec-chave="encerradas" style="--cor-rec:var(--text-muted)" ${aberto ? 'open' : ''}>
+        <summary><span class="rec-grupo-nome">Encerradas</span><span class="rec-grupo-espaco"></span><span class="rec-grupo-contagem">${encerradas.length}</span></summary>
+        <div class="rec-grupo-itens">
+            ${sub('encerradas:saidas', 'Despesa', 'var(--despesa-text)', encerradas.filter(r => r.tipo === 'saidas'))}
+            ${sub('encerradas:entradas', 'Receita', 'var(--receita-text)', encerradas.filter(r => r.tipo === 'entradas'))}
+        </div>
+    </details>`;
+}
+
 function renderListaRecorrencias() {
     const lista = document.getElementById('recLista');
     if (!lista) return;
-    if (!_recorrencias.length) {
+    const ativas = _recorrencias.filter(r => r.status !== 'encerrada');
+    const encerradas = _recorrencias.filter(r => r.status === 'encerrada');
+    if (!ativas.length && !encerradas.length) {
         lista.innerHTML = '<p class="empty-message">Nenhuma recorrência cadastrada. Toque em "+ Criar" para começar.</p>';
         return;
     }
-    const despesas = _recorrencias.filter(r => r.tipo === 'saidas');
-    const receitas = _recorrencias.filter(r => r.tipo === 'entradas');
-    const unico = !!despesas.length !== !!receitas.length; // um grupo só: abre sozinho
-    const aberto = chave => (_recAbertos[chave] !== undefined ? _recAbertos[chave] : unico);
+    const despesas = ativas.filter(r => r.tipo === 'saidas');
+    const receitas = ativas.filter(r => r.tipo === 'entradas');
+    const grupos = [despesas.length, receitas.length, encerradas.length].filter(Boolean).length;
+    const aberto = chave => (_recAbertos[chave] !== undefined ? _recAbertos[chave] : grupos === 1); // um grupo só: abre sozinho
     lista.innerHTML = [
         despesas.length ? _recGrupoHTML('saidas', 'Despesa', 'var(--despesa-text)', despesas, aberto('saidas')) : '',
         receitas.length ? _recGrupoHTML('entradas', 'Receita', 'var(--receita-text)', receitas, aberto('entradas')) : '',
+        encerradas.length ? _recEncerradasHTML(encerradas, aberto('encerradas')) : '',
     ].join('');
     lista.querySelectorAll('.subgrupo-organizador').forEach(_ajustarLabelsFiltro);
 }
 
 /** Liga os eventos da página (uma vez) e desenha a lista. Chamada ao abrir a aba "Recorrências". */
-function iniciarRecorrencias() {
+async function iniciarRecorrencias() {
     const e = _recElementos();
     if (!e.painel) return;
     if (!e.painel.dataset.ligado) {
@@ -325,15 +439,24 @@ function iniciarRecorrencias() {
             const btn = ev.target.closest('[data-rec-act]');
             if (!btn) return;
             const id = Number(btn.closest('.rec-item').dataset.id);
-            if (btn.dataset.recAct === 'excluir') {
-                if (!confirm('Excluir esta recorrência?')) return;
-                _recorrencias = _recorrencias.filter(r => r.id !== id);
-                renderListaRecorrencias();
-            } else abrirFormRecorrencia(_recorrencias.find(r => r.id === id));
+            const acao = btn.dataset.recAct;
+            const executar = async (fn, erroMsg) => { try { await fn(); await _recAtualizarTudo(); } catch (err) { console.error(err); mostrarNotificacao(erroMsg, 'erro'); } };
+            if (acao === 'editar') abrirFormRecorrencia(_recorrencias.find(r => r.id === id));
+            else if (acao === 'voltar') executar(() => reativarRecorrencia(id), 'Não consegui reativar a recorrência');
+            else if (acao === 'encerrar') {
+                if (confirm('Encerrar esta recorrência? Os próximos lançamentos "a confirmar" são apagados; os já confirmados continuam. Ela vai para "Encerradas" e dá para voltar depois.')) executar(() => encerrarRecorrencia(id), 'Não consegui encerrar a recorrência');
+            } else if (acao === 'excluir') {
+                if (confirm('Excluir esta recorrência? Os próximos lançamentos "a confirmar" são apagados; os já confirmados continuam como lançamentos normais.')) executar(() => excluirRecorrencia(id), 'Não consegui excluir a recorrência');
+            }
         });
     }
-    e.lista.addEventListener('toggle', ev => { const k = ev.target.dataset && ev.target.dataset.recChave; if (k) _recAbertos[k] = ev.target.open; }, true);
+    if (!e.lista.dataset.toggleLigado) { // (uma vez só: antes era registrado a cada abertura da aba)
+        e.lista.dataset.toggleLigado = '1';
+        e.lista.addEventListener('toggle', ev => { const k = ev.target.dataset && ev.target.dataset.recChave; if (k) _recAbertos[k] = ev.target.open; }, true);
+    }
     fecharFormRecorrencia(); // ao entrar na aba: lista + "+ Criar"
     _recPreencherListas();
+    renderListaRecorrencias(); // (primeiro o que já está em memória, sem esperar a rede)
+    await carregarRecorrencias();
     renderListaRecorrencias();
 }

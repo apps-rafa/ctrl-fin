@@ -36,18 +36,19 @@
     t('saidas', '2026-11-10', 500.00, 'Casa', 'PIX', 'Reforma', { competencia: '2026-11-01' }),
     t('entradas', '2026-11-05', 2000.00, 'Freelance', '', 'Projeto Y', { competencia: '2026-11-01' }),
   ];
+  const R = (id, tipo, frequencia, dia_semana, valor, meses, metodo, categoria, descricao, inicio, status = 'ativa') => ({ id, user_id: U, tipo, frequencia, dia_semana, dia_mes: frequencia === 'mensal' ? Number(inicio.slice(8, 10)) : null, valor, meses, metodo, categoria, descricao, inicio, status, encerrada_em: status === 'encerrada' ? '2026-09-20' : null, gerado_ate: null });
   const recorrencias = [
-    { id: 1, tipo: 'saidas', frequencia: 'mensal', diaSemana: null, valor: 190, meses: null, metodo: 'PIX', categoria: 'Saúde', descricao: 'Terapia', criadoEm: '2026-08' },
-    { id: 2, tipo: 'saidas', frequencia: 'semanal', diaSemana: 2, valor: 190, meses: 6, metodo: 'PIX', categoria: 'Saúde', descricao: 'Personal', criadoEm: '2026-09' },
-    { id: 3, tipo: 'saidas', frequencia: 'mensal', diaSemana: null, valor: 1115.7, meses: 36, metodo: 'PIX', categoria: 'Casa', descricao: 'Financiamento', criadoEm: '2026-10' },
-    { id: 4, tipo: 'saidas', frequencia: 'mensal', diaSemana: null, valor: 39.9, meses: null, metodo: 'Crédito Bradesco', categoria: 'Assinaturas', descricao: 'Streaming', criadoEm: '2026-10' },
-    { id: 5, tipo: 'entradas', frequencia: 'mensal', diaSemana: null, valor: 8003.1, meses: null, metodo: 'PIX', categoria: 'Salário', descricao: 'Salário', criadoEm: '2026-07' },
-    { id: 6, tipo: 'entradas', frequencia: 'semanal', diaSemana: null, valor: 300, meses: 3, metodo: 'PIX', categoria: 'Freelance', descricao: 'Aulas particulares', criadoEm: '2026-09' },
+    R(1, 'saidas', 'mensal', null, 190, null, 'PIX', 'Saúde', 'Terapia', '2026-08-05'),
+    R(2, 'saidas', 'semanal', 2, 190, 6, 'PIX', 'Saúde', 'Personal', '2026-09-08'),
+    R(3, 'saidas', 'mensal', null, 1115.7, 36, 'PIX', 'Casa', 'Financiamento', '2026-10-13'),
+    R(4, 'saidas', 'mensal', null, 39.9, null, 'Crédito Bradesco', 'Assinaturas', 'Streaming', '2026-10-02'),
+    R(5, 'entradas', 'mensal', null, 8003.1, null, 'PIX', 'Salário', 'Salário', '2026-07-01'),
+    R(6, 'entradas', 'semanal', null, 300, 3, 'PIX', 'Freelance', 'Aulas particulares', '2026-09-15'),
+    R(7, 'saidas', 'mensal', null, 59.9, null, 'Crédito Bradesco', 'Assinaturas', 'Academia', '2026-03-10', 'encerrada'),
   ];
   window.__SEED__ = {
-    recorrencias,
     user: { id: U, email: 'dev@local', is_anonymous: false },
-    tables: { menu_itens, transacoes, transacoes_importadas: [], feriados: [], pluggy_contas: [], lixeira: [], pluggy_credenciais: [], faturas_pagas: [], telegram_users: [], pluggy_faturas: [] },
+    tables: { menu_itens, transacoes, recorrencias, transacoes_importadas: [], feriados: [], pluggy_contas: [], lixeira: [], pluggy_credenciais: [], faturas_pagas: [], telegram_users: [], pluggy_faturas: [] },
   };
 })();
 

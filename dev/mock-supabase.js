@@ -74,7 +74,7 @@
   window.supabase = {
     createClient: () => ({
       from: builder, auth,
-      functions: { invoke: async () => ({ data: {}, error: null }) },
+      functions: { invoke: async (nome) => ({ data: nome === 'recorrencias' ? { ok: true, criadas: 0 } : {}, error: null }) },
       channel: () => ({ on() { return this; }, subscribe() { return this; } }), removeChannel() {},
       rpc: async () => ({ data: null, error: null }),
     }),
