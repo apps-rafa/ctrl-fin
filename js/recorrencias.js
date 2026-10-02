@@ -39,8 +39,27 @@ function calcularOcorrenciasRecorrencia({ frequencia, diaSemana, meses, inicio }
     return Math.floor(Math.round((fim - ini) / 86400000) / 7);
 }
 
+/** O texto cabe na largura do campo (descontando o espaço das setas/padding)? Mede com canvas, na fonte do próprio campo. */
+function _recCabe(el, texto, folga) {
+    const cs = getComputedStyle(el);
+    const ctx = (_recCabe.c || (_recCabe.c = document.createElement('canvas'))).getContext('2d');
+    ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const util = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - (folga || 0);
+    return ctx.measureText(texto).width <= util;
+}
+
 /** Duração na caixa com setinhas: 1 = "Contínua" (sem prazo); 2 ou mais = quantidade de meses. */
-function _recDuracaoTexto(n) { return n > 1 ? `${n} meses` : 'Contínua'; }
+function _recDuracaoTexto(n, el) {
+    if (n > 1) return `${n} meses`;
+    return !el || !el.clientWidth || _recCabe(el, 'Contínua', 2) ? 'Contínua' : 'Cont.';
+}
+
+/** "Variável" vira "Var." quando o menu de dias não comporta o nome inteiro. */
+function _recAjustarDia() {
+    const e = _recElementos();
+    if (!e.dia || !e.dia.options.length || !e.dia.clientWidth) return;
+    e.dia.options[0].textContent = _recCabe(e.dia, 'Variável', 18) ? 'Variável' : 'Var.';
+}
 function _recMesesDe(n) { return n > 1 ? n : 0; }
 
 /** Texto curto da recorrência para a lista ("Mensal", "Semanal · SEG", "Semanal · Variável"). */
@@ -72,7 +91,8 @@ function atualizarFormRecorrencia() {
     e.diaGrupo.hidden = !semanal;
     e.painel.querySelector('.rec-linha--1').classList.toggle('is-semanal', semanal);
     const n = _recDuracaoAtual();
-    if (document.activeElement !== e.duracao) e.duracao.value = _recDuracaoTexto(n); // em digitação fica o número cru
+    if (document.activeElement !== e.duracao) e.duracao.value = _recDuracaoTexto(n, e.duracao); // em digitação fica o número cru
+    _recAjustarDia();
     const valor = valorCampoParaNumero(e.valor);
     const meses = _recMesesDe(n);
     if (!meses) {
@@ -126,6 +146,7 @@ function abrirFormRecorrencia(rec) {
     e.categoria.value = rec ? rec.categoria : '';
     e.descricao.value = rec ? rec.descricao : '';
     atualizarFormRecorrencia();
+    requestAnimationFrame(atualizarFormRecorrencia); // depois do layout, p/ medir as larguras reais
 }
 
 /** Fecha o cadastro e mostra de novo "+ Criar" e a lista. */
@@ -190,7 +211,7 @@ function _recCardHTML(r) {
                 <span class="chip chip--neutro">🔁 ${_recRotuloFrequencia(r)}</span>
                 <span class="chip" style="background:${corCat}">${r.categoria}</span>
                 <span class="chip" style="background:${corMet}">${r.metodo}</span>
-                <span class="despesa-desc">Total: ${_recTotalTexto(r)} · Criada em ${_recMesCriacaoTexto(r.criadoEm)}</span>
+                <span class="despesa-desc">Total: ${_recTotalTexto(r)} · Desde ${_recMesCriacaoTexto(r.criadoEm)}</span>
             </div>
             <div class="despesa-actions">
                 <button type="button" class="btn-icon" data-rec-act="editar" title="Editar">✏️</button>
@@ -288,6 +309,8 @@ function iniciarRecorrencias() {
         e.duracao.addEventListener('focus', () => { const n = _recDuracaoAtual(); e.duracao.value = n > 1 ? String(n) : ''; });
         e.duracao.addEventListener('input', () => { e.duracao.value = e.duracao.value.replace(/\D/g, '').slice(0, 3); atualizarFormRecorrencia(); });
         e.duracao.addEventListener('blur', atualizarFormRecorrencia);
+        window.addEventListener('resize', () => { if (!e.painel.hidden) atualizarFormRecorrencia(); });
+        e.freq.addEventListener('change', () => requestAnimationFrame(atualizarFormRecorrencia));
         e.lista.addEventListener('click', ev => {
             const modoBtn = ev.target.closest('[data-submodo]');
             const icone = ev.target.closest('[data-submodo-icone]');

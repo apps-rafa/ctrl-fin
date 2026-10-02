@@ -5,38 +5,44 @@
 
 .rec-form { margin-bottom: var(--spacing-md); }
 .rec-form[hidden] { display: none; }
-/* Formulário na grade de 6 colunas.
-   Linha 1: Recorrência 2 (semanal: Recorrência 1 + Dia 1) | Valor 2 | Duração 1 | Total 1
+/* Formulário na grade de 6 colunas (12 "meias colunas" p/ poder usar 1,5).
+   Linha 1: Recorrência 2 (semanal: Recorrência 1,5 + Dia 0,5) | Valor 1,5 | Duração 1,5 | Total 1
    Linha 2: Forma de pagamento 2 | Categoria 2 | Descrição 2
    Ações:   Salvar 5 | Cancelar 1 */
-.rec-linha { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .6rem; margin-bottom: .6rem; align-items: start; }
-.rec-linha > .form-group { margin: 0; min-width: 0; grid-column: span 2; }
-.rec-linha--1 > .rec-c-freq { grid-column: span 2; }
-.rec-linha--1.is-semanal > .rec-c-freq { grid-column: span 1; }
+.rec-linha { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: .6rem; margin-bottom: .6rem; align-items: start; }
+.rec-linha > .form-group { margin: 0; min-width: 0; grid-column: span 4; }
+.rec-linha--1 > .rec-c-freq { grid-column: span 4; }
+.rec-linha--1.is-semanal > .rec-c-freq { grid-column: span 3; }
 .rec-linha--1 > .rec-c-dia { grid-column: span 1; }
-.rec-linha--1 > .rec-c-valor { grid-column: span 2; }
-.rec-linha--1 > .rec-c-dur, .rec-linha--1 > .rec-c-total { grid-column: span 1; }
+.rec-linha--1 > .rec-c-valor { grid-column: span 3; }
+.rec-linha--1 > .rec-c-dur { grid-column: span 3; }
+.rec-linha--1 > .rec-c-total { grid-column: span 2; }
 .rec-c-dia[hidden] { display: none; }
+.rec-c-dia select { padding-left: .35rem; padding-right: 1.1rem; }
 .rec-form .rec-c-dur .campo-com-stepper { width: 100%; }
 .rec-form .rec-c-dur .campo-com-stepper input { min-width: 0; flex: 1 1 auto; }
-.rec-form .form-actions { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .6rem; }
-.rec-btn-salvar { grid-column: span 5; }
-.rec-btn-cancelar { grid-column: span 1; min-width: 0; padding-left: 0; padding-right: 0; }
+.rec-form .form-actions { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: .6rem; }
+.rec-btn-salvar { grid-column: span 10; }
+.rec-btn-cancelar { grid-column: span 2; min-width: 0; padding-left: 0; padding-right: 0; }
 .rec-cancel-x { display: none; }
-@container (max-width: 100px) { .rec-cancel-txt { display: none; } }
-/* Tela estreita: os campos da linha 1 ocupam metade cada, a linha 2 um por linha e o cancelar vira ✕ */
-@media (max-width: 560px) {
-    .rec-linha--1 > .rec-c-freq, .rec-linha--1 > .rec-c-valor, .rec-linha--1 > .rec-c-dur, .rec-linha--1 > .rec-c-total { grid-column: span 3; }
-    .rec-linha--1.is-semanal > .rec-c-freq, .rec-linha--1 > .rec-c-dia { grid-column: span 3; }
-    .rec-linha--2 > .form-group { grid-column: span 3; }
-    .rec-linha--2 > .form-group:last-child { grid-column: span 6; }
-    .rec-btn-salvar { grid-column: span 4; }
-    .rec-btn-cancelar { grid-column: span 2; }
-}
-@media (max-width: 340px) {
-    .rec-linha--2 > .form-group { grid-column: span 6; }
-}
 .rec-linha select { text-overflow: ellipsis; }
+/* Tela estreita: Mensal = Recorrência | Valor, depois Duração | Total (dividem a linha);
+   Semanal = Recorrência (2) + Dia (1) + Valor (3), depois Duração | Total. Forma de pagamento e categoria dividem a linha. */
+@media (max-width: 560px) {
+    .rec-linha--1 > .rec-c-freq, .rec-linha--1 > .rec-c-valor { grid-column: span 6; }
+    .rec-linha--1.is-semanal > .rec-c-freq { grid-column: span 4; }
+    .rec-linha--1 > .rec-c-dia { grid-column: span 2; }
+    .rec-linha--1.is-semanal > .rec-c-valor { grid-column: span 6; }
+    .rec-linha--1 > .rec-c-dur, .rec-linha--1 > .rec-c-total { grid-column: span 6; }
+    .rec-linha--2 > .form-group { grid-column: span 6; }
+    .rec-linha--2 > .form-group:last-child { grid-column: span 12; }
+    .rec-btn-salvar { grid-column: span 8; }
+    .rec-btn-cancelar { grid-column: span 4; }
+}
+/* só em tela extrema forma de pagamento e categoria ficam uma por linha */
+@media (max-width: 340px) {
+    .rec-linha--2 > .form-group { grid-column: span 12; }
+}
 
 /* Campo "Total" (somente leitura): fundo escuro como o resto (forms.css traz um fundo claro) */
 .rec-form .form-group input.campo-travado[readonly] { background: var(--surface-3); color: var(--text-muted); border-color: var(--border); }
