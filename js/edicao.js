@@ -121,6 +121,8 @@ function iniciarEdicaoTransacao(trans, tipoTransacao) {
 
     const excluir = document.getElementById('excluirEdicao');
     if (excluir) excluir.hidden = false;
+    const editarRec = document.getElementById('editarRecorrenciaEdicao');
+    if (editarRec) { editarRec.hidden = !trans.recorrenciaId; editarRec.dataset.recId = trans.recorrenciaId || ''; }
 }
 
 /** Sai do modo edição e limpa o formulário (chamado pelo "×" do formulário) */
@@ -183,6 +185,8 @@ function cancelarEdicaoTransacao(voltarParaOrigem = true) {
     if (btn) btn.textContent = 'Adicionar';
     const excluir = document.getElementById('excluirEdicao');
     if (excluir) excluir.hidden = true;
+    const editarRec = document.getElementById('editarRecorrenciaEdicao');
+    if (editarRec) editarRec.hidden = true;
     // Cancelar pelo botão: volta para a tela onde o usuário estava
     if (voltarParaOrigem) voltarTelaAposEdicao(origem);
 }
@@ -199,11 +203,15 @@ function _sairDoModoEdicaoSeAtivo() {
 async function excluirEdicaoTransacao() {
     const btn = document.getElementById('excluirEdicao');
     if (!btn || !estadoApp.editandoId) return;
-    if (!confirm('Apagar este lançamento? Não dá para desfazer.')) return;
-
     const id = estadoApp.editandoId;
+    const atual = [...estadoApp.transacoes.entradas, ...estadoApp.transacoes.saidas, ...(typeof _transacoesExtra !== 'undefined' ? _transacoesExtra : [])].find(t => t.id === id);
     const voltarPara = estadoApp.abaOrigemEdicao;
-    const apagou = await excluirTransacao(id);
+    let apagou;
+    if (atual && atual.recorrenciaId) apagou = await perguntarExcluirRecorrente(atual); // só este mês ou encerrar a recorrência
+    else {
+        if (!confirm('Apagar este lançamento? Não dá para desfazer.')) return;
+        apagou = await excluirTransacao(id);
+    }
     if (!apagou) return; // erro real, ou o diálogo "só a 1ª parcela" — segue em edição
 
     estadoApp.voltandoDaEdicao = true;
@@ -214,5 +222,7 @@ async function excluirEdicaoTransacao() {
     const submitBtn = document.querySelector('.btn-submit');
     if (submitBtn) submitBtn.textContent = 'Adicionar';
     btn.hidden = true;
+    const editarRec = document.getElementById('editarRecorrenciaEdicao');
+    if (editarRec) editarRec.hidden = true;
     voltarTelaAposEdicao(voltarPara);
 }
