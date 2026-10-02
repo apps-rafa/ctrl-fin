@@ -779,7 +779,8 @@
 /* margem esquerda um pouco maior em TODAS as linhas (as colunas seguem alinhadas) pro ícone não apertar */
 body .despesa-item { padding-left: 1.25rem !important; }
 @media (max-width: 480px) { body .despesa-item { padding-left: 1.5rem !important; } .despesa-item > .despesa-conteudo > .conc-selo { left: .3rem; } }
-.despesa-item > .despesa-conteudo > .conc-selo { position: absolute; left: .25rem; top: .5rem; }
+.despesa-item > .despesa-conteudo > .conc-selo { position: absolute; left: .25rem; top: 1rem; transform: translateY(-50%); } /* centro da 1ª linha (data/valor) */
+@media (max-width: 480px) { .despesa-item > .despesa-conteudo > .conc-selo { top: .88rem; } }
 
 /* Busca em todos os meses */
 .busca-ampla-btn { display: block; width: 100%; box-sizing: border-box; margin: 0 0 .6rem; padding: .55rem .7rem; background: var(--surface); border: 1px dashed var(--border-strong, var(--border)); border-radius: var(--radius-sm); color: var(--text); font-size: .8rem; font-weight: 600; cursor: pointer; text-align: left; }
