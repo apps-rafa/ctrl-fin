@@ -64,7 +64,7 @@ const DOCS_SECOES = [
     id: 'listas', emoji: '🗂️', titulo: 'Listas de Receitas e Despesas',
     itens: [
       { t: 'Leitura da lista', r: 'Cada linha mostra dia/mês e dia da semana, valor, chips e descrição, com colunas alinhadas; as linhas só ficam listradas (zebrado) com 3 ou mais itens.',
-        m: 'O selo 🏦 na margem esquerda marca o lançamento que foi conciliado com uma transação do banco (Open Finance). O dia sempre aparece com dois dígitos (01/10, 29/09).' },
+        m: 'O selo ⏰ na margem esquerda marca o lançamento que ainda não aconteceu (data futura ou pendente; não aparece na aba Próximos, onde todos são assim). O selo 🏦 marca o lançamento que foi conciliado com uma transação do banco (Open Finance). O dia sempre aparece com dois dígitos (01/10, 29/09).' },
       { t: 'Grupos da Receita', r: 'Atual (já recebido) e A receber (data futura), com barra proporcional no topo.',
         m: 'Cada grupo mostra contagem, total e % do total de receitas. Clique na barra para abrir/fechar o grupo correspondente.' },
       { t: 'Grupos da Despesa', r: 'Pago e A pagar, seguindo o caminho do dinheiro; cada cartão tem sua própria "Fatura" dentro.',
