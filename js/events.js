@@ -257,6 +257,8 @@ function configurarEventListeners() {
     // Apagar o lançamento direto da tela de edição
     const excluirEdicao = document.getElementById('excluirEdicao');
     if (excluirEdicao) excluirEdicao.addEventListener('click', excluirEdicaoTransacao);
+    const editarRecEdicao = document.getElementById('editarRecorrenciaEdicao');
+    if (editarRecEdicao) editarRecEdicao.addEventListener('click', () => abrirRecorrenciaDoLancamento(Number(editarRecEdicao.dataset.recId)));
 
 
     // Campo Data: máscara dd/mm/aaaa + recalcular competência

@@ -370,6 +370,7 @@ async function editarTransacaoAPI(dados) {
 
     const registro = montarRegistro(dados);
     delete registro.tipo;
+    registro.a_confirmar = false; // salvar uma ocorrência (editada à mão) a confirma: vira lançamento normal, com o selo
     // origem/dados_originais são gravados só na criação (import) — editar um
     // lançamento pelo formulário normal nunca passa esses campos em `dados`,
     // então sem isto cada edição apagava o registro de origem/snapshot cru.

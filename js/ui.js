@@ -151,6 +151,24 @@ function _renderGrupoDuplicatas(transacoes, tipoUI, aberto) {
     </details>`;
 }
 
+/** Grupo "A confirmar": ocorrências de recorrência que aguardam decisão (✓ confirma, ✗ pergunta se pula o mês ou encerra). */
+function _renderGrupoAConfirmar(itens, tipoUI, aberto) {
+    if (!itens.length) return '';
+    const total = itens.reduce((s, t) => s + ((t.valorMes != null ? t.valorMes : t.valor) || 0), 0);
+    return `
+    <details class="rec-grupo" data-nome="__aconfirmar__" style="--cor-rec:var(--text-muted)" ${aberto === false ? '' : 'open'}>
+      <summary>
+        <span class="rec-grupo-nome">🔁 A confirmar</span>
+        <span class="rec-grupo-espaco"></span>
+        <span class="rec-grupo-contagem">${itens.length}</span>
+        <span class="rec-grupo-total">${formatarMoeda(total)}</span>
+      </summary>
+      <div class="rec-grupo-itens">
+        ${itens.slice().sort(_porDataDesc).map(t => gerarHTMLTransacao(t, tipoUI, { comConfirmarOcorrencia: true })).join('')}
+      </div>
+    </details>`;
+}
+
 /** Escolhe a renderização certa pro modo de visualização selecionado — usado
  *  tanto por Receitas quanto por Despesas. Nos modos que não são
  *  Cronológica, prepend uma barra com 1 segmento por grupo (recorrência/
@@ -168,8 +186,12 @@ function _ehEstornoCartao(t) {
 function renderListaPorModo(container, transacoes, tipoUI, modo, msgVazia) {
     if (!container) return;
     if (tipoUI === 'entrada' && transacoes) transacoes = transacoes.filter(t => !_ehEstornoCartao(t));
+    const aConfirmar = (transacoes || []).filter(t => t.aConfirmar); // ficam no bloco "A confirmar", fora da lista
+    if (transacoes) transacoes = transacoes.filter(t => !t.aConfirmar);
     const dupContainer = document.getElementById(tipoUI === 'entrada' ? 'duplicatasEntradas' : 'duplicatasSaidas');
     let abertoDuplicatas = dupContainer?.querySelector('details.rec-grupo[data-nome="__duplicatas__"]')?.open;
+    const detAC = dupContainer?.querySelector('details.rec-grupo[data-nome="__aconfirmar__"]');
+    const abertoAConfirmar = detAC ? detAC.open : undefined;
     if (_forcarAbrirDuplicatas[tipoUI]) {
         abertoDuplicatas = true;
         _forcarAbrirDuplicatas[tipoUI] = false;
@@ -231,8 +253,8 @@ function renderListaPorModo(container, transacoes, tipoUI, modo, msgVazia) {
     }
 
     if (dupContainer) {
-        dupContainer.innerHTML = (transacoes && transacoes.length)
-            ? _renderGrupoDuplicatas(transacoes, tipoUI, abertoDuplicatas) : '';
+        dupContainer.innerHTML = _renderGrupoAConfirmar(aConfirmar, tipoUI, abertoAConfirmar)
+            + ((transacoes && transacoes.length) ? _renderGrupoDuplicatas(transacoes, tipoUI, abertoDuplicatas) : '');
         dupContainer.onclick = onListaTransacaoClick;
     }
 }
@@ -840,6 +862,10 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
         seloLinha = '<span class="conc-selo" title="Conciliado com uma transação do banco (Open Finance)">🏦</span>';
     }
 
+    if (trans.recorrenciaId) {
+        seloLinha += `<span class="conc-selo${seloLinha ? ' conc-selo--baixo' : ''}" title="Lançamento de uma recorrência">🔁</span>`;
+    }
+
     const lado = `<span class="despesa-data">`
         + `<span class="despesa-dia">${diaFormatado}</span>`
         + (dowFormatado ? `<span class="despesa-dow">${dowFormatado}</span>` : '')
@@ -872,11 +898,16 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     // Ações
     let acoes = '';
     if (!opts.semAcoes) {
+        if (opts.comConfirmarOcorrencia) {
+            acoes += `<button class="btn-icon btn-success" data-act="confirmar-ocorrencia" data-id="${trans.id}" title="Confirmar este lançamento">✓</button>`;
+        }
         if (opts.comAprovarDuplicata) {
             acoes += `<button class="btn-icon btn-success" data-act="aprovar-duplicata" data-id="${trans.id}" title="Não é duplicata — não avisar de novo sobre este lançamento">✓</button>`;
         }
         acoes += `<button class="btn-icon" data-act="editar-trans" data-id="${trans.id}" title="${ehParcela && !ehOriginal ? 'Editar (abre o lançamento original)' : 'Editar'}">✏️</button>`;
-        if (!trans.quitada) {
+        if (opts.comConfirmarOcorrencia) {
+            acoes += `<button class="btn-icon btn-danger" data-act="recusar-ocorrencia" data-id="${trans.id}" title="Não vai acontecer">✗</button>`;
+        } else if (!trans.quitada) {
             acoes += `<button class="btn-icon btn-danger" data-act="excluir-trans" data-id="${trans.id}" title="Excluir">🗑️</button>`;
         }
     }
@@ -959,7 +990,12 @@ function onListaTransacaoClick(e) {
             iniciarEdicaoTransacao(trans, tipo);
             break;
         }
+        case 'confirmar-ocorrencia':
+            confirmarOcorrenciaRecorrencia(id);
+            break;
+        case 'recusar-ocorrencia':
         case 'excluir-trans':
+            if (trans.recorrenciaId) { perguntarExcluirRecorrente(trans); break; }
             // Parcela que não é a original: aviso, sem confirmação prévia
             if (trans.parcelasTotal && trans.parcelaNum !== 1) {
                 excluirTransacao(id); // deixa a API lançar o detalhe e o catch mostra o diálogo

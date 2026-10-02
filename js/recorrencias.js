@@ -51,6 +51,47 @@ async function garantirOcorrenciasDoDia() {
     if (criadas > 0 && typeof recarregarDados === 'function') { await recarregarDados(); if (typeof atualizarUI === 'function') atualizarUI(); }
 }
 
+/** ✓ no bloco "A confirmar": a ocorrência vira lançamento normal (continua com o selo 🔁 enquanto não passa). */
+async function confirmarOcorrenciaRecorrencia(id) {
+    const { error } = await sb.from('transacoes').update({ a_confirmar: false }).eq('id', id);
+    if (error) { console.error(error); mostrarNotificacao('Não consegui confirmar', 'erro'); return; }
+    await recarregarDados();
+    atualizarUI();
+}
+
+/** Apagar/✗ de um lançamento de recorrência: pergunta se é só este mês ou se encerra a recorrência.
+ *  Resolve true se algo foi apagado. */
+function perguntarExcluirRecorrente(trans) {
+    return new Promise(resolve => {
+        const feito = async (fn, erro) => {
+            try { await fn(); await _recAtualizarTudo(); resolve(true); }
+            catch (e) { console.error(e); mostrarNotificacao(erro, 'erro'); resolve(false); }
+        };
+        mostrarDialogo({
+            titulo: 'Apagar lançamento recorrente',
+            texto: `<strong>${trans.descricao || trans.categoria || 'Este lançamento'}</strong> faz parte de uma recorrência. Apagar só este mês ou encerrar a recorrência?`,
+            acoes: [
+                { label: 'Cancelar', onClick: () => resolve(false) },
+                { label: 'Só este mês', primario: true, onClick: () => feito(async () => { const { error } = await sb.from('transacoes').delete().eq('id', trans.id); if (error) throw error; }, 'Erro ao excluir') },
+                { label: 'Encerrar recorrência', perigo: true, onClick: () => feito(async () => {
+                    const { error } = await sb.from('transacoes').delete().eq('id', trans.id); if (error) throw error;
+                    await encerrarRecorrencia(trans.recorrenciaId);
+                }, 'Erro ao encerrar a recorrência') },
+            ],
+        });
+    });
+}
+
+/** "Editar recorrência" no formulário do lançamento: abre a página Recorrências já com a edição. */
+async function abrirRecorrenciaDoLancamento(recId) {
+    if (!recId) return;
+    if (typeof cancelarEdicaoTransacao === 'function') cancelarEdicaoTransacao(false);
+    mudarAba('recorrencias');
+    await carregarRecorrencias();
+    const rec = _recorrencias.find(r => r.id === recId);
+    if (rec) abrirFormRecorrencia(rec);
+}
+
 /** Soma `n` meses a uma data (dia limitado ao último do mês). */
 function _recSomarMeses(data, n) {
     const d = new Date(data.getFullYear(), data.getMonth() + n, 1);
@@ -138,7 +179,7 @@ function atualizarFormRecorrencia() {
     const meses = _recMesesDe(n);
     if (!meses) {
         const porMes = semanal ? valor * 52 / 12 : valor;
-        e.total.value = 'Sem prazo';
+        e.total.value = 'Contínuo';
         e.total.title = valor ? `≈ ${formatarMoeda(porMes)} por mês, enquanto durar` : 'Informe o valor para estimar o gasto mensal';
         return;
     }
@@ -273,7 +314,7 @@ async function excluirRecorrencia(id) {
 }
 
 function _recTotalTexto(r) {
-    if (!r.meses) return 'Sem prazo';
+    if (!r.meses) return 'Contínuo';
     const n = calcularOcorrenciasRecorrencia({ frequencia: r.frequencia, diaSemana: r.diaSemana, meses: r.meses });
     return `${formatarMoeda(r.valor * n)} em ${r.meses} meses`;
 }
