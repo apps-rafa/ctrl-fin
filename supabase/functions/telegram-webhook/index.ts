@@ -40,6 +40,7 @@ import {
   pluggyGet,
 } from "./pluggy.ts";
 import {
+  enviarRascunho,
   limparRascunhosAntigos,
   confirmarRascunhoNoBanco,
   PALETA_CHIPS,
@@ -53,12 +54,15 @@ import {
 } from "./lancamentos.ts";
 import { executarBackup } from "./backup.ts";
 import {
+  idRascunhoDaResposta, tratarRespostaRascunho,
   tratarFormularioMiniApp, tratarStart, tratarAtualizar, tratarPgtoPadraoComando, tratarBackup,
 } from "./comandos.ts";
 import {
   tratarUltimoEditar, tratarRascunhoEditar, tratarRascunhoConfirmarOuCancelar, tratarAtualizarConta, tratarPgtoPadrao,
 } from "./callbacks.ts";
 import {
+  categoriaCadastradaNoTexto,
+  montarDescricao,
   limparLinks,
   PALAVRAS_CHAVE_CATEGORIA,
   sugerirCategoriaPorPalavraChave,
@@ -84,49 +88,6 @@ import {
 
 const CODIGO_VALIDADE_MIN = 10;
 
-/** Mensagem do rascunho + botões INLINE (grudados nesta mensagem, não um
- *  teclado embaixo compartilhado pela conversa) — assim vários SMS seguidos
- *  viram vários rascunhos independentes, cada um com seu próprio Confirmar/
- *  Editar/Cancelar, resolvíveis em qualquer ordem. "Editar" abre o mini app
- *  já preenchido; confirmar/cancelar chegam como callback_query
- *  "nlconfirmar:<id>"/"nlcancelar:<id>" (ver Deno.serve). */
-async function enviarRascunho(
-  token: string, chatId: number, rascunhoId: number, r: RascunhoLancamento,
-  admin?: ReturnType<typeof createClient>, userId?: string, cabecalho?: string,
-) {
-  const sinal = r.tipo === "entradas" ? "💰 Receita" : "💸 Despesa";
-  const dataFmt = new Date(`${r.data}T00:00:00`).toLocaleDateString("pt-BR");
-  const ehCreditoSaida = r.tipo === "saidas" && r.metodoKind === "Crédito";
-  const compFatura = r.competencia || competenciaDe(r.data, r.diaFechamento);
-  const linhas = [
-    cabecalho ?? null,
-    sinal,
-    `Valor: ${formatarMoedaBR(r.valor)}${r.parcelas && r.parcelas > 1 ? " (total)" : ""}`,
-    `Data: ${dataFmt}`,
-    `Categoria: ${r.categoria}`,
-    `Descrição: ${r.descricao || "(em branco)"}`,
-    r.tipo === "saidas" ? `Forma de pgto.: ${r.metodo || "nenhuma cadastrada — ajuste no app"}${r.metodoOrigem === "padrao" ? " (padrão)" : ""}` : null,
-    ehCreditoSaida ? `Mês da fatura: ${mesAbrevAno(compFatura)}` : `Mês: ${mesAbrevAno(r.competencia || r.data.slice(0, 7) + "-01")}`,
-    ehCreditoSaida && r.categoria !== "Estorno" ? (r.parcelas && r.parcelas > 1 ? `Parcelas: ${r.parcelas}x de ${formatarMoedaBR(r.valor / r.parcelas)}` : "Parcelas: à vista") : null,
-    "",
-    "Confirma?",
-  ].filter((l) => l !== null).join("\n");
-  // "✏️ Editar" não abre o formulário direto: o Telegram só devolve os dados do mini app (sendData)
-  // quando ele é aberto por um botão do TECLADO, não por botão inline. Então o toque vira o callback
-  // "nleditar:<id>" e o bot responde com o botão do formulário DAQUELE rascunho (ver Deno.serve).
-  await tg(token, "sendMessage", {
-    chat_id: chatId,
-    text: linhas,
-    reply_markup: {
-      inline_keyboard: [[
-        { text: "✅ Confirmar", callback_data: `nlconfirmar:${rascunhoId}` },
-        { text: "✏️ Editar", callback_data: `nleditar:${rascunhoId}` },
-        { text: "❌ Cancelar", callback_data: `nlcancelar:${rascunhoId}` },
-      ]],
-    },
-  });
-}
-
 // ---------- Comandos de consulta: /resumo /diario /credito /pix ----------
 // Mesmas contas do dashboard do app (js/data.js:calcularResumoMes): mês = campo
 // "competencia"; receita com método de cartão de crédito é estorno/reembolso e
@@ -139,13 +100,6 @@ const TEXTO_AJUDA_LANCAMENTO = [
   "",
   "Eu monto um rascunho com valor, categoria e forma de pagamento, com botões de ✅ Confirmar, ✏️ Editar (abre o formulário) e ❌ Cancelar grudados na mensagem — só grava quando você confirma. Pode chegar mais de um rascunho ao mesmo tempo (ex.: vários SMS seguidos); cada mensagem tem seus próprios botões, independentes.",
 ].join("\n");
-
-const MESES_ABREV = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-/** '2026-10-01' -> 'Out/2026' */
-function mesAbrevAno(iso: string): string {
-  const [a, m] = iso.split("-").map(Number);
-  return `${MESES_ABREV[m - 1]}/${a}`;
-}
 
 const MESES_PT = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
@@ -319,8 +273,21 @@ async function processarTextoLivre(
   const temCartaoTxt = ((metodosApp ?? []) as MetodoMenu[]).some((m) => m.metodo_kind === "Crédito");
   if (!temCartaoTxt) { const ix = catsSugestao.findIndex((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && c.nome === "Estorno"); if (ix >= 0) catsSugestao.splice(ix, 1); }
   else if (!catsSugestao.some((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && c.nome === "Estorno")) catsSugestao.push({ nome: "Estorno", categoria_tipo: "saidas" });
-  const cat = sugerirCategoriaTexto(texto, tipo, catsSugestao);
-  const categoria = cat.nome;
+  let cat = sugerirCategoriaTexto(texto, tipo, catsSugestao);
+  let categoria = cat.nome;
+  // Receita de "reembolso" de uma categoria que só existe em Despesas (ex.: "370 reembolso saúde"): fica na
+  // categoria Reembolso (se não houver categoria de receita com esse nome no texto) e o nome da despesa vira
+  // a descrição ("Saúde"), já que o app não tem categoria Saúde em Receitas.
+  let descricaoExtra = "";
+  if (tipo === "entradas" && /reembols/i.test(texto)) {
+    const daDespesa = categoriaCadastradaNoTexto(texto, catsSugestao.filter((c: { categoria_tipo: string | null }) => c.categoria_tipo === "saidas"));
+    const reembolso = catsSugestao.find((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "entradas" && c.nome === "Reembolso");
+    if (daDespesa) {
+      descricaoExtra = daDespesa.nome;
+      cat = { ...cat, palavras: [...cat.palavras, ...daDespesa.palavras] };
+    }
+    if (reembolso && (!cat.porNome || cat.nome === "Reembolso")) { categoria = reembolso.nome; cat = { ...cat, nome: reembolso.nome }; }
+  }
 
   // Forma de pgto.: só faz sentido perguntar/usar em despesa — receita
   // não pede método no formulário do app (só Estorno/Reembolso, caso
@@ -356,13 +323,10 @@ async function processarTextoLivre(
   }
   const parcelasFinal = tipo === "saidas" && !ehEstornoTxt && parcelas && metodoObj?.metodo_kind === "Crédito" ? parcelas : null;
 
-  // O bot nunca inventa descrição em texto livre: começa em branco, e o
-  // que o usuário responder (fora dos botões) vira a descrição. Já um
-  // SMS de cartão traz o nome do estabelecimento sem ambiguidade, então
-  // usa ele direto.
+  // Descrição: o que sobra do texto depois de tirar valor, tipo, data, forma de pagamento e categoria.
   const descricao = achado.estabelecimento
     ? limparLinks(achado.estabelecimento.charAt(0).toUpperCase() + achado.estabelecimento.slice(1).toLowerCase())
-    : "";
+    : (montarDescricao(resto, { palavrasCategoria: cat.palavras, metodo: tipo === "saidas" ? metodoObj : null }) || descricaoExtra);
 
   const rascunho: RascunhoLancamento = {
     tipo, valor, descricao, categoria,
@@ -503,6 +467,13 @@ Deno.serve(async (req: Request) => {
       const cmd = texto.match(/^\/(resumo|diario|credito|pix|ultimos)(?:@\w+)?(?:\s|$)/i);
       if (cmd) {
         await responderComandoConsulta(supabaseAdmin, token, chatId, cmd[1].toLowerCase());
+        return json({ ok: true });
+      }
+
+      // Resposta (reply) a um rascunho: o texto vira a descrição daquele rascunho.
+      const idRespondido = idRascunhoDaResposta(update.message.reply_to_message);
+      if (idRespondido) {
+        await tratarRespostaRascunho({ supabaseAdmin, token, chatId, texto, rascunhoId: idRespondido, mensagemRespondidaId: update.message.reply_to_message?.message_id });
         return json({ ok: true });
       }
 

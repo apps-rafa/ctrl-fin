@@ -1,7 +1,7 @@
 // Gravação de lançamentos/menus pelo bot e montagem do endereço do Mini App.
 
 import type { createClient } from "npm:@supabase/supabase-js@2";
-import { rotuloMetodo } from "./util.ts";
+import { rotuloMetodo, tg, formatarMoedaBR } from "./util.ts";
 import { competenciaDe, addMeses, type RascunhoLancamento } from "./parser.ts";
 
 /** Grava de vez um rascunho (ver RascunhoLancamento) como lançamento de
@@ -185,4 +185,54 @@ export async function limparRascunhosAntigos(admin: ReturnType<typeof createClie
   const limite = new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString();
   const { error } = await admin.from("telegram_rascunhos").delete().lt("criado_em", limite);
   if (error) console.error("Falha ao limpar rascunhos antigos:", error);
+}
+
+/** Mensagem do rascunho + botões INLINE (grudados nesta mensagem, não um
+ *  teclado embaixo compartilhado pela conversa) — assim vários SMS seguidos
+ *  viram vários rascunhos independentes, cada um com seu próprio Confirmar/
+ *  Editar/Cancelar, resolvíveis em qualquer ordem. "Editar" abre o mini app
+ *  já preenchido; confirmar/cancelar chegam como callback_query
+ *  "nlconfirmar:<id>"/"nlcancelar:<id>" (ver Deno.serve). */
+export async function enviarRascunho(
+  token: string, chatId: number, rascunhoId: number, r: RascunhoLancamento,
+  admin?: ReturnType<typeof createClient>, userId?: string, cabecalho?: string,
+) {
+  const sinal = r.tipo === "entradas" ? "💰 Receita" : "💸 Despesa";
+  const dataFmt = new Date(`${r.data}T00:00:00`).toLocaleDateString("pt-BR");
+  const ehCreditoSaida = r.tipo === "saidas" && r.metodoKind === "Crédito";
+  const compFatura = r.competencia || competenciaDe(r.data, r.diaFechamento);
+  const linhas = [
+    cabecalho ?? null,
+    sinal,
+    `Valor: ${formatarMoedaBR(r.valor)}${r.parcelas && r.parcelas > 1 ? " (total)" : ""}`,
+    `Data: ${dataFmt}`,
+    `Categoria: ${r.categoria}`,
+    `Descrição: ${r.descricao || "(em branco)"}`,
+    r.tipo === "saidas" ? `Forma de pgto.: ${r.metodo || "nenhuma cadastrada — ajuste no app"}${r.metodoOrigem === "padrao" ? " (padrão)" : ""}` : null,
+    ehCreditoSaida ? `Mês da fatura: ${mesAbrevAno(compFatura)}` : `Mês: ${mesAbrevAno(r.competencia || r.data.slice(0, 7) + "-01")}`,
+    ehCreditoSaida && r.categoria !== "Estorno" ? (r.parcelas && r.parcelas > 1 ? `Parcelas: ${r.parcelas}x de ${formatarMoedaBR(r.valor / r.parcelas)}` : "Parcelas: à vista") : null,
+    "",
+    "Confirma?",
+  ].filter((l) => l !== null).join("\n");
+  // "✏️ Editar" não abre o formulário direto: o Telegram só devolve os dados do mini app (sendData)
+  // quando ele é aberto por um botão do TECLADO, não por botão inline. Então o toque vira o callback
+  // "nleditar:<id>" e o bot responde com o botão do formulário DAQUELE rascunho (ver Deno.serve).
+  await tg(token, "sendMessage", {
+    chat_id: chatId,
+    text: linhas,
+    reply_markup: {
+      inline_keyboard: [[
+        { text: "✅ Confirmar", callback_data: `nlconfirmar:${rascunhoId}` },
+        { text: "✏️ Editar", callback_data: `nleditar:${rascunhoId}` },
+        { text: "❌ Cancelar", callback_data: `nlcancelar:${rascunhoId}` },
+      ]],
+    },
+  });
+}
+
+const MESES_ABREV = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+/** '2026-10-01' -> 'Out/2026' */
+export function mesAbrevAno(iso: string): string {
+  const [a, m] = iso.split("-").map(Number);
+  return `${MESES_ABREV[m - 1]}/${a}`;
 }

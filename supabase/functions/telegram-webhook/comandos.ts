@@ -4,7 +4,7 @@ import type { createClient } from "npm:@supabase/supabase-js@2";
 import { executarBackup } from "./backup.ts";
 import { tg, rotuloMetodo, TELEGRAM_API } from "./util.ts";
 import { competenciaDe, hojeBrasiliaISO, type RascunhoLancamento } from "./parser.ts";
-import { carregarListasUsuario, confirmarRascunhoNoBanco, criarCategoria, criarMetodo } from "./lancamentos.ts";
+import { enviarRascunho, carregarListasUsuario, confirmarRascunhoNoBanco, criarCategoria, criarMetodo } from "./lancamentos.ts";
 import { carregarContasPluggy, executarAtualizacaoPluggy, rotuloBotaoConta, BOTAO_TODAS_CONTAS } from "./pluggy.ts";
 
 type Admin = ReturnType<typeof createClient>;
@@ -229,4 +229,35 @@ export async function tratarBackup(c: ContextoComando): Promise<void> {
   try { await executarBackup(supabaseAdmin, token, { chat_id: chatId, user_id: tgB.user_id }); }
   catch (e) { console.error(e); await tg(token, "sendMessage", { chat_id: chatId, text: "Deu erro ao gerar o backup — tenta de novo." }); }
   return;
+}
+
+/** Id do rascunho a que uma resposta (reply) do Telegram se refere: sai do callback_data dos botões da mensagem respondida. */
+// deno-lint-ignore no-explicit-any
+export function idRascunhoDaResposta(respondida: any): number | null {
+  const botoes = (respondida?.reply_markup?.inline_keyboard ?? []).flat();
+  // deno-lint-ignore no-explicit-any
+  const b = botoes.find((x: any) => typeof x?.callback_data === "string" && x.callback_data.startsWith("nlconfirmar:"));
+  const id = b ? Number(String(b.callback_data).split(":")[1]) : 0;
+  return id > 0 ? id : null;
+}
+
+/** Texto livre enviado COMO RESPOSTA à mensagem de um rascunho: vira a descrição daquele rascunho, que é
+ *  mostrado de novo (com os botões) mantendo valor, categoria, forma de pagamento e data. */
+export async function tratarRespostaRascunho(
+  c: ContextoComando & { rascunhoId: number; mensagemRespondidaId?: number },
+): Promise<void> {
+  const { supabaseAdmin, token, chatId, texto, rascunhoId, mensagemRespondidaId } = c;
+  const { data: tgUser } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+  const { data: rasc } = tgUser
+    ? await supabaseAdmin.from("telegram_rascunhos").select("dados").eq("id", rascunhoId).eq("chat_id", chatId).eq("user_id", tgUser.user_id).maybeSingle()
+    : { data: null };
+  if (!tgUser || !rasc) {
+    await tg(token, "sendMessage", { chat_id: chatId, text: "Esse rascunho já não existe mais." });
+    return;
+  }
+  const limpo = texto.replace(/\s+/g, " ").trim().slice(0, 200);
+  const novo = { ...(rasc.dados as RascunhoLancamento), descricao: limpo.charAt(0).toUpperCase() + limpo.slice(1) };
+  await supabaseAdmin.from("telegram_rascunhos").update({ dados: novo }).eq("id", rascunhoId);
+  if (mensagemRespondidaId) await tg(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: mensagemRespondidaId, reply_markup: { inline_keyboard: [] } });
+  await enviarRascunho(token, chatId, rascunhoId, novo, supabaseAdmin, tgUser.user_id);
 }

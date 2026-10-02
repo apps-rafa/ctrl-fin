@@ -41,31 +41,79 @@ export function sugerirCategoriaPorPalavraChave(texto: string): string | null {
   return achado ? achado.categoria : null;
 }
 
-/** Categoria pro rascunho: (1) nome de categoria do próprio usuário que
- *  apareça no texto; (2) palavra-chave; (3) "Outros"/1ª categoria do tipo,
- *  só pra nunca deixar o campo (obrigatório) vazio — o usuário troca depois
- *  se a sugestão não fizer sentido. */
+/** Palavras do texto sem acento/pontuação, em minúsculas ("Saúde e Bem-estar" -> ["saude","e","bem","estar"]). */
+export function palavrasNormalizadas(s: string): string[] {
+  return normalizarTexto(s).split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+/** Categoria CADASTRADA citada no texto: compara o nome COMPLETO (inclusive composto, como "Saúde e
+ *  Bem-estar"), sem maiúsculas/acentos/pontuação, e escolhe sempre a mais específica (a de mais palavras;
+ *  empate: a de nome mais longo). Devolve também as palavras do nome, pra não virarem descrição. */
+export function categoriaCadastradaNoTexto(
+  texto: string,
+  categorias: { nome: string }[],
+): { nome: string; palavras: string[] } | null {
+  const txt = palavrasNormalizadas(texto);
+  const ordenadas = categorias
+    .map((c) => ({ nome: c.nome, palavras: palavrasNormalizadas(c.nome) }))
+    .filter((c) => c.palavras.length)
+    .sort((x, y) => y.palavras.length - x.palavras.length || y.nome.length - x.nome.length);
+  for (const c of ordenadas) {
+    for (let i = 0; i + c.palavras.length <= txt.length; i++) {
+      if (c.palavras.every((p, k) => txt[i + k] === p)) return c;
+    }
+  }
+  return null;
+}
+
+/** Categoria pro rascunho: (1) nome de categoria do próprio usuário que apareça no texto (a mais
+ *  específica, composta ou não); (2) palavra-chave; (3) "Outros"/1ª categoria do tipo, só pra nunca deixar
+ *  o campo (obrigatório) vazio. `palavras` = palavras do texto que formam o NOME da categoria (saem da
+ *  descrição); com palavra-chave ou fallback fica vazio (a palavra continua na descrição). */
 export function sugerirCategoriaTexto(
   texto: string,
   tipo: "entradas" | "saidas",
   categoriasApp: { nome: string; categoria_tipo: string | null }[],
-): { nome: string; termo: string | null } {
+): { nome: string; termo: string | null; palavras: string[]; porNome: boolean } {
   const candidatas = categoriasApp.filter((c) => c.categoria_tipo === tipo);
-  const alvo = texto.toLowerCase();
-  const porNome = candidatas.find((c) => alvo.includes(c.nome.toLowerCase()));
-  if (porNome) return { nome: porNome.nome, termo: porNome.nome };
+  const porNome = categoriaCadastradaNoTexto(texto, candidatas);
+  if (porNome) return { nome: porNome.nome, termo: porNome.nome, palavras: porNome.palavras, porNome: true };
 
+  const alvo = texto.toLowerCase();
   const porPalavraChave = sugerirCategoriaPorPalavraChave(texto);
   if (porPalavraChave) {
-    const achada = candidatas.find((c) => c.nome.toLowerCase() === porPalavraChave.toLowerCase());
+    const achada = candidatas.find((c) => normalizarTexto(c.nome) === normalizarTexto(porPalavraChave));
     if (achada) {
       const padrao = PALAVRAS_CHAVE_CATEGORIA.find((p) => p.padrao.test(alvo))!.padrao;
-      return { nome: achada.nome, termo: alvo.match(padrao)?.[0] ?? null };
+      return { nome: achada.nome, termo: alvo.match(padrao)?.[0] ?? null, palavras: [], porNome: false };
     }
   }
 
-  const outros = candidatas.find((c) => c.nome.toLowerCase() === "outros");
-  return { nome: outros?.nome || candidatas[0]?.nome || "Outros", termo: null };
+  const outros = candidatas.find((c) => normalizarTexto(c.nome) === "outros");
+  return { nome: outros?.nome || candidatas[0]?.nome || "Outros", termo: null, palavras: [], porNome: false };
+}
+
+const CONECTIVOS_DESCRICAO = new Set(["no", "na", "nos", "nas", "de", "do", "da", "dos", "das", "em", "pra", "para", "por", "com", "e", "a", "o", "um", "uma", "pelo", "pela"]);
+const PALAVRAS_FORMA_DESCRICAO = new Set(["pix", "credito", "cartao", "debito", "dinheiro"]);
+
+/** Descrição = o que sobra do texto (já sem valor/tipo/data/parcelas) depois de tirar a forma de pagamento
+ *  e as palavras da categoria reconhecida; conectivos soltos nas pontas ("no", "de"...) também saem. */
+export function montarDescricao(
+  resto: string,
+  opcoes: { palavrasCategoria?: string[]; metodo?: { nome: string; banco: string | null } | null } = {},
+): string {
+  const fora = new Set([...(opcoes.palavrasCategoria ?? [])]);
+  const forma = new Set(PALAVRAS_FORMA_DESCRICAO);
+  if (opcoes.metodo) [...palavrasNormalizadas(opcoes.metodo.banco ?? ""), ...palavrasNormalizadas(opcoes.metodo.nome)].forEach((p) => forma.add(p));
+  const toks = resto.split(/\s+/).filter(Boolean).filter((t) => {
+    const ps = palavrasNormalizadas(t);
+    return !(ps.length && ps.every((p) => fora.has(p) || forma.has(p)));
+  });
+  const solto = (t: string) => { const ps = palavrasNormalizadas(t); return !ps.length || ps.every((p) => CONECTIVOS_DESCRICAO.has(p)); };
+  while (toks.length && solto(toks[0])) toks.shift();
+  while (toks.length && solto(toks[toks.length - 1])) toks.pop();
+  const d = toks.join(" ").trim();
+  return d ? d.charAt(0).toUpperCase() + d.slice(1) : "";
 }
 
 export function escaparRegex(s: string): string {
@@ -172,7 +220,7 @@ export function extrairData(texto: string, hoje = hojeBrasiliaISO()): { data: st
 // valem em formas que não colidem com outras palavras (ex.: "entrada" de um
 // carro é despesa, "entrou" é receita).
 export const VERBOS_RECEITA = /(?<![\p{L}])(?:receb|ganh|vend|rach|divid|reembols|devolv|devolu|deposit|lucr|fatur|resgat|arrecad|sal[aá]rio|freela|b[oô]nus|comiss[aã]o|cobr(?=ei|ou|ar|amos)|rend(?=er|eu|i(?![\p{L}])|endo)|entr(?=ou|ar|aram)|cai(?=u|r|ram)|sobr(?=ou|ar)|me pag(?=ou|aram))[\p{L}]*/giu;
-export const VERBOS_DESPESA = /(?<![\p{L}])(?:gast|compr|pagu|pagar|pagamento)[\p{L}]*/giu;
+export const VERBOS_DESPESA = /(?<![\p{L}])(?:gast|compre|compra(?:r|mos|ram|ndo|do|va)|pagu|pagar|pagamento)[\p{L}]*/giu;
 
 /** Interpreta uma mensagem de texto livre como um lançamento — "gastei
  *  35,90 no mercado", "recebi 200 de salário", "comprei um carro de 80000
