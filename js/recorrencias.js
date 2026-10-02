@@ -70,6 +70,7 @@ function atualizarFormRecorrencia() {
     if (!e.painel) return;
     const semanal = e.freq.value === 'semanal';
     e.diaGrupo.hidden = !semanal;
+    e.painel.querySelector('.rec-linha--1').classList.toggle('is-semanal', semanal);
     const n = _recDuracaoAtual();
     if (document.activeElement !== e.duracao) e.duracao.value = _recDuracaoTexto(n); // em digitação fica o número cru
     const valor = valorCampoParaNumero(e.valor);
@@ -150,6 +151,7 @@ function salvarRecorrencia(ev) {
         diaSemana: e.freq.value === 'semanal' && e.dia.value !== '' ? Number(e.dia.value) : null,
         valor, meses: _recMesesDe(_recDuracaoAtual()) || null, metodo: e.metodo.value, categoria: e.categoria.value,
         descricao: e.descricao.value.trim(),
+        criadoEm: (_recorrencias.find(r => r.id === _recEditandoId) || {}).criadoEm || new Date().toISOString().slice(0, 7),
     };
     const i = _recorrencias.findIndex(r => r.id === rec.id);
     if (i >= 0) _recorrencias[i] = rec; else _recorrencias.push(rec);
@@ -163,19 +165,22 @@ function _recTotalTexto(r) {
     return `${formatarMoeda(r.valor * n)} em ${r.meses} meses`;
 }
 
-function renderListaRecorrencias() {
-    const lista = document.getElementById('recLista');
-    if (!lista) return;
-    if (!_recorrencias.length) {
-        lista.innerHTML = '<p class="empty-message">Nenhuma recorrência cadastrada. Toque em "+ Criar" para começar.</p>';
-        return;
-    }
-    lista.innerHTML = _recorrencias.map(r => {
-        const despesa = r.tipo === 'saidas';
-        return `
+const _MESES_ABREV_REC = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+/** 'YYYY-MM' -> 'Out/2026' (mês em que a recorrência foi criada). */
+function _recMesCriacaoTexto(ym) {
+    const m = /^(\d{4})-(\d{2})/.exec(String(ym || ''));
+    return m ? `${_MESES_ABREV_REC[Number(m[2]) - 1]}/${m[1]}` : '—';
+}
+
+// Filtro de exibição de cada grupo (como nas listas do app): 'cronologica' (padrão), 'categoria' ou 'metodo'
+const _recFiltro = { saidas: 'cronologica', entradas: 'cronologica' };
+const _recAbertos = {}; // chave do grupo/subgrupo -> aberto (sem chave = padrão)
+
+function _recCardHTML(r) {
+    const despesa = r.tipo === 'saidas';
+    return `
         <div class="rec-card ${despesa ? 'saida' : 'entrada'}" data-id="${r.id}">
             <div class="rec-card-topo">
-                <span class="rec-card-tipo">${despesa ? '⬆' : '⬇'}</span>
                 <span class="rec-card-desc">${r.descricao || r.categoria}</span>
                 <span class="rec-card-valor">${despesa ? '-' : '+'} ${formatarMoeda(r.valor)}</span>
                 <span class="rec-card-acoes">
@@ -187,10 +192,78 @@ function renderListaRecorrencias() {
                 <span class="rec-chip rec-chip--freq">🔁 ${_recRotuloFrequencia(r)}</span>
                 <span class="rec-chip">${r.categoria}</span>
                 <span class="rec-chip">${r.metodo}</span>
-                <span class="rec-card-total">Total: ${_recTotalTexto(r)}</span>
+                <span class="rec-card-total">Total: ${_recTotalTexto(r)} · Criada em ${_recMesCriacaoTexto(r.criadoEm)}</span>
             </div>
         </div>`;
-    }).join('');
+}
+
+/** Filtros do grupo: só aparecem os que têm mais de uma opção entre as recorrências do grupo. */
+function _recOrganizadorHTML(chave, itens) {
+    const opcoes = [
+        ['categoria', '🏷️ Categoria', new Set(itens.map(r => r.categoria)).size > 1],
+        ['metodo', '💳 Forma de pagamento', new Set(itens.map(r => r.metodo)).size > 1],
+    ].filter(([dim, , tem]) => tem || _recFiltro[chave] === dim);
+    if (!opcoes.length) return '';
+    const atual = _recFiltro[chave];
+    const botoes = opcoes.map(([dim, rotulo]) => `<span role="button" tabindex="0" class="subgrupo-modo-btn${atual === dim ? ' active' : ''}" data-submodo="${dim}" data-full="${rotulo}" data-emoji="${rotulo.split(' ')[0]}">${rotulo}</span>`).join('');
+    return `<div class="grupo-barra"><span class="subgrupo-organizador" data-grupo-chave="${chave}">
+        <span role="button" tabindex="0" class="subgrupo-modo-icone${atual !== 'cronologica' ? ' ativo' : ''}" data-submodo-icone="1" title="Tirar filtro"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M3 4h18v2.5l-7 8V19l-4 2v-6.5l-7-8V4z"/></svg></span>
+        ${botoes}</span></div>`;
+}
+
+function _recGrupoHTML(chave, nome, cor, itens, aberto) {
+    let corpo;
+    const modo = _recFiltro[chave];
+    if (modo === 'cronologica') {
+        corpo = itens.map(_recCardHTML).join('');
+    } else {
+        const campo = modo === 'categoria' ? 'categoria' : 'metodo';
+        const mapa = new Map();
+        itens.forEach(r => { if (!mapa.has(r[campo])) mapa.set(r[campo], []); mapa.get(r[campo]).push(r); });
+        const subs = [...mapa.entries()].sort((x, y) => y[1].length - x[1].length);
+        corpo = subs.map(([sub, lista]) => {
+            const k = `${chave}:${modo}:${sub}`;
+            const corSub = modo === 'categoria' ? corDaCategoria(sub, chave === 'saidas' ? 'saida' : 'entrada') : corPadraoChip(sub);
+            const abertoSub = _recAbertos[k] !== undefined ? _recAbertos[k] : subs.length === 1; // subgrupo único abre junto do pai
+            return `
+            <details class="subgrupo" data-rec-chave="${k}" style="--cor-rec:${corSub}" ${abertoSub ? 'open' : ''}>
+                <summary class="subgrupo-cab">
+                    <span class="subgrupo-nome">${sub}</span><span class="subgrupo-espaco"></span>
+                    <span class="subgrupo-contagem">${lista.length}</span>
+                </summary>
+                ${lista.map(_recCardHTML).join('')}
+            </details>`;
+        }).join('');
+    }
+    return `
+    <details class="rec-grupo" data-rec-chave="${chave}" style="--cor-rec:${cor}" ${aberto ? 'open' : ''}>
+        <summary>
+            <span class="rec-grupo-nome">${nome}</span><span class="rec-grupo-espaco"></span>
+            <span class="rec-grupo-contagem">${itens.length}</span>
+        </summary>
+        <div class="rec-grupo-itens">
+            ${_recOrganizadorHTML(chave, itens)}
+            ${corpo}
+        </div>
+    </details>`;
+}
+
+function renderListaRecorrencias() {
+    const lista = document.getElementById('recLista');
+    if (!lista) return;
+    if (!_recorrencias.length) {
+        lista.innerHTML = '<p class="empty-message">Nenhuma recorrência cadastrada. Toque em "+ Criar" para começar.</p>';
+        return;
+    }
+    const despesas = _recorrencias.filter(r => r.tipo === 'saidas');
+    const receitas = _recorrencias.filter(r => r.tipo === 'entradas');
+    const unico = !!despesas.length !== !!receitas.length; // um grupo só: abre sozinho
+    const aberto = chave => (_recAbertos[chave] !== undefined ? _recAbertos[chave] : unico);
+    lista.innerHTML = [
+        despesas.length ? _recGrupoHTML('saidas', 'Despesa', 'var(--despesa-text)', despesas, aberto('saidas')) : '',
+        receitas.length ? _recGrupoHTML('entradas', 'Receita', 'var(--receita-text)', receitas, aberto('entradas')) : '',
+    ].join('');
+    lista.querySelectorAll('.subgrupo-organizador').forEach(_ajustarLabelsFiltro);
 }
 
 /** Liga os eventos da página (uma vez) e desenha a lista. Chamada ao abrir a aba "Recorrências". */
@@ -211,6 +284,15 @@ function iniciarRecorrencias() {
         e.duracao.addEventListener('input', () => { e.duracao.value = e.duracao.value.replace(/\D/g, '').slice(0, 3); atualizarFormRecorrencia(); });
         e.duracao.addEventListener('blur', atualizarFormRecorrencia);
         e.lista.addEventListener('click', ev => {
+            const modoBtn = ev.target.closest('[data-submodo]');
+            const icone = ev.target.closest('[data-submodo-icone]');
+            if (modoBtn || icone) {
+                ev.preventDefault();
+                const chave = (modoBtn || icone).closest('[data-grupo-chave]').dataset.grupoChave;
+                _recFiltro[chave] = icone ? 'cronologica' : (_recFiltro[chave] === modoBtn.dataset.submodo ? 'cronologica' : modoBtn.dataset.submodo);
+                renderListaRecorrencias();
+                return;
+            }
             const btn = ev.target.closest('[data-rec-act]');
             if (!btn) return;
             const id = Number(btn.closest('.rec-card').dataset.id);
@@ -221,6 +303,7 @@ function iniciarRecorrencias() {
             } else abrirFormRecorrencia(_recorrencias.find(r => r.id === id));
         });
     }
+    e.lista.addEventListener('toggle', ev => { const k = ev.target.dataset && ev.target.dataset.recChave; if (k) _recAbertos[k] = ev.target.open; }, true);
     fecharFormRecorrencia(); // ao entrar na aba: lista + "+ Criar"
     _recPreencherListas();
     renderListaRecorrencias();

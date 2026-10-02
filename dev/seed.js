@@ -37,9 +37,12 @@
     t('entradas', '2026-11-05', 2000.00, 'Freelance', '', 'Projeto Y', { competencia: '2026-11-01' }),
   ];
   const recorrencias = [
-    { id: 1, tipo: 'saidas', frequencia: 'mensal', diaSemana: null, valor: 190, meses: null, metodo: 'PIX', categoria: 'Saúde', descricao: 'Terapia' },
-    { id: 2, tipo: 'saidas', frequencia: 'semanal', diaSemana: 2, valor: 190, meses: 6, metodo: 'PIX', categoria: 'Saúde', descricao: 'Personal' },
-    { id: 3, tipo: 'entradas', frequencia: 'mensal', diaSemana: null, valor: 8003.1, meses: null, metodo: 'PIX', categoria: 'Salário', descricao: 'Salário' },
+    { id: 1, tipo: 'saidas', frequencia: 'mensal', diaSemana: null, valor: 190, meses: null, metodo: 'PIX', categoria: 'Saúde', descricao: 'Terapia', criadoEm: '2026-08' },
+    { id: 2, tipo: 'saidas', frequencia: 'semanal', diaSemana: 2, valor: 190, meses: 6, metodo: 'PIX', categoria: 'Saúde', descricao: 'Personal', criadoEm: '2026-09' },
+    { id: 3, tipo: 'saidas', frequencia: 'mensal', diaSemana: null, valor: 1115.7, meses: 36, metodo: 'PIX', categoria: 'Casa', descricao: 'Financiamento', criadoEm: '2026-10' },
+    { id: 4, tipo: 'saidas', frequencia: 'mensal', diaSemana: null, valor: 39.9, meses: null, metodo: 'Crédito Bradesco', categoria: 'Assinaturas', descricao: 'Streaming', criadoEm: '2026-10' },
+    { id: 5, tipo: 'entradas', frequencia: 'mensal', diaSemana: null, valor: 8003.1, meses: null, metodo: 'PIX', categoria: 'Salário', descricao: 'Salário', criadoEm: '2026-07' },
+    { id: 6, tipo: 'entradas', frequencia: 'semanal', diaSemana: null, valor: 300, meses: 3, metodo: 'PIX', categoria: 'Freelance', descricao: 'Aulas particulares', criadoEm: '2026-09' },
   ];
   window.__SEED__ = {
     recorrencias,
