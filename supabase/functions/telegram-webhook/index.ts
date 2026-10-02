@@ -54,6 +54,7 @@ import {
 } from "./lancamentos.ts";
 import { executarBackup } from "./backup.ts";
 import { executarLembretes } from "./lembretes.ts";
+import { gerarOcorrencias } from "../_shared/ocorrencias.ts";
 import {
   idRascunhoDaResposta, tratarRespostaRascunho,
   tratarFormularioMiniApp, tratarStart, tratarAtualizar, tratarPgtoPadraoComando, tratarBackup,
@@ -377,6 +378,7 @@ Deno.serve(async (req: Request) => {
     const corpo = await req.json().catch(() => ({}));
     try {
       if (corpo.tarefa === "backup") { await executarBackup(adminCron, token); return json({ ok: true }); }
+      if (corpo.tarefa === "recorrencias") { const n = await gerarOcorrencias(adminCron, hojeBrasiliaISO()); return json({ ok: true, criadas: n }); }
       if (corpo.tarefa === "lembretes") { const n = await executarLembretes(adminCron, token); return json({ ok: true, enviados: n }); }
       return json({ error: "Tarefa desconhecida" }, 400);
     } catch (e) {
