@@ -7,6 +7,7 @@
 //    cartão), com o total da fatura do mês (despesas - estornos), se ela não estiver marcada como paga.
 //  - Receitas não geram lembrete.
 //  - Cada lançamento/fatura é lembrado uma vez só (a chave fica em alertas_bot).
+//  - Todos os vencimentos do dia saem juntos, numa mensagem só.
 
 import type { createClient } from "npm:@supabase/supabase-js@2";
 import { tg, formatarMoedaBR, rotuloMetodo } from "./util.ts";
@@ -20,7 +21,8 @@ export interface TransacaoLembrete {
 }
 export interface MetodoLembrete { nome: string; metodo_kind: string | null; banco: string | null; dia_vencimento: number | null }
 
-export interface Lembrete { chave: string; texto: string }
+/** Um vencimento do dia. Todos saem juntos numa mensagem só (ver montarMensagemVencimentos). */
+export interface Lembrete { chave: string; titulo: string; detalhe: string; valor: number }
 
 const dataBR = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
@@ -35,7 +37,7 @@ export function diaVencimentoNoMes(dia: number, hojeISO: string): number {
   return Math.min(dia, new Date(Date.UTC(a, m, 0)).getUTCDate());
 }
 
-/** Monta os lembretes do dia (puro: sem acesso a banco/rede, para poder testar). */
+/** Monta os vencimentos do dia (puro: sem acesso a banco/rede, para poder testar). */
 export function montarLembretes(p: {
   userId: string;
   hojeISO: string;
@@ -58,16 +60,12 @@ export function montarLembretes(p: {
     if (t.criado_em && new Date(t.criado_em).getTime() >= inicioHoje) continue; // lançado hoje
     const chave = `lembrete:${userId}:tx:${t.id}`;
     if (jaEnviados.has(chave)) continue;
+    const valor = Number(t.valor) || 0;
     saida.push({
       chave,
-      texto: [
-        "⏰ Vence hoje",
-        `💸 ${t.descricao || t.categoria || "Despesa"}`,
-        `Valor: ${formatarMoedaBR(Number(t.valor) || 0)}`,
-        `Categoria: ${t.categoria || "—"}`,
-        `Forma de pgto.: ${t.metodo || "—"}`,
-        `Vencimento: ${dataBR(hojeISO)}`,
-      ].join("\n"),
+      titulo: `💸 ${t.descricao || t.categoria || "Despesa"} — ${formatarMoedaBR(valor)}`,
+      detalhe: `Categoria: ${t.categoria || "—"} · Forma de pgto.: ${t.metodo || "—"}`,
+      valor,
     });
   }
 
@@ -84,21 +82,23 @@ export function montarLembretes(p: {
     if (total <= 0.004) continue;
     saida.push({
       chave,
-      texto: [
-        "⏰ Vence hoje",
-        `💳 Fatura ${rot}`,
-        `Valor: ${formatarMoedaBR(total)}`,
-        `Mês da fatura: ${mesAbrevAno(compMes)}`,
-        `Forma de pgto.: ${rot}`,
-        `Vencimento: ${dataBR(hojeISO)}`,
-        `(${doMes.length} lançamento${doMes.length === 1 ? "" : "s"})`,
-      ].join("\n"),
+      titulo: `💳 Fatura ${rot} — ${formatarMoedaBR(total)}`,
+      detalhe: `Mês da fatura: ${mesAbrevAno(compMes)} · ${doMes.length} lançamento${doMes.length === 1 ? "" : "s"}`,
+      valor: total,
     });
   }
   return saida;
 }
 
-/** Roda os lembretes de TODOS os usuários vinculados ao Telegram. Devolve quantos foram enviados. */
+/** Texto único com todos os vencimentos do dia (um só envio por usuário). */
+export function montarMensagemVencimentos(hojeISO: string, lembretes: Lembrete[]): string {
+  const linhas = [`⏰ Vencimentos de hoje (${dataBR(hojeISO)})`, ""];
+  for (const l of lembretes) linhas.push(l.titulo, `   ${l.detalhe}`, "");
+  if (lembretes.length > 1) linhas.push(`Total: ${formatarMoedaBR(lembretes.reduce((a, l) => a + l.valor, 0))}`);
+  return linhas.join("\n").trimEnd();
+}
+
+/** Roda os lembretes de TODOS os usuários vinculados ao Telegram. Devolve quantos vencimentos foram avisados. */
 export async function executarLembretes(
   admin: ReturnType<typeof createClient>, token: string, agora: Date = new Date(),
 ): Promise<number> {
@@ -129,13 +129,15 @@ export async function executarLembretes(
       faturasPagas: (pagas ?? []) as { metodo: string; competencia: string }[],
       jaEnviados: new Set(((ja ?? []) as { chave: string }[]).map((x) => x.chave)),
     });
+    // marca ANTES de enviar: numa falha de rede perde-se um lembrete, mas nunca se manda em dobro
+    const novos: Lembrete[] = [];
     for (const l of lembretes) {
-      // marca ANTES de enviar: numa falha de rede perde-se um lembrete, mas nunca se manda em dobro
       const { error } = await admin.from("alertas_bot").insert({ chave: l.chave, enviado_em: new Date().toISOString() });
-      if (error) continue; // já existia (execução concorrente)
-      await tg(token, "sendMessage", { chat_id: u.chat_id, text: l.texto });
-      enviados++;
+      if (!error) novos.push(l); // erro = já existia (execução concorrente)
     }
+    if (!novos.length) continue;
+    await tg(token, "sendMessage", { chat_id: u.chat_id, text: montarMensagemVencimentos(hojeISO, novos) });
+    enviados += novos.length;
   }
   return enviados;
 }
