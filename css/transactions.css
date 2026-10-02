@@ -779,8 +779,10 @@
 /* margem esquerda um pouco maior em TODAS as linhas (as colunas seguem alinhadas) pro ícone não apertar */
 body .despesa-item { padding-left: 1.25rem !important; }
 @media (max-width: 480px) { body .despesa-item { padding-left: 1.25rem !important; } .despesa-item > .despesa-conteudo > .conc-selo { left: .3rem; } }
-.despesa-item > .despesa-conteudo > .conc-selo { position: absolute; left: .25rem; top: 1rem; transform: translateY(-50%); } /* centro da 1ª linha (data/valor) */
-@media (max-width: 480px) { .despesa-item > .despesa-conteudo > .conc-selo { top: .88rem; font-size: .52rem; } }
+/* Centro do selo = centro da 1ª linha (data/valor): top = 1rem - metade da altura (line-height 1 = a própria fonte).
+   Sem transform: com translate fracionário o emoji "pulava" meio pixel quando o hover (box-shadow) criava a camada da linha. */
+.despesa-item > .despesa-conteudo > .conc-selo { position: absolute; left: .25rem; top: .65rem; transition: none !important; animation: none !important; transform: none; } /* sem animação nenhuma (nem no hover da linha) */
+@media (max-width: 480px) { .despesa-item > .despesa-conteudo > .conc-selo { top: .62rem; font-size: .52rem; } }
 
 /* Busca em todos os meses */
 .busca-ampla-btn { display: block; width: 100%; box-sizing: border-box; margin: 0 0 .6rem; padding: .55rem .7rem; background: var(--surface); border: 1px dashed var(--border-strong, var(--border)); border-radius: var(--radius-sm); color: var(--text); font-size: .8rem; font-weight: 600; cursor: pointer; text-align: left; }
