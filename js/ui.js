@@ -793,6 +793,7 @@ let _proximasCtx = [];
  * Layout: DIA DOW — VALOR MÉTODO CATEGORIA DESCRIÇÃO (linha que quebra).
  * opts.semMetodoChip: não mostra o chip de método (ex.: visão "Por método").
  * opts.semCategoriaChip: não mostra o chip de categoria (visão "Por categoria").
+ * opts.semRelogio: não mostra o ⏰ de "ainda não aconteceu" (a aba Próximos só tem esses).
  */
 function gerarHTMLTransacao(trans, tipo, opts = {}) {
     const ehParcela = !!trans.parcelasTotal;
@@ -829,6 +830,14 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     const quitadoTag = ehParcela && trans.quitadoEm
         ? `<span class="quitado-badge">quitado ${typeof mesTri === 'function' ? mesTri(String(trans.quitadoEm).slice(5, 7)) + '/' + String(trans.quitadoEm).slice(2, 4) : ''}</span>`
         : '';
+
+    // Selo na margem esquerda: ⏰ = ainda não aconteceu (data futura/pendente); 🏦 = conciliado com o banco
+    let seloLinha = '';
+    if (!opts.semRelogio && !_transacaoRealizada(trans)) {
+        seloLinha = '<span class="conc-selo" title="Ainda não aconteceu (data futura)">⏰</span>';
+    } else if (estadoApp.conciliadas && estadoApp.conciliadas.has(trans.id) && trans.origem !== 'pluggy') {
+        seloLinha = '<span class="conc-selo" title="Conciliado com uma transação do banco (Open Finance)">🏦</span>';
+    }
 
     const lado = `<span class="despesa-data">`
         + `<span class="despesa-dia">${diaFormatado}</span>`
@@ -880,7 +889,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     return `
         <div class="${classes}" data-id="${trans.id}" data-tipo-transacao="${tipo === 'entrada' ? 'entradas' : 'saidas'}">
             <div class="despesa-conteudo">
-                ${(estadoApp.conciliadas && estadoApp.conciliadas.has(trans.id) && trans.origem !== 'pluggy') ? '<span class="conc-selo" title="Conciliado com uma transação do banco (Open Finance)">🏦</span>' : ''}
+                ${seloLinha}
                 ${lado}
                 <span class="despesa-valor">${sinal} ${valorFormatado}</span>
                 ${parcelaTag}

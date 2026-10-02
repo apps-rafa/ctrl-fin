@@ -46,11 +46,11 @@ function renderProximasAgrupado(abertos = {}, futurasMeses = []) {
         const totD = soma(desps) + fats.reduce((acc, f) => acc + f.total, 0);
         const faturaUnica = fats.length === 1 && desps.length === 0;
         const r = recs.length
-            ? grupo('Receitas', `${comp}:receita`, 'var(--receita-text)', recs.length, soma(recs), recs.map(t => gerarHTMLTransacao(t, 'entrada')).join(''), unico)
+            ? grupo('Receitas', `${comp}:receita`, 'var(--receita-text)', recs.length, soma(recs), recs.map(t => gerarHTMLTransacao(t, 'entrada', { semRelogio: true })).join(''), unico)
             : '';
         const d = temD
             ? grupo('Despesas', `${comp}:despesa`, 'var(--despesa-text)', desps.length + fats.length, totD,
-                fats.map(f => _htmlSubgrupoFatura(f, itensDe(f), totD, 'saida', abertosSub, estornos, faturaUnica)).join('') + desps.map(t => gerarHTMLTransacao(t, 'saida')).join(''), unico)
+                fats.map(f => _htmlSubgrupoFatura(f, itensDe(f), totD, 'saida', abertosSub, estornos, faturaUnica)).join('') + desps.map(t => gerarHTMLTransacao(t, 'saida', { semRelogio: true })).join(''), unico)
             : '';
         return { html: r + d, qtd: recs.length + desps.length + fats.length };
     };
@@ -139,7 +139,7 @@ function renderPendentesProximas(abertos = {}, termo = '') {
             <span class="fatura-espaco"></span>
             <span class="fatura-total">${formatarMoeda(total)}</span>
           </summary>
-          <div class="fatura-itens">${lista.map(t => gerarHTMLTransacao(t, tipoUI)).join('')}</div>
+          <div class="fatura-itens">${lista.map(t => gerarHTMLTransacao(t, tipoUI, { semRelogio: true })).join('')}</div>
         </details>`;
     };
     // Despesas a pagar: um grupo por forma de pagamento ("PIX", "Dinheiro"...; todo "PIX <banco>" é PIX)
