@@ -441,10 +441,14 @@
     .summary-card.balanco .amount,
     .summary-card.gasto-diario .amount { font-size: clamp(.8rem, 17cqw, 2.3rem); }
 }
-/* Card estreito (≈ celular de 290px): sem emoji no título, título e linhas menores, até caber com respiro */
-@container (max-width: 150px) {
+/* Título de Balanço/Gasto diário: só encolhe e perde o emoji quando NÃO há espaço (card < ~112px de conteúdo;
+   com o emoji "GASTO DIÁRIO" precisa de ~110px) */
+@container (max-width: 112px) {
     .summary-card h3 { font-size: clamp(.5rem, 8cqw, .68rem); }
     .summary-card h3 .card-emoji { display: none; }
+}
+/* Receita/Despesa em card estreito (≈ celular de 290–320px): linhas menores, até caber com respiro */
+@container (max-width: 125px) {
     .card-linhas-topo .linha { gap: .15rem; }
     .card-linhas-topo .linha b { font-size: clamp(.5rem, 7.5cqw, 1.25rem); }
     .card-linhas-topo .linha i { font-size: clamp(.4rem, 5cqw, .85rem); }
