@@ -36,7 +36,13 @@
     t('saidas', '2026-11-10', 500.00, 'Casa', 'PIX', 'Reforma', { competencia: '2026-11-01' }),
     t('entradas', '2026-11-05', 2000.00, 'Freelance', '', 'Projeto Y', { competencia: '2026-11-01' }),
   ];
+  const recorrencias = [
+    { id: 1, tipo: 'saidas', frequencia: 'mensal', diaSemana: null, valor: 190, meses: null, metodo: 'PIX', categoria: 'Saúde', descricao: 'Terapia' },
+    { id: 2, tipo: 'saidas', frequencia: 'semanal', diaSemana: 2, valor: 190, meses: 6, metodo: 'PIX', categoria: 'Saúde', descricao: 'Personal' },
+    { id: 3, tipo: 'entradas', frequencia: 'mensal', diaSemana: null, valor: 8003.1, meses: null, metodo: 'PIX', categoria: 'Salário', descricao: 'Salário' },
+  ];
   window.__SEED__ = {
+    recorrencias,
     user: { id: U, email: 'dev@local', is_anonymous: false },
     tables: { menu_itens, transacoes, transacoes_importadas: [], feriados: [], pluggy_contas: [], lixeira: [], pluggy_credenciais: [], faturas_pagas: [], telegram_users: [], pluggy_faturas: [] },
   };

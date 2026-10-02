@@ -29,6 +29,7 @@
     <link rel="stylesheet" href="css/anual.css?v=20261004">
     <link rel="stylesheet" href="css/docs.css?v=20261004">
     <link rel="stylesheet" href="css/theme.css?v=20261004">
+    <link rel="stylesheet" href="css/recorrencias.css?v=20261004">
     <script>
         // Aplica o tema antes de renderizar (evita flash)
         (function () {
@@ -147,19 +148,18 @@
                  correspondente ao clicar (abrirAba() em events.js). -->
             <section class="tabs">
                 <button class="tab-btn" data-tab="adicionar"><span class="tab-mais">+</span> Lançamento</button>
-                <div class="tabs-dir">
-                    <button class="tab-btn" data-tab="proximas" title="Próximos" aria-label="Próximos">⏰<span class="t-full"> Próximos</span><span class="t-curto"> Próx.</span></button>
-                    <button class="tab-btn tab-btn-icone" data-tab="lixeira" title="Lixeira (excluídos nos últimos 30 dias)" aria-label="Lixeira">🗑️</button>
-                </div>
+                <button class="tab-btn acao-sec" data-tab="recorrencias" title="Recorrências (lançamentos fixos)" aria-label="Recorrências"><span class="b-emo">🔁</span><span class="b-txt"> Recorrências</span></button>
+                <button class="tab-btn acao-sec" data-tab="proximas" title="Próximos" aria-label="Próximos"><span class="b-emo">⏰</span><span class="b-txt"> Próximos</span></button>
             </section>
 
             <!-- Busca universal: procura em Receitas, Despesas e Próximos, de qualquer tela -->
             <section class="busca-global">
+                <button type="button" id="btnRecentes" class="busca-recentes acao-sec" title="Ver os últimos lançamentos criados" aria-label="Recém-lançados"><span class="b-emo">🕓</span><span class="b-txt"> Recém-lançados</span></button>
                 <div class="busca-campo">
                     <input type="search" id="buscaGlobal" name="busca-global" aria-label="Buscar em todo o app" class="busca-lista" placeholder="🔎 Buscar..." autocomplete="off">
                     <button type="button" id="buscaLimpar" class="busca-limpar" aria-label="Limpar busca" hidden>✕</button>
                 </div>
-                <button type="button" id="btnRecentes" class="busca-recentes" title="Ver os últimos lançamentos criados">🕓 Recém-lançados</button>
+                <button class="tab-btn tab-btn-icone" data-tab="lixeira" title="Lixeira (excluídos nos últimos 30 dias)" aria-label="Lixeira">🗑️</button>
             </section>
             </div>
 
@@ -350,6 +350,86 @@
                 </form>
             </section>
 
+            <!-- Tab: Recorrências (lançamentos fixos) — por ora só o layout (prévia, sem banco) -->
+            <section id="recorrencias" class="tab-content">
+                <div class="rec-cabecalho">
+                    <h2 class="rec-titulo">🔁 Recorrências</h2>
+                    <button type="button" id="recBtnCriar" class="btn-submit rec-btn-criar">+ Criar</button>
+                </div>
+                <p class="rec-aviso">Prévia do layout: o que você cadastrar aqui ainda não é salvo nem gera lançamentos.</p>
+
+                <form id="recForm" class="form-transacao rec-form" hidden novalidate>
+                    <div class="form-header">
+                        <div class="tipo-selector">
+                            <button type="button" class="tipo-btn active" data-tipo="saidas">
+                                <svg class="seta-icone" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="var(--despesa-text)" d="M12 4l8 8h-5v8h-6v-8H4z"/></svg><span class="tipo-label">Despesa</span>
+                            </button>
+                            <button type="button" class="tipo-btn" data-tipo="entradas">
+                                <svg class="seta-icone" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="var(--receita-text)" d="M12 20l-8-8h5V4h6v8h5z"/></svg><span class="tipo-label">Receita</span>
+                            </button>
+                        </div>
+                        <button type="button" id="recFechar" class="form-fechar" aria-label="Fechar" title="Fechar">✕</button>
+                    </div>
+                    <input type="hidden" id="recTipo" value="saidas">
+
+                    <div class="rec-linha">
+                        <div class="form-group">
+                            <label for="recFrequencia">Recorrência</label>
+                            <select id="recFrequencia"><option value="mensal">Mensal</option><option value="semanal">Semanal</option></select>
+                        </div>
+                        <div class="form-group" id="recDiaSemanaGrupo" hidden>
+                            <label for="recDiaSemana">Dia da semana</label>
+                            <select id="recDiaSemana">
+                                <option value="">Sem dia fixo</option>
+                                <option value="1">Segunda</option><option value="2">Terça</option><option value="3">Quarta</option>
+                                <option value="4">Quinta</option><option value="5">Sexta</option><option value="6">Sábado</option><option value="0">Domingo</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="recValor">Valor por ocorrência</label>
+                            <input type="text" id="recValor" inputmode="decimal" autocomplete="off" placeholder="0,00">
+                        </div>
+                    </div>
+
+                    <div class="rec-linha">
+                        <fieldset class="rec-duracao">
+                            <legend>Duração</legend>
+                            <label class="rec-radio"><input type="radio" name="recDuracao" id="recDuracaoContinua" checked> Contínua (sem prazo)</label>
+                            <label class="rec-radio"><input type="radio" name="recDuracao" id="recDuracaoMeses"> Por</label>
+                            <span id="recMesesGrupo" class="rec-meses" hidden><input type="text" id="recMeses" inputmode="numeric" maxlength="3" value="12" aria-label="Quantidade de meses"> meses</span>
+                        </fieldset>
+                        <div class="form-group">
+                            <label for="recTotal">Valor total estimado</label>
+                            <input type="text" id="recTotal" class="campo-travado" readonly tabindex="-1" value="Sem prazo">
+                            <small id="recTotalNota" class="rec-nota"></small>
+                        </div>
+                    </div>
+
+                    <div class="rec-linha">
+                        <div class="form-group">
+                            <label for="recMetodo">Forma de pagamento</label>
+                            <select id="recMetodo"><option value="">Selecione...</option></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="recCategoria">Categoria</label>
+                            <select id="recCategoria"><option value="">Selecione...</option></select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="recDescricao">Descrição (opcional)</label>
+                        <input type="text" id="recDescricao" placeholder="Ex: Terapia, Aluguel, Salário">
+                    </div>
+
+                    <div id="recErro" class="erro-form"></div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-submit">Salvar</button>
+                        <button type="button" id="recCancelar" class="btn-cancelar">Cancelar</button>
+                    </div>
+                </form>
+
+                <div id="recLista" class="rec-lista"></div>
+            </section>
+
             <!-- Tab: Gerenciar Menus -->
             <section id="menus" class="tab-content">
                 <div id="menusContainer" class="menus-container">
@@ -381,6 +461,7 @@
     <script src="js/formulario.js?v=20261004"></script>
     <script src="js/busca.js?v=20261004"></script>
     <script src="js/edicao.js?v=20261004"></script>
+    <script src="js/recorrencias.js?v=20261004"></script>
     <script src="js/menus-api.js?v=20261004"></script>
     <script src="js/menus-ui.js?v=20261004"></script>
     <script src="js/revisao-importacao.js?v=20261004"></script>
