@@ -167,8 +167,8 @@ export function detectarMetodoNoTexto(texto: string, lista: MetodoMenu[]): Metod
 
 /** 'YYYY-MM-DD' de hoje em horário de Brasília (sem lib de timezone —
  *  Brasil não observa horário de verão desde 2019, então UTC-3 fixo). */
-export function hojeBrasiliaISO(): string {
-  return new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+export function hojeBrasiliaISO(agora: Date = new Date()): string {
+  return new Date(agora.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 export const MESES_EXTENSO = ["janeiro", "fevereiro", "marco", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
