@@ -13,14 +13,15 @@
    existem na outra, bagunçando a grade inteira. */
 .dashboard {
     display: grid;
-    grid-template-columns: 2fr 2fr 150px;
+    /* 6 colunas: Receita 2, Despesa 2, Balanço/Gasto diário 2 (o mesmo molde dos botões do topo, ver .acoes-topo) */
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: var(--spacing-md);
     margin-bottom: var(--spacing-xl);
 }
-.summary-card.entradas     { grid-column: 1; grid-row: 1 / span 2; }
-.summary-card.saidas       { grid-column: 2; grid-row: 1 / span 2; }
-.summary-card.balanco      { grid-column: 3; grid-row: 1; }
-.summary-card.gasto-diario { grid-column: 3; grid-row: 2; }
+.summary-card.entradas     { grid-column: 1 / span 2; grid-row: 1 / span 2; }
+.summary-card.saidas       { grid-column: 3 / span 2; grid-row: 1 / span 2; }
+.summary-card.balanco      { grid-column: 5 / span 2; grid-row: 1; }
+.summary-card.gasto-diario { grid-column: 5 / span 2; grid-row: 2; }
 /* Alinhado no topo (não centralizado) — com o valor logo abaixo do
    título nos 2, "Balanço" e "Gasto diário" ficam com o número na mesma
    altura; centralizar bagunçava isso, já que só "Gasto diário" tem uma
@@ -436,11 +437,6 @@
 .summary-card .linha-detalhe.vazio { visibility: hidden; } /* segura a altura da linha */
 
 /* ===== Extremos (telas muito largas e muito estreitas) ===== */
-/* Largura máxima: Balanço/Gasto diário podem crescer mais (o JS só encolhe se um valor longo ainda estourar) */
-@media (min-width: 481px) {
-    .summary-card.balanco .amount,
-    .summary-card.gasto-diario .amount { font-size: clamp(.8rem, 17cqw, 2.3rem); }
-}
 /* Título de Balanço/Gasto diário: só encolhe e perde o emoji quando NÃO há espaço (card < ~112px de conteúdo;
    com o emoji "GASTO DIÁRIO" precisa de ~110px) */
 @container (max-width: 112px) {

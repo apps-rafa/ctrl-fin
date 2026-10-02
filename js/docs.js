@@ -97,10 +97,10 @@ const DOCS_SECOES = [
     itens: [
       { t: 'O que aparece', r: 'O que ainda vai acontecer, do mês em exibição em diante: um grupo por mês (só os que têm lançamento), com Despesas e Receitas dentro.',
         m: 'O mês em exibição vem aberto e os seguintes fechados; ao trocar o mês no calendário, ele vira o início da lista e os anteriores somem. Subgrupo vazio não aparece e, se só houver um, abre junto do mês. A fatura de cada cartão aparece igual a "A pagar" (veja {ver:listas} e {ver:cartao}): subgrupo com vencimento, botão "paga" e as compras. O total e a contagem da Despesa incluem as faturas em aberto.' },
-      { t: 'Botões do dashboard', r: 'Lançamento ocupa a linha inteira; abaixo, Recorrências, Recém-lançados e Próximos; depois a busca e a lixeira.',
+      { t: 'Botões do dashboard', r: 'O dashboard e os botões usam a mesma grade de 6 colunas: Receita, Despesa e Balanço/Gasto diário ocupam 2 cada; Lançamento ocupa as 6; Recorrências, Recém-lançados e Próximos 2 cada; a busca 5 e a lixeira 1.',
         m: 'Em tela muito estreita os botões de Recorrências, Recém-lançados e Próximos ficam só com o emoji.' },
       { t: 'Recorrências (em construção)', r: 'Página para cadastrar lançamentos fixos (conta mensal, assinatura, salário), separada dos lançamentos comuns.',
-        m: 'Cada recorrência tem tipo (despesa/receita), frequência mensal ou semanal (com ou sem dia da semana), valor por ocorrência, duração (contínua ou por X meses), forma de pagamento, categoria e descrição. O valor total estimado é calculado sozinho: ocorrências no período × valor. Por enquanto é só o layout: os dados ainda não são salvos nem geram lançamentos. O cadastro é só pelo app, não pelo bot.' },
+        m: 'O "+ Criar" ocupa a largura toda e o formulário abre no lugar da lista (o ✕ traz a lista de volta). Linha 1: Recorrência (mensal ou semanal; no semanal aparece o menu de dias SEG a DOM, com "Variável" como primeira opção), Valor, Duração (setinhas como nas parcelas: 1 = Contínua, 2 em diante = meses; dá para digitar) e Total (calculado: ocorrências no período × valor). Linha 2: forma de pagamento, categoria e descrição. Por enquanto é só o layout: os dados ainda não são salvos nem geram lançamentos. O cadastro é só pelo app, não pelo bot.' },
     ],
   },
   {
