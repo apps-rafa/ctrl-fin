@@ -28,25 +28,24 @@
 @media (max-width: 560px) {
     .rec-linha--1 > .rec-c-freq, .rec-linha--1 > .rec-c-valor, .rec-linha--1 > .rec-c-dur, .rec-linha--1 > .rec-c-total { grid-column: span 3; }
     .rec-linha--1.is-semanal > .rec-c-freq, .rec-linha--1 > .rec-c-dia { grid-column: span 3; }
-    .rec-linha--2 > .form-group { grid-column: span 6; }
+    .rec-linha--2 > .form-group { grid-column: span 3; }
+    .rec-linha--2 > .form-group:last-child { grid-column: span 6; }
     .rec-btn-salvar { grid-column: span 4; }
     .rec-btn-cancelar { grid-column: span 2; }
 }
+@media (max-width: 340px) {
+    .rec-linha--2 > .form-group { grid-column: span 6; }
+}
+.rec-linha select { text-overflow: ellipsis; }
 
 /* Campo "Total" (somente leitura): fundo escuro como o resto (forms.css traz um fundo claro) */
 .rec-form .form-group input.campo-travado[readonly] { background: var(--surface-3); color: var(--text-muted); border-color: var(--border); }
 
-.rec-lista { display: flex; flex-direction: column; gap: .5rem; }
-.rec-card { padding: .55rem .7rem; border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
-.rec-card.saida { border-left-color: var(--despesa-text); }
-.rec-card.entrada { border-left-color: var(--receita-text); }
-.rec-card-topo { display: flex; align-items: center; gap: .5rem; min-width: 0; }
-.rec-card.saida .rec-card-valor { color: var(--despesa-text); }
-.rec-card.entrada .rec-card-valor { color: var(--receita-text); }
-.rec-card-desc { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
-.rec-card-valor { flex: none; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.rec-card-acoes { flex: none; display: inline-flex; gap: .15rem; }
-.rec-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .4rem; margin-top: .35rem; }
-.rec-chip { font-size: .66rem; font-weight: 600; padding: .05rem .5rem; border-radius: 999px; background: var(--surface-3); color: var(--text-muted); white-space: nowrap; }
-.rec-chip--freq { background: var(--primary); color: var(--primary-contrast, #fff); }
-.rec-card-total { margin-left: auto; font-size: .72rem; color: var(--text-muted); }
+/* Lista: grupos (rec-grupo) e linhas no padrão dos lançamentos convencionais (.despesa-item): sem bordas
+   próprias — a cor fica só no grupo — e zebrado a partir de 3 linhas. */
+.rec-lista { display: block; }
+.rec-itens { display: flex; flex-direction: column; }
+.rec-item { border-left: 0 !important; border: 0; box-shadow: none; }
+.rec-itens > .rec-item:nth-of-type(even):not(:nth-of-type(2):last-of-type) { background: color-mix(in srgb, var(--surface-3) 55%, transparent); }
+.rec-nome { font-size: .88rem; font-weight: var(--font-weight-bold); color: var(--text); overflow-wrap: anywhere; }
+.rec-item .despesa-desc { flex: 1 0 100%; }

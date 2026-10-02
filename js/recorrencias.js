@@ -176,26 +176,31 @@ function _recMesCriacaoTexto(ym) {
 const _recFiltro = { saidas: 'cronologica', entradas: 'cronologica' };
 const _recAbertos = {}; // chave do grupo/subgrupo -> aberto (sem chave = padrão)
 
+/** Linha de uma recorrência — mesmo visual das linhas de lançamento (chips, descrição em itálico, ações). */
 function _recCardHTML(r) {
     const despesa = r.tipo === 'saidas';
+    const coresMet = (estadoApp.menus && estadoApp.menus.cores && estadoApp.menus.cores.metodo) || {};
+    const corCat = corDaCategoria(r.categoria, despesa ? 'saida' : 'entrada');
+    const corMet = coresMet[r.metodo] || corPadraoChip(r.metodo);
     return `
-        <div class="rec-card ${despesa ? 'saida' : 'entrada'}" data-id="${r.id}">
-            <div class="rec-card-topo">
-                <span class="rec-card-desc">${r.descricao || r.categoria}</span>
-                <span class="rec-card-valor">${despesa ? '-' : '+'} ${formatarMoeda(r.valor)}</span>
-                <span class="rec-card-acoes">
-                    <button type="button" class="btn-icon" data-rec-act="editar" title="Editar">✏️</button>
-                    <button type="button" class="btn-icon btn-danger" data-rec-act="excluir" title="Excluir">🗑️</button>
-                </span>
+        <div class="despesa-item rec-item ${despesa ? 'saida' : 'entrada'}" data-id="${r.id}">
+            <div class="despesa-conteudo">
+                <span class="rec-nome">${r.descricao || r.categoria}</span>
+                <span class="despesa-valor">${despesa ? '-' : '+'} ${formatarMoeda(r.valor)}</span>
+                <span class="chip chip--neutro">🔁 ${_recRotuloFrequencia(r)}</span>
+                <span class="chip" style="background:${corCat}">${r.categoria}</span>
+                <span class="chip" style="background:${corMet}">${r.metodo}</span>
+                <span class="despesa-desc">Total: ${_recTotalTexto(r)} · Criada em ${_recMesCriacaoTexto(r.criadoEm)}</span>
             </div>
-            <div class="rec-card-meta">
-                <span class="rec-chip rec-chip--freq">🔁 ${_recRotuloFrequencia(r)}</span>
-                <span class="rec-chip">${r.categoria}</span>
-                <span class="rec-chip">${r.metodo}</span>
-                <span class="rec-card-total">Total: ${_recTotalTexto(r)} · Criada em ${_recMesCriacaoTexto(r.criadoEm)}</span>
+            <div class="despesa-actions">
+                <button type="button" class="btn-icon" data-rec-act="editar" title="Editar">✏️</button>
+                <button type="button" class="btn-icon btn-danger" data-rec-act="excluir" title="Excluir">🗑️</button>
             </div>
         </div>`;
 }
+
+/** Cartões de um grupo/subgrupo num container só deles (o zebrado conta só as linhas, não a barra de filtros). */
+function _recItensHTML(lista) { return `<div class="rec-itens">${lista.map(_recCardHTML).join('')}</div>`; }
 
 /** Filtros do grupo: só aparecem os que têm mais de uma opção entre as recorrências do grupo. */
 function _recOrganizadorHTML(chave, itens) {
@@ -215,7 +220,7 @@ function _recGrupoHTML(chave, nome, cor, itens, aberto) {
     let corpo;
     const modo = _recFiltro[chave];
     if (modo === 'cronologica') {
-        corpo = itens.map(_recCardHTML).join('');
+        corpo = _recItensHTML(itens);
     } else {
         const campo = modo === 'categoria' ? 'categoria' : 'metodo';
         const mapa = new Map();
@@ -231,7 +236,7 @@ function _recGrupoHTML(chave, nome, cor, itens, aberto) {
                     <span class="subgrupo-nome">${sub}</span><span class="subgrupo-espaco"></span>
                     <span class="subgrupo-contagem">${lista.length}</span>
                 </summary>
-                ${lista.map(_recCardHTML).join('')}
+                ${_recItensHTML(lista)}
             </details>`;
         }).join('');
     }
@@ -295,7 +300,7 @@ function iniciarRecorrencias() {
             }
             const btn = ev.target.closest('[data-rec-act]');
             if (!btn) return;
-            const id = Number(btn.closest('.rec-card').dataset.id);
+            const id = Number(btn.closest('.rec-item').dataset.id);
             if (btn.dataset.recAct === 'excluir') {
                 if (!confirm('Excluir esta recorrência?')) return;
                 _recorrencias = _recorrencias.filter(r => r.id !== id);
