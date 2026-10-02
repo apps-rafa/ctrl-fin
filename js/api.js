@@ -40,6 +40,7 @@ function mapearTransacao(row) {
         cartaoId: row.cartao_id || null,
         grupoId: row.grupo_id || null,
         pendente: !!row.pendente,
+        duplicataOk: !!row.duplicata_ok, // "não é duplicata" confirmado (vale em todos os dispositivos)
         parcelaNum: row.parcela_num || null,
         parcelasTotal: row.parcelas_total || null,
         valorTotal: row.valor_total != null ? parseFloat(row.valor_total) : null,

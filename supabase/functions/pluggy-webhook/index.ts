@@ -22,6 +22,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const PLUGGY_API_URL = "https://api.pluggy.ai";
 const DIAS_HISTORICO_PRIMEIRA_SYNC = 30;
+const DIAS_RETROATIVOS = 45;
 
 // deno-lint-ignore no-explicit-any
 type ClienteSupabase = any;
@@ -111,8 +112,9 @@ async function notificarTelegramNovas(
   supabaseAdmin: ClienteSupabase,
   userId: string,
   itens: ItemNovoTelegram[],
+  diasAtras = NOTIFICAR_ATE_DIAS_ATRAS,
 ): Promise<void> {
-  const dataLimite = new Date(Date.now() - NOTIFICAR_ATE_DIAS_ATRAS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const dataLimite = new Date(Date.now() - diasAtras * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   itens = itens.filter((i) => i.data >= dataLimite);
   if (!itens.length) return;
   const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
@@ -548,9 +550,14 @@ Deno.serve(async (req: Request) => {
     let novasNoTotal = 0;
 
     for (const conta of contasOk) {
-      const dateFrom = conta.ultimo_sync
+      // Janela retroativa: a Pluggy publica compras do cartão dias DEPOIS, com a data da compra. Começar em
+      // ultimo_sync (que anda a cada sincronização) deixava essas compras de fora pra sempre — por isso sempre
+      // olha os últimos DIAS_RETROATIVOS dias (o upsert ignora o que já existe).
+      const desdeUltimoSync = conta.ultimo_sync
         ? String(conta.ultimo_sync).slice(0, 10)
         : new Date(Date.now() - DIAS_HISTORICO_PRIMEIRA_SYNC * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const retroativo = new Date(Date.now() - DIAS_RETROATIVOS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const dateFrom = desdeUltimoSync < retroativo ? desdeUltimoSync : retroativo;
 
       try {
         const linhas: Record<string, unknown>[] = [];
@@ -606,7 +613,8 @@ Deno.serve(async (req: Request) => {
           const conciliados = await conciliarComExistentes(supabaseAdmin, conta.user_id, pendentes);
           const paraAvisar = pendentes.filter((i) => !conciliados.has(i.id));
           novasNoTotal += paraAvisar.length;
-          await notificarTelegramNovas(supabaseAdmin, conta.user_id, paraAvisar);
+          // conta que já sincronizou antes: compra publicada com atraso (data antiga) também avisa; 1ª sync: só o recente
+          await notificarTelegramNovas(supabaseAdmin, conta.user_id, paraAvisar, conta.ultimo_sync ? DIAS_RETROATIVOS : NOTIFICAR_ATE_DIAS_ATRAS);
         }
 
         if (conta.tipo_conta === "CREDIT") await guardarFaturasBanco(supabaseAdmin, conta.user_id, conta.id, conta.account_id, apiKey);
