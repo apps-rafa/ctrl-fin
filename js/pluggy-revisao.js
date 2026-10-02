@@ -453,8 +453,10 @@ async function carregarRevisaoPluggy() {
     // Layout compartilhado (js/revisao-importacao.js): grupo → subgrupos
     // Despesas/Receitas → tabela X/Data/Valor/Categoria/Descrição. Sem
     // "Forma de pgto." — o método já vem fixado pela conta em "Método do app".
+    // Cartão de crédito: tudo é despesa — nenhum grupo (Para revisar, Prontas, Descartadas...) tem subgrupos
+    const soCartao = itens => itens.length > 0 && itens.every(i => contasPorId[i.conta_id]?.tipo_conta === 'CREDIT');
     const grupo = (id, titulo, itens, nota = '', semSubgrupos = false, abrir = false) => htmlGrupoRevisao({
-        id, titulo: titulo, abertos: _abertosPluggy, padraoAberto: abrir, subAberto: false, itens, nota, semSubgrupos,
+        id, titulo: titulo, abertos: _abertosPluggy, padraoAberto: abrir, subAberto: false, itens, nota, semSubgrupos: semSubgrupos || soCartao(itens),
         tipoDe: i => i.tipo, colunas: ['Data', 'Valor', 'Categoria', 'Descrição'],
         htmlLinha: gerarHTMLImportadaPluggy,
     });
@@ -521,7 +523,7 @@ async function carregarRevisaoPluggy() {
     // "Para revisar" (bate no banco na hora, não é local como o X normal).
     const jaIgnoradasHTML = !jaIgnoradas.length ? '' : htmlGrupoRevisao({
         id: 'pluggy-ja-ignoradas', titulo: '🗑️ Descartadas (não entraram)', abertos: _abertosPluggy, padraoAberto: false, subAberto: false,
-        itens: jaIgnoradas, tipoDe: i => i.tipo, colunas: ['Data', 'Valor', 'Categoria', 'Descrição'],
+        itens: jaIgnoradas, semSubgrupos: soCartao(jaIgnoradas), tipoDe: i => i.tipo, colunas: ['Data', 'Valor', 'Categoria', 'Descrição'],
         htmlLinha: gerarHTMLIgnoradaDbPluggy,
         nota: `<p class="revisao-nota">Ficam aqui riscadas — nunca somem da página, nem depois de "Limpar". Clique no ↺ pra mandar de volta pra "Para revisar".</p>`,
     });

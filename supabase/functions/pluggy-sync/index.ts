@@ -13,6 +13,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+const DIAS_RETROATIVOS = 45;
 const PLUGGY_API_URL = "https://api.pluggy.ai";
 const DIAS_HISTORICO_PRIMEIRA_SYNC = 30;
 
@@ -419,9 +420,14 @@ Deno.serve(async (req: Request) => {
 
     for (const conta of contas) {
       const ehCredito = conta.tipo_conta === "CREDIT";
-      let dateFrom = dateFromOverride ?? (conta.ultimo_sync
+      // Janela retroativa: a Pluggy publica compras do cartão dias DEPOIS, com a data da compra. Começar em
+      // ultimo_sync (que anda a cada sincronização) deixava essas compras de fora pra sempre — por isso sempre
+      // olha os últimos DIAS_RETROATIVOS dias (o upsert ignora o que já existe).
+      const desdeUltimoSync = conta.ultimo_sync
         ? String(conta.ultimo_sync).slice(0, 10)
-        : new Date(Date.now() - DIAS_HISTORICO_PRIMEIRA_SYNC * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
+        : new Date(Date.now() - DIAS_HISTORICO_PRIMEIRA_SYNC * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const retroativo = new Date(Date.now() - DIAS_RETROATIVOS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      let dateFrom = dateFromOverride ?? (desdeUltimoSync < retroativo ? desdeUltimoSync : retroativo);
 
       // Cartão de crédito: o mês escolhido é a COMPETÊNCIA DA FATURA. A fatura
       // de M cobre compras do fim de M-1 até o fechamento em M, então a janela

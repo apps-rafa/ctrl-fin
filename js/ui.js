@@ -69,17 +69,34 @@ function _renderBarraGrupos(grupos, tipoUI, modo) {
     return `<div class="cron-barra" role="img">${segs}</div>`;
 }
 
-/** IDs de transação que o usuário já confirmou "não é duplicata" — persiste
- *  no localStorage (por navegador/dispositivo) pra não voltar a incomodar
- *  com o mesmo lançamento depois de resolvido. */
+/** IDs de transação que o usuário já confirmou "não é duplicata". O que vale é a coluna
+ *  transacoes.duplicata_ok (banco: igual em todos os dispositivos); o localStorage ficou só como
+ *  reserva do que ainda não subiu (ver sincronizarDuplicatasAprovadasLocais). */
 function _duplicatasAprovadasSet() {
     try { return new Set(JSON.parse(localStorage.getItem('duplicatasAprovadas') || '[]')); }
     catch (_) { return new Set(); }
 }
 function _aprovarDuplicata(id) {
-    const s = _duplicatasAprovadasSet();
-    s.add(id);
-    try { localStorage.setItem('duplicatasAprovadas', JSON.stringify([...s])); } catch (_) {}
+    // na memória (a tela já some com o aviso) e no banco
+    [...(estadoApp.transacoes?.entradas || []), ...(estadoApp.transacoes?.saidas || []), ...(typeof _transacoesExtra !== 'undefined' ? _transacoesExtra : [])]
+        .forEach(t => { if (t.id === id) t.duplicataOk = true; });
+    Promise.resolve(sb.from('transacoes').update({ duplicata_ok: true }).eq('id', id)).then(({ error }) => {
+        if (error) { // sem rede/erro: guarda no aparelho e tenta de novo na próxima abertura
+            console.error('Erro ao salvar "não é duplicata":', error);
+            const s = _duplicatasAprovadasSet(); s.add(id);
+            try { localStorage.setItem('duplicatasAprovadas', JSON.stringify([...s])); } catch (_) {}
+        }
+    });
+}
+/** Sobe pro banco as aprovações antigas guardadas só neste aparelho (uma vez por aparelho). */
+async function sincronizarDuplicatasAprovadasLocais() {
+    const ids = [..._duplicatasAprovadasSet()].filter(Number.isFinite);
+    if (!ids.length) return;
+    const { error } = await sb.from('transacoes').update({ duplicata_ok: true }).in('id', ids);
+    if (error) { console.error('Erro ao subir duplicatas aprovadas:', error); return; }
+    try { localStorage.removeItem('duplicatasAprovadas'); } catch (_) {}
+    await recarregarDados();
+    atualizarUI();
 }
 
 /** Duplicata suspeita: mesmo valor, método e descrição (normalizada)
@@ -99,7 +116,7 @@ function _detectarDuplicatas(transacoes) {
     // O par precisa ter >=2 membros ANTES de tirar os aprovados — aprovar 1
     // dos 2 não pode fazer o outro (ainda não aprovado) sumir também.
     return [...mapa.values()].filter(g => g.length >= 2)
-        .flatMap(g => g.filter(t => !aprovadas.has(t.id))).sort(_porDataDesc);
+        .flatMap(g => g.filter(t => !t.duplicataOk && !aprovadas.has(t.id))).sort(_porDataDesc);
 }
 
 /** Grupo "Verificação de duplicatas" fixo no topo da lista, em qualquer
