@@ -255,15 +255,6 @@
     }
 }
 
-/* Hover elevado com sombra */
-.elevate-on-hover {
-    transition: box-shadow 0.3s ease, transform 0.3s ease;
-}
-
-.elevate-on-hover:hover {
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-}
-
 /* Efeito de glow */
 .glow {
     animation: pulse-scale 2s ease-in-out infinite;
@@ -284,7 +275,7 @@
     height: 0;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.5);
-    transform: translate(-50%, -50%);
+    translate: -50% -50%; /* propriedade "translate" (não "transform"): a regra global de hover zera transform e o elemento pulava */
 }
 
 .ripple:active::after {
@@ -297,27 +288,6 @@
         height: 300px;
         opacity: 0;
     }
-}
-
-/* Efeito de underline ao hover */
-.underline-on-hover {
-    position: relative;
-    text-decoration: none;
-}
-
-.underline-on-hover::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: currentColor;
-    transform-origin: left;
-    transition: transform 0.3s ease;
-}
-
-.underline-on-hover:hover::after {
 }
 
 /* ============================================================

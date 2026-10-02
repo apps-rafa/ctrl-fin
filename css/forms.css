@@ -336,8 +336,7 @@
 }
 
 .sugestao-item:hover {
-    background: var(--light);
-    padding-left: calc(var(--spacing-md) + 4px);
+    background: var(--light); /* só o fundo: nada se desloca no hover */
 }
 
 .sugestao-item:last-child {

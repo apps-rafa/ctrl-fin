@@ -179,7 +179,7 @@
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    translate: -50% -50%; /* propriedade "translate" (não "transform"): a regra global de hover zera transform e o elemento pulava */
 }
 
 /* Animação */
