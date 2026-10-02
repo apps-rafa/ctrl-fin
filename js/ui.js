@@ -545,7 +545,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
         semChave: 'Sem forma de pagamento',
         campoChip: 'metodo',
         corDe: nome => coresMetodo[nome] || corPadraoChip(nome),
-    }, abertosSub, `${tipoUI}:cronologica:${nomeGrupo}`, nomeGrupo === nomeAtual ? totalPagoGrupo : totalAPagarGrupo, {},
+    }, abertosSub, `${tipoUI}:cronologica:${nomeGrupo}`, nomeGrupo === nomeAtual ? totalPagoGrupo : totalAPagarGrupo, { semRelogio: nomeGrupo === rotuloPendente }, // em "A pagar" tudo é futuro: o ⏰ seria redundante
         nomeGrupo === nomeAtual ? pagasFat.length : (nomeGrupo === rotuloPendente ? abertasFat.length : 0));
     const grupoHTML = (nome, cor, itens, total, pct, extraHTML = '', extraContagem = 0) => {
         if (!itens.length && !extraHTML) return `
@@ -564,7 +564,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
           </summary>
           <div class="rec-grupo-itens">
             ${extraHTML}
-            ${tipoUI === 'saida' ? corpoPorForma(itens, nome) : itens.map(t => gerarHTMLTransacao(t, tipoUI, { semMetodoChip: true })).join('')}
+            ${tipoUI === 'saida' ? corpoPorForma(itens, nome) : itens.map(t => gerarHTMLTransacao(t, tipoUI, { semMetodoChip: true, semRelogio: nome === rotuloPendente })).join('')}
           </div>
         </details>`;
     };
