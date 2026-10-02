@@ -53,6 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('📊 Carregando dados...');
     await carregarDados();
     if (typeof sincronizarDuplicatasAprovadasLocais === 'function') sincronizarDuplicatasAprovadasLocais();
+    if (typeof garantirOcorrenciasDoDia === 'function') garantirOcorrenciasDoDia();
     if (typeof iniciarVisaoAnual === 'function' && !window._anualIniciado) { window._anualIniciado = true; iniciarVisaoAnual(); }
     if (typeof carregarSaldoContas === 'function') carregarSaldoContas();
     if (typeof carregarFaturasBanco === 'function') carregarFaturasBanco();
