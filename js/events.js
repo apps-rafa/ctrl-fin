@@ -515,6 +515,8 @@ function mudarAba(novaAba) {
         if (typeof atualizarSaidasLista === 'function') atualizarSaidasLista();
         // Renderizar gráfico após pequeno delay
         setTimeout(atualizarGrafico, 100);
+    } else if (novaAba === 'recorrencias') {
+        if (typeof iniciarRecorrencias === 'function') iniciarRecorrencias();
     } else if (novaAba === 'proximas') {
         // Carregar próximas transações
         atualizarProximasTransacoes();
