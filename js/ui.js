@@ -169,6 +169,20 @@ function _renderGrupoAConfirmar(itens, tipoUI, aberto) {
     </details>`;
 }
 
+/** "Fila": junta Duplicatas e A confirmar num grupo só quando existem os dois; com um só, ele aparece sozinho. */
+function _renderFila(htmlAConfirmar, htmlDuplicatas, qtd, aberto) {
+    if (!htmlAConfirmar || !htmlDuplicatas) return htmlAConfirmar + htmlDuplicatas;
+    return `
+    <details class="rec-grupo rec-grupo-fila" data-nome="__fila__" style="--cor-rec:var(--despesa-text)" ${aberto === false ? '' : 'open'}>
+      <summary>
+        <span class="rec-grupo-nome">📥 Fila</span>
+        <span class="rec-grupo-espaco"></span>
+        <span class="rec-grupo-contagem">${qtd}</span>
+      </summary>
+      <div class="rec-grupo-itens">${htmlAConfirmar}${htmlDuplicatas}</div>
+    </details>`;
+}
+
 /** Escolhe a renderização certa pro modo de visualização selecionado — usado
  *  tanto por Receitas quanto por Despesas. Nos modos que não são
  *  Cronológica, prepend uma barra com 1 segmento por grupo (recorrência/
@@ -192,6 +206,8 @@ function renderListaPorModo(container, transacoes, tipoUI, modo, msgVazia) {
     let abertoDuplicatas = dupContainer?.querySelector('details.rec-grupo[data-nome="__duplicatas__"]')?.open;
     const detAC = dupContainer?.querySelector('details.rec-grupo[data-nome="__aconfirmar__"]');
     const abertoAConfirmar = detAC ? detAC.open : undefined;
+    const detFila = dupContainer?.querySelector('details.rec-grupo[data-nome="__fila__"]');
+    const abertoFila = detFila ? detFila.open : undefined;
     if (_forcarAbrirDuplicatas[tipoUI]) {
         abertoDuplicatas = true;
         _forcarAbrirDuplicatas[tipoUI] = false;
@@ -253,8 +269,9 @@ function renderListaPorModo(container, transacoes, tipoUI, modo, msgVazia) {
     }
 
     if (dupContainer) {
-        dupContainer.innerHTML = _renderGrupoAConfirmar(aConfirmar, tipoUI, abertoAConfirmar)
-            + ((transacoes && transacoes.length) ? _renderGrupoDuplicatas(transacoes, tipoUI, abertoDuplicatas) : '');
+        const htmlAC = _renderGrupoAConfirmar(aConfirmar, tipoUI, abertoAConfirmar);
+        const htmlDup = (transacoes && transacoes.length) ? _renderGrupoDuplicatas(transacoes, tipoUI, abertoDuplicatas) : '';
+        dupContainer.innerHTML = _renderFila(htmlAC, htmlDup, aConfirmar.length + (htmlDup ? _detectarDuplicatas(transacoes).length : 0), abertoFila);
         dupContainer.onclick = onListaTransacaoClick;
     }
 }
@@ -912,7 +929,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
         }
     }
 
-    const classes = `despesa-item ${tipo}` + (trans.quitada ? ' quitada' : '');
+    const classes = `despesa-item ${tipo}` + (trans.quitada ? ' quitada' : '') + (seloLinha.includes('conc-selo--baixo') ? ' com-2-selos' : '');
 
     // .despesa-conteudo (dia/valor/tags/descrição) e .despesa-actions são
     // colunas separadas de um flex externo — o conteúdo nunca invade a

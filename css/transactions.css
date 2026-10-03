@@ -846,5 +846,7 @@ body .despesa-item { padding-left: 1.25rem !important; }
 .subgrupo-cab:has(+ .fatura-virtual) { border-bottom: 0 !important; margin-bottom: 0 !important; }
 
 /* Selo 🔁 embaixo do ⏰ quando os dois aparecem */
-.despesa-item > .despesa-conteudo > .conc-selo.conc-selo--baixo { top: 1.25rem; }
-@media (max-width: 480px) { .despesa-item > .despesa-conteudo > .conc-selo.conc-selo--baixo { top: 1.05rem; } }
+/* ⏰ no alto e 🔁 embaixo: aproveitam a altura toda da linha (que ganha uma altura mínima) */
+.despesa-item.com-2-selos { min-height: 3.1rem; }
+.despesa-item > .despesa-conteudo > .conc-selo.conc-selo--baixo { top: auto; bottom: .55rem; }
+@media (max-width: 480px) { .despesa-item > .despesa-conteudo > .conc-selo.conc-selo--baixo { top: auto; bottom: .5rem; } }
