@@ -182,6 +182,39 @@ function _recDuracaoAtual() {
     return Math.max(1, parseInt(e.duracao.value, 10) || 1);
 }
 
+/** Largura que o select precisa pra mostrar o texto inteiro (texto + padding, que já reserva a seta). */
+function _recLarguraNecessaria(el, texto) {
+    const cs = getComputedStyle(el);
+    const ctx = (_recCabe.c || (_recCabe.c = document.createElement('canvas'))).getContext('2d');
+    ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    return Math.ceil(ctx.measureText(texto).width + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)) + 4;
+}
+
+/** Recorrência + Dia dividem as colunas que o Valor NÃO usa (o grid do Valor nunca muda). Parte da divisão padrão do CSS;
+ *  se "Semanal" não couber, mede os dois campos e dá à Recorrência as colunas que faltam, tirando só do Dia. */
+function _recDistribuirRecorrenciaEDia(linha) {
+    const e = _recElementos();
+    const gFreq = linha.querySelector('.rec-c-freq'), gDia = linha.querySelector('.rec-c-dia'), gValor = linha.querySelector('.rec-c-valor');
+    gFreq.style.gridColumn = ''; gDia.style.gridColumn = '';
+    e.dia.classList.remove('compacto');
+    if (!e.freq.clientWidth) return;
+    const cs = getComputedStyle(linha), gap = parseFloat(cs.columnGap) || 0;
+    const unidade = (linha.clientWidth - 11 * gap) / 12;
+    // colunas do Valor (lidas da largura real, pois o CSS muda por tela); Recorrência + Dia ficam com as outras
+    const spanValor = Math.round((gValor.getBoundingClientRect().width + gap) / (unidade + gap)) || 4;
+    const total = 12 - spanValor;
+    const larg = n => n * unidade + (n - 1) * gap;
+    // a Recorrência recebe só as colunas que o nome inteiro pede; o resto é do Dia
+    const necFreq = _recLarguraNecessaria(e.freq, 'Semanal') + (e.freq.offsetWidth - e.freq.clientWidth);
+    let fSpan = total - 1;
+    for (let n = 1; n < total; n++) if (larg(n) >= necFreq) { fSpan = n; break; }
+    gFreq.style.gridColumn = 'span ' + fSpan;
+    gDia.style.gridColumn = 'span ' + (total - fSpan);
+    // Dia sem espaço pro texto + seta: fica compacto (sem a seta), mas o texto aparece inteiro
+    const textoDia = e.freq.value === 'mensal' ? 'Hoje' : 'Var.';
+    if (larg(total - fSpan) < _recLarguraNecessaria(e.dia, textoDia)) e.dia.classList.add('compacto');
+}
+
 /** Menu "Dia": mensal = dia do mês (1–31; cai em fim de semana/feriado, vai para o próximo dia útil); semanal = dia da semana ou Variável. */
 function _recMontarMenuDia(freq, valor) {
     const e = _recElementos();
@@ -205,8 +238,7 @@ function atualizarFormRecorrencia() {
     e.diaGrupo.hidden = false;
     const linha1 = e.painel.querySelector('.rec-linha--1');
     linha1.classList.add('is-semanal'); // o Dia aparece nos dois ritmos
-    linha1.classList.remove('freq-larga');
-    if (e.freq.clientWidth && !_recCabe(e.freq, 'Semanal', 8)) linha1.classList.add('freq-larga'); // nome inteiro, sem "Sema..."
+    _recDistribuirRecorrenciaEDia(linha1); // "Semanal"/"Mensal" nunca abreviam
     const n = _recDuracaoAtual();
     if (document.activeElement !== e.duracao) e.duracao.value = _recDuracaoTexto(n, e.duracao); // em digitação fica o número cru
     _recAjustarDia();
