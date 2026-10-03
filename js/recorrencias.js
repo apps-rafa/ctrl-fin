@@ -197,6 +197,7 @@ function _recDistribuirRecorrenciaEDia(linha) {
     const gFreq = linha.querySelector('.rec-c-freq'), gDia = linha.querySelector('.rec-c-dia');
     gFreq.style.gridColumn = ''; gDia.style.gridColumn = '';
     e.dia.classList.remove('compacto');
+    e.inicio.classList.remove('compacto');
     if (e.freq.value === 'mensal' && e.dia.options[0] && e.dia.options[0].value === 'hoje') e.dia.options[0].textContent = 'Hoje';
     if (!e.freq.clientWidth) return;
     const cs = getComputedStyle(linha), gap = parseFloat(cs.columnGap) || 0;
@@ -213,6 +214,8 @@ function _recDistribuirRecorrenciaEDia(linha) {
         gFreq.style.gridColumn = 'span ' + fSpan;
         gDia.style.gridColumn = 'span ' + (total - fSpan);
     }
+    // Início (1 coluna): sem a seta quando não cabe com ela
+    if (e.inicio.clientWidth && e.inicio.clientWidth < _recLarguraNecessaria(e.inicio, 'OUT') + 12) e.inicio.classList.add('compacto');
     // Dia sem espaço pro texto + seta: compacto (sem a seta); em falta extrema, "Hoje" vira "HJ"
     const textoDia = e.freq.value === 'mensal' ? 'Hoje' : 'Var.';
     const sobra = larg(total - fSpan);
@@ -327,7 +330,7 @@ function atualizarFormRecorrencia() {
     const meses = _recMesesDe(n);
     if (!meses) {
         const porMes = semanal ? valor * 52 / 12 : valor;
-        e.total.value = 'Contínuo';
+        e.total.value = '-';
         e.total.title = valor ? `≈ ${formatarMoeda(porMes)} por mês, enquanto durar` : 'Informe o valor para estimar o gasto mensal';
         return;
     }
