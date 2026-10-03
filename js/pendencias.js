@@ -73,16 +73,19 @@ function renderPendencias() {
     if (!container) return;
     const abertos = {};
     container.querySelectorAll('details[data-pend]').forEach(d => { abertos[d.dataset.pend] = d.open; });
+    // tudo nasce fechado, exceto o mês selecionado no cabeçalho (e os grupos dele)
+    const mA = estadoApp.mesAtual || new Date();
+    const compSel = `${mA.getFullYear()}-${String(mA.getMonth() + 1).padStart(2, '0')}`;
     const aberto = (k, padrao) => (abertos[k] !== undefined ? abertos[k] : padrao);
     const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
     const tipoUI = t => (t.tipo === 'entradas' ? 'entrada' : 'saida');
     const todos = [];
-    const grupo = (chave, nome, cor, itens, opts) => {
+    const grupo = (chave, nome, cor, itens, opts, abrir) => {
         if (!itens.length) return '';
         itens.forEach(t => todos.push(t));
         const total = itens.reduce((acc, t) => acc + valorDe(t), 0);
         return `
-        <details class="fatura-item" data-pend="${chave}" style="--cor-cartao:${cor}" ${aberto(chave, true) ? 'open' : ''}>
+        <details class="fatura-item" data-pend="${chave}" style="--cor-cartao:${cor}" ${aberto(chave, !!abrir) ? 'open' : ''}>
           <summary>
             <span class="fatura-nome">${nome}</span>
             <span class="fatura-contagem">${itens.length}</span>
@@ -93,11 +96,11 @@ function renderPendencias() {
         </details>`;
     };
     const html = [..._pendencias.meses.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([comp, m]) => {
-        const corpo = grupo(`pend:${comp}:ac`, '🔁 A confirmar', 'var(--balanco-text)', m.ac.slice().sort((x, y) => String(x.data).localeCompare(String(y.data))), { comConfirmarOcorrencia: true })
-            + grupo(`pend:${comp}:dup`, '📑 Duplicatas', 'var(--despesa-text)', m.dups, { comAprovarDuplicata: true });
+        const corpo = grupo(`pend:${comp}:ac`, '🔁 A confirmar', 'var(--balanco-text)', m.ac.slice().sort((x, y) => String(x.data).localeCompare(String(y.data))), { comConfirmarOcorrencia: true }, comp === compSel)
+            + grupo(`pend:${comp}:dup`, '📑 Duplicatas', 'var(--despesa-text)', m.dups, { comAprovarDuplicata: true }, comp === compSel);
         if (!corpo) return '';
         return `
-        <details class="fatura-item" data-pend="mes:${comp}" ${aberto('mes:' + comp, true) ? 'open' : ''}>
+        <details class="fatura-item" data-pend="mes:${comp}" ${aberto('mes:' + comp, comp === compSel) ? 'open' : ''}>
           <summary>
             <span class="fatura-nome">${_rotuloMesPend(comp)}</span>
             <span class="fatura-contagem">${m.ac.length + m.dups.length}</span>
