@@ -213,7 +213,7 @@ function atualizarResumo() {
         pagoLinha.classList.toggle('vazio', !temQuebraPago);
         const fmtP = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
         const detP = document.getElementById('saidasPagoDetalhe');
-        if (detP) { const px = fmtP(pix), cr = fmtP(cred); _ajustarDetalhe(detP, temQuebraPago ? [`pix ${px} + crédito ${cr}`, `pix ${px} + créd. ${cr}`, `pix ${px} + c.c. ${cr}`, `${px} + ${cr}`].map(mask) : null); }
+        if (detP) { const px = fmtP(pix), cr = fmtP(cred); _ajustarDetalhe(detP, temQuebraPago ? [`pix ${px} + crédito ${cr}`, `pix ${px} + 💳 ${cr}`, `${px} + 💳 ${cr}`, `${px} + ${cr}`].map(mask) : null); }
     }
     const detLinha = document.getElementById('saidasDetalheLinha');
     if (detLinha) {
@@ -226,7 +226,7 @@ function atualizarResumo() {
         detLinha.classList.toggle('vazio', !temQuebra); // mantém a altura pra alinhar com Receita
         const fmt = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
         const det = document.getElementById('saidasDetalhe');
-        if (det) { const av = fmt(avulsos), fa = fmt(fat); _ajustarDetalhe(det, temQuebra ? [`pendentes ${av} + crédito ${fa}`, `pend. ${av} + crédito ${fa}`, `pend. ${av} + créd. ${fa}`, `pend. ${av} + c.c. ${fa}`, `${av} + ${fa}`].map(mask) : null); }
+        if (det) { const av = fmt(avulsos), fa = fmt(fat); _ajustarDetalhe(det, temQuebra ? [`pendentes ${av} + crédito ${fa}`, `⏳ ${av} + 💳 ${fa}`, `${av} + ${fa}`].map(mask) : null); }
     }
 
     if (balancoEl) {
@@ -285,7 +285,23 @@ function atualizarResumo() {
     // anterior) antes de corrigir, um "flicker" visível a cada atualização do
     // dashboard.
     ajustarFontesDashboard();
+    ajustarRotulosCards();
 }
+
+/** Rótulos dos cards (atual/pago, a receber/a pagar): viram 🟢 e ⏭️ quando não cabem ao lado do valor (os dois do card juntos). */
+function ajustarRotulosCards() {
+    document.querySelectorAll('.summary-card .card-linhas-topo').forEach(topo => {
+        const rot = [...topo.querySelectorAll('.linha:not(.linha-detalhe) > i[data-rot]')];
+        if (!rot.length) return;
+        const poe = emoji => rot.forEach(i => { i.textContent = emoji ? i.dataset.emo : i.dataset.rot; });
+        poe(false);
+        // aperta = não cabe ao lado do valor, ou o texto (que escala com o card) já ficou pequeno demais pra ler
+        const aperta = rot.some(i => { const l = i.parentElement; return i.scrollWidth + (l.querySelector('b')?.scrollWidth || 0) + 10 > l.clientWidth || parseFloat(getComputedStyle(i).fontSize) < 9; });
+        if (aperta) poe(true);
+        topo.classList.toggle('rot-emoji', aperta);
+    });
+}
+window.addEventListener('resize', () => ajustarRotulosCards());
 
 /** Aviso "⚠️ Duplicatas" no card de Receita/Despesa do dashboard, só quando
  *  aquele mês tem alguma duplicata suspeita (mesma detecção do grupo da
