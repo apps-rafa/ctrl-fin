@@ -517,6 +517,8 @@ function mudarAba(novaAba) {
         if (typeof atualizarSaidasLista === 'function') atualizarSaidasLista();
         // Renderizar gráfico após pequeno delay
         setTimeout(atualizarGrafico, 100);
+    } else if (novaAba === 'pendencias') {
+        if (typeof renderPendencias === 'function') renderPendencias();
     } else if (novaAba === 'recorrencias') {
         if (typeof iniciarRecorrencias === 'function') iniciarRecorrencias();
     } else if (novaAba === 'proximas') {

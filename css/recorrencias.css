@@ -42,7 +42,8 @@
     .rec-linha--1.is-semanal > .rec-c-valor { grid-column: span 6; }
     .rec-linha--1 > .rec-c-dur, .rec-linha--1 > .rec-c-total { grid-column: span 6; }
     .rec-linha--2 > .form-group { grid-column: span 6; }
-    .rec-linha--2 > .form-group:last-child { grid-column: span 12; }
+    .rec-linha--2 > .form-group:nth-child(3) { grid-column: span 8; }
+    .rec-linha--2 > .rec-c-inicio { grid-column: span 4; }
     .rec-btn-salvar { grid-column: span 8; }
     .rec-btn-cancelar { grid-column: span 4; }
 }
@@ -76,3 +77,13 @@ body .rec-item { padding-left: 2.3rem !important; }
 .rec-toggle:hover { background: color-mix(in srgb, currentColor 16%, transparent); }
 /* Dia sem espaço pra seta: some a seta e o texto fica centralizado, inteiro */
 .rec-linha--1 .rec-c-dia select.compacto { appearance: none; -webkit-appearance: none; background-image: none; padding-left: .2rem; padding-right: .2rem; text-align: center; text-align-last: center; }
+/* Linha 2 no desktop: Forma de pagamento 3 | Categoria 3 | Descrição 4 | Início 2 */
+.rec-linha--2 > .form-group:nth-child(1), .rec-linha--2 > .form-group:nth-child(2) { grid-column: span 3; }
+.rec-linha--2 > .form-group:nth-child(3) { grid-column: span 4; }
+.rec-linha--2 > .rec-c-inicio { grid-column: span 2; }
+.rec-c-inicio select { padding-left: .5rem; padding-right: 1.2rem; }
+@media (max-width: 560px) {
+    .rec-linha--2 > .form-group:nth-child(1), .rec-linha--2 > .form-group:nth-child(2) { grid-column: span 6; }
+    .rec-linha--2 > .form-group:nth-child(3) { grid-column: span 8; }
+    .rec-linha--2 > .rec-c-inicio { grid-column: span 4; }
+}
