@@ -190,39 +190,34 @@ function _recLarguraNecessaria(el, texto) {
     return Math.ceil(ctx.measureText(texto).width + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)) + 4;
 }
 
-/** Recorrência + Dia dividem as colunas que o Valor NÃO usa (o grid do Valor nunca muda). Parte da divisão padrão do CSS;
- *  se "Semanal" não couber, mede os dois campos e dá à Recorrência as colunas que faltam, tirando só do Dia. */
-function _recDistribuirRecorrenciaEDia(linha) {
+/** Ajustes por medição (as colunas em si são do CSS: pares [Recorrência|Dia] [Início|Duração] [Valor|Total]):
+ *  - Dia sem espaço pro texto + seta: fica compacto (sem a seta); em falta extrema, "Hoje" vira "HJ";
+ *  - Início sem espaço: perde a seta e, se ainda não couber o tricode, passa a mostrar o mês em número (em vez de "..."). */
+function _recDistribuirRecorrenciaEDia() {
     const e = _recElementos();
-    const gFreq = linha.querySelector('.rec-c-freq'), gDia = linha.querySelector('.rec-c-dia');
-    gFreq.style.gridColumn = ''; gDia.style.gridColumn = '';
     e.dia.classList.remove('compacto');
     e.inicio.classList.remove('compacto');
     if (e.freq.value === 'mensal' && e.dia.options[0] && e.dia.options[0].value === 'hoje') e.dia.options[0].textContent = 'Hoje';
+    _recRotulosInicio(false);
     if (!e.freq.clientWidth) return;
-    const cs = getComputedStyle(linha), gap = parseFloat(cs.columnGap) || 0;
-    const unidade = (linha.clientWidth - 11 * gap) / 12;
-    const cols = g => Math.round((g.getBoundingClientRect().width + gap) / (unidade + gap));
-    // Recorrência + Dia dividem as colunas que o CSS já reserva aos dois (Valor, Duração e Total não mudam)
-    const total = cols(gFreq) + cols(gDia);
-    const larg = n => n * unidade + (n - 1) * gap;
-    const necFreq = _recLarguraNecessaria(e.freq, 'Semanal') + (e.freq.offsetWidth - e.freq.clientWidth);
-    let fSpan = cols(gFreq); // divisão padrão do CSS; só muda se o nome da Recorrência não couber
-    if (e.freq.clientWidth < necFreq) {
-        fSpan = total - 1;
-        for (let n = 1; n < total; n++) if (larg(n) >= necFreq) { fSpan = n; break; }
-        gFreq.style.gridColumn = 'span ' + fSpan;
-        gDia.style.gridColumn = 'span ' + (total - fSpan);
-    }
-    // Início (1 coluna): sem a seta quando não cabe com ela
-    if (e.inicio.clientWidth && e.inicio.clientWidth < _recLarguraNecessaria(e.inicio, 'OUT') + 12) e.inicio.classList.add('compacto');
-    // Dia sem espaço pro texto + seta: compacto (sem a seta); em falta extrema, "Hoje" vira "HJ"
     const textoDia = e.freq.value === 'mensal' ? 'Hoje' : 'Var.';
-    const sobra = larg(total - fSpan);
-    if (sobra < _recLarguraNecessaria(e.dia, textoDia)) {
+    if (e.dia.clientWidth < _recLarguraNecessaria(e.dia, textoDia)) {
         e.dia.classList.add('compacto');
-        if (e.freq.value === 'mensal' && sobra < _recLarguraNecessaria(e.dia, 'Hoje') && e.dia.options[0] && e.dia.options[0].value === 'hoje') e.dia.options[0].textContent = 'HJ';
+        if (e.freq.value === 'mensal' && e.dia.clientWidth < _recLarguraNecessaria(e.dia, 'Hoje') && e.dia.options[0] && e.dia.options[0].value === 'hoje') e.dia.options[0].textContent = 'HJ';
     }
+    if (e.inicio.clientWidth && e.inicio.clientWidth < _recLarguraNecessaria(e.inicio, 'OUT') + 24) {
+        e.inicio.classList.add('compacto');
+        if (e.inicio.clientWidth < _recLarguraNecessaria(e.inicio, 'OUT')) _recRotulosInicio(true);
+    }
+}
+
+/** Texto das opções do Início: tricode (JAN..DEZ) ou, apertado, o número do mês (01..12). */
+function _recRotulosInicio(numerico) {
+    const e = _recElementos();
+    [...e.inicio.options].forEach(o => {
+        const m = Number(o.value.slice(5, 7));
+        o.textContent = numerico ? String(m).padStart(2, '0') : _TRI_MESES[m - 1];
+    });
 }
 
 const _TRI_MESES = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
@@ -322,7 +317,7 @@ function atualizarFormRecorrencia() {
     e.diaGrupo.hidden = false;
     const linha1 = e.painel.querySelector('.rec-linha--1');
     linha1.classList.add('is-semanal'); // o Dia aparece nos dois ritmos
-    _recDistribuirRecorrenciaEDia(linha1); // "Semanal"/"Mensal" nunca abreviam
+    _recDistribuirRecorrenciaEDia(); // Dia/Início compactos quando falta espaço
     const n = _recDuracaoAtual();
     if (document.activeElement !== e.duracao) e.duracao.value = _recDuracaoTexto(n, e.duracao); // em digitação fica o número cru
     _recAjustarDia();
