@@ -82,15 +82,10 @@ function _parcelasNumero(input) {
     return Math.max(1, parseInt(input?.value, 10) || 1);
 }
 
-/** Receita: o "Mês" fica ao lado do Valor (Data - Valor - Mês, já que não há forma de pagamento);
- *  despesa: ao lado da forma de pagamento, antes das parcelas. */
-function posicionarCompetencia(ehReceita) {
+/** O "Mês" (competência) fica sempre ao lado da Data, em despesa e em receita (ver #dataValorBloco). */
+function posicionarCompetencia(_ehReceita) {
     const grp = document.getElementById('competenciaGroup');
-    if (!grp) return;
-    grp.hidden = false;
-    const destino = ehReceita ? document.getElementById('dataValorBloco') : document.getElementById('metodoBloco');
-    if (!destino || grp.parentElement === destino) return;
-    destino.insertBefore(grp, ehReceita ? null : document.getElementById('parceleGroup'));
+    if (grp) grp.hidden = false;
 }
 
 /**

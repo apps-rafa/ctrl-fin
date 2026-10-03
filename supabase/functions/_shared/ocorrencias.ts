@@ -20,6 +20,7 @@ export interface RecorrenciaLinha {
   id: number; user_id: string; tipo: "entradas" | "saidas"; frequencia: "mensal" | "semanal";
   dia_semana: number | null; dia_mes: number | null; valor: number | string; meses: number | null;
   metodo: string; categoria: string; descricao: string; inicio: string; status: string; gerado_ate: string | null;
+  competencia_offset?: number | null; // -1 = mês anterior, 0 = mesmo mês, 1 = mês seguinte ao da data do lançamento
 }
 
 const MS_DIA = 86400000;
@@ -102,6 +103,13 @@ export function competenciaDoLancamento(dataISO: string, diaFechamento: number |
   return `${ano}-${String(mes + 1).padStart(2, "0")}-01`;
 }
 
+/** Competência da ocorrência: a do lançamento (mês da data; no crédito, a da fatura) deslocada em `deslocamento` meses.
+ *  Ex.: salário de outubro pago em 30/09 (dia 31, competência "mês seguinte") -> competência 2026-10-01. */
+export function competenciaDaOcorrencia(dataISO: string, diaFechamento: number | null, deslocamento: number | null | undefined): string {
+  const base = competenciaDoLancamento(dataISO, diaFechamento);
+  return deslocamento ? somarMesesNoDia(base, deslocamento, 1) : base;
+}
+
 /** Gera as ocorrências que faltam (de um usuário ou de todos), solta as passadas confirmadas e encerra as que terminaram.
  *  Devolve quantas ocorrências novas foram criadas. */
 export async function gerarOcorrencias(
@@ -128,7 +136,7 @@ export async function gerarOcorrencias(
     if (datas.length) {
       const linhas = datas.map((d) => ({
         user_id: r.user_id, tipo: r.tipo, data: d, valor: valorRef, metodo: r.metodo, categoria: r.categoria,
-        descricao: r.descricao, forma_pagamento: "À vista", tipo_recorrencia: "Pontual", competencia: competenciaDoLancamento(d, fech),
+        descricao: r.descricao, forma_pagamento: "À vista", tipo_recorrencia: "Pontual", competencia: competenciaDaOcorrencia(d, fech, r.competencia_offset),
         status: "Ativa", recorrencia_id: r.id, a_confirmar: true,
         // semanal: o mesmo valor/forma/descrição várias vezes no mês é o normal, nunca duplicata
         duplicata_ok: r.frequencia === "semanal",

@@ -43,13 +43,14 @@
 /* Tela estreita: Forma de pagamento | Categoria; Descrição (a linha 1 se reorganiza sozinha pelos pares, ver acima) */
 @media (max-width: 560px) {
     .rec-linha--2 > .form-group:nth-child(1), .rec-linha--2 > .form-group:nth-child(2) { grid-column: span 6; }
-    .rec-linha--2 > .form-group:nth-child(3) { grid-column: span 12; }
+    .rec-linha--2 > .form-group:nth-child(3) { grid-column: span 5; }
+    .rec-linha--2 > .form-group:nth-child(4) { grid-column: span 7; }
     .rec-btn-salvar { grid-column: span 8; }
     .rec-btn-cancelar { grid-column: span 4; }
 }
 /* só em tela extrema forma de pagamento e categoria ficam uma por linha */
 @media (max-width: 340px) {
-    .rec-linha--2 > .form-group:nth-child(1), .rec-linha--2 > .form-group:nth-child(2) { grid-column: span 12; }
+    .rec-linha--2 > .form-group:nth-child(1), .rec-linha--2 > .form-group:nth-child(2), .rec-linha--2 > .form-group:nth-child(3), .rec-linha--2 > .form-group:nth-child(4) { grid-column: span 12; }
 }
 
 /* Campo "Total" (somente leitura): fundo escuro como o resto (forms.css traz um fundo claro) */
@@ -82,3 +83,7 @@ body .rec-item { padding-left: 2.3rem !important; }
     .rec-btn-salvar { grid-column: span 6; }
     .rec-btn-cancelar { grid-column: span 6; }
 }
+/* Linha 2 no desktop: Forma de pagamento 3 | Categoria 3 | Competência 2 | Descrição 4 */
+.rec-linha--2 > .form-group:nth-child(1), .rec-linha--2 > .form-group:nth-child(2) { grid-column: span 3; }
+.rec-linha--2 > .form-group:nth-child(3) { grid-column: span 2; }
+.rec-linha--2 > .form-group:nth-child(4) { grid-column: span 4; }

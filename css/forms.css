@@ -131,8 +131,9 @@
     display: flex;
     flex-wrap: nowrap;
     gap: .5rem;
-    flex: 1 1 11rem;
-    min-width: 11rem;
+    flex: 1 1 15rem;
+    min-width: 15rem;
+    container-type: inline-size; /* o rótulo "Mês de competência" só aparece inteiro se houver espaço */
 }
 /* Largura calculada pro conteúdo mais largo que a caixa precisa mostrar
    ("00/00", medido) + padding — só o suficiente, sobra tudo pra "Valor".
@@ -185,7 +186,13 @@
 }
 /* Largura calculada pro tricode mais largo ("Ago", medido) + padding do
    select (inclui a seta) — só o suficiente, sobra tudo pra "Forma de pgto.". */
-#metodoBloco > #competenciaGroup { flex: 0 0 3.9rem; }
+#dataValorBloco > #competenciaGroup { flex: 0 0 3.9rem; min-width: 0; margin: 0; }
+#competenciaGroup .lbl-comp-longo { display: none; }
+@container (min-width: 30rem) {
+    #dataValorBloco > #competenciaGroup { flex: 0 0 8.2rem; }
+    #competenciaGroup .lbl-comp-longo { display: inline; }
+    #competenciaGroup .lbl-comp-curto { display: none; }
+}
 #metodoBloco > #parceleGroup { flex: 0 0 4.9rem; }
 
 .campo-mini--xs input {

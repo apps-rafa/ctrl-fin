@@ -896,3 +896,5 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 .conc-selos-col .conc-selo { position: static; font-size: .7rem; }
 .despesa-item.com-2-selos { min-height: 3.1rem; }
 @media (max-width: 480px) { .conc-selos-col .conc-selo { font-size: .58rem; } }
+/* Recém-lançados: 2 linhas de descrição reservadas (linhas sem descrição têm a mesma altura das demais) */
+.despesa-desc--reserva { min-height: calc(2 * 1.15 * .78rem); }

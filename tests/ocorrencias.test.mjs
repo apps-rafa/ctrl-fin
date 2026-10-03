@@ -59,6 +59,7 @@ test("somarMesesNoDia atravessa o ano", () => assert.equal(somarMesesNoDia("2026
 
 // ---- dia útil (mensal cai em fim de semana/feriado -> próximo dia útil) ----
 import { criarEhFeriado, proximoDiaUtil, feriadosNacionaisDoAno } from "../supabase/functions/_shared/diautil.ts";
+import { competenciaDaOcorrencia } from "../supabase/functions/_shared/ocorrencias.ts";
 
 test("feriados nacionais do ano (fixos + Páscoa)", () => {
   const f = feriadosNacionaisDoAno(2026);
@@ -97,4 +98,20 @@ test("semanal às segundas: 4 ou 5 por mês conforme o mês, sempre até o fim d
   assert.deepEqual(ds, ["2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26", "2026-11-02", "2026-11-09", "2026-11-16", "2026-11-23", "2026-11-30"]);
   assert.equal(ds.filter((d) => d.startsWith("2026-10")).length, 4); // outubro/2026 tem 4 segundas
   assert.equal(ds.filter((d) => d.startsWith("2026-11")).length, 5); // novembro/2026 tem 5 segundas
+});
+
+test("competência da ocorrência: salário de outubro pago no último dia de setembro (dia 31, mês seguinte)", () => {
+  const r = { frequencia: "mensal", dia_semana: null, dia_mes: 31, inicio: "2026-09-01", meses: null };
+  const ds = datasDaRecorrencia(r, "2026-11-30");
+  assert.deepEqual(ds, ["2026-09-30", "2026-10-31", "2026-11-30"]); // mês sem o dia 31 usa o último dia
+  assert.deepEqual(ds.map((d) => competenciaDaOcorrencia(d, null, 1)), ["2026-10-01", "2026-11-01", "2026-12-01"]);
+});
+test("competência: mesmo mês, anterior, virada de ano e cartão (fatura) + deslocamento", () => {
+  assert.equal(competenciaDaOcorrencia("2026-10-05", null, 0), "2026-10-01");
+  assert.equal(competenciaDaOcorrencia("2026-10-05", null, undefined), "2026-10-01");
+  assert.equal(competenciaDaOcorrencia("2026-10-05", null, -1), "2026-09-01");
+  assert.equal(competenciaDaOcorrencia("2026-12-31", null, 1), "2027-01-01");
+  assert.equal(competenciaDaOcorrencia("2026-01-10", null, -1), "2025-12-01");
+  assert.equal(competenciaDaOcorrencia("2026-10-20", 10, 0), "2026-11-01"); // cartão fecha dia 10: fatura de novembro
+  assert.equal(competenciaDaOcorrencia("2026-10-20", 10, 1), "2026-12-01");
 });

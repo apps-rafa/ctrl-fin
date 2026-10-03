@@ -962,7 +962,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     const seloRec = trans.recorrenciaId ? '<span class="conc-selo conc-selo--in" title="Lançamento de uma recorrência">🔁</span>' : '';
     // Com descrição: ⏰/🏦 na linha da data e 🔁 na da descrição. Sem descrição: os dois em coluna (⏰ em cima, 🔁 embaixo) na
     // margem, com o lançamento centralizado verticalmente numa linha um pouco mais alta.
-    const recNaDesc = !!(seloRec && trans.descricao);
+    const recNaDesc = !!(seloRec && (trans.descricao || opts.descReservada));
     let seloLinha = '';
     let doisSelos = false;
     if (seloRec && !recNaDesc) {
@@ -997,8 +997,9 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     // completo continua no title) pra o chip não empurrar a linha pra baixo.
     const catChip = (!opts.semCategoriaChip && trans.categoria)
         ? chip(corDaCategoria(trans.categoria, (tipo === 'entrada' && !_ehEstornoCartao(trans)) ? 'entradas' : 'saidas'), _htmlNomeCategoriaChip(trans.categoria)) : '';
-    const descTxt = trans.descricao
-        ? `<span class="despesa-desc">${recNaDesc ? seloRec : ''}${trans.descricao}</span>` : '';
+    // descReservada (Recém-lançados): a descrição sempre ocupa 2 linhas, mesmo vazia, pra todas as linhas terem a mesma altura
+    const descTxt = (trans.descricao || opts.descReservada)
+        ? `<span class="despesa-desc${opts.descReservada ? ' despesa-desc--reserva' : ''}">${recNaDesc ? seloRec : ''}${trans.descricao || '&nbsp;'}</span>` : '';
 
     // Ações
     let acoes = '';

@@ -16,6 +16,7 @@ function mapearRecorrencia(r) {
         meses: r.meses, metodo: r.metodo, categoria: r.categoria, descricao: r.descricao || '', inicio: String(r.inicio).slice(0, 10),
         criadoEm: String(r.inicio).slice(0, 7), status: r.status, encerradaEm: r.encerrada_em,
         ativaDesde: String(r.ativa_desde || r.inicio).slice(0, 7), // início da ativação mais recente
+        competenciaOffset: Number(r.competencia_offset || 0),      // -1 anterior, 0 mesmo mês, 1 seguinte
     };
 }
 
@@ -171,7 +172,7 @@ function _recElementos() {
     const $ = id => document.getElementById(id);
     return {
         painel: $('recForm'), lista: $('recLista'), btnCriar: $('recBtnCriar'), aviso: $('recAviso'), tipo: $('recTipo'),
-        inicio: $('recInicio'), freq: $('recFrequencia'), diaGrupo: $('recDiaSemanaGrupo'), dia: $('recDiaSemana'), valor: $('recValor'),
+        inicio: $('recInicio'), competencia: $('recCompetencia'), freq: $('recFrequencia'), diaGrupo: $('recDiaSemanaGrupo'), dia: $('recDiaSemana'), valor: $('recValor'),
         duracao: $('recDuracao'), total: $('recTotal'), metodo: $('recMetodo'), categoria: $('recCategoria'),
         descricao: $('recDescricao'), erro: $('recErro'),
     };
@@ -381,6 +382,7 @@ function abrirFormRecorrencia(rec) {
     e.metodo.value = rec ? rec.metodo : '';
     e.categoria.value = rec ? rec.categoria : '';
     e.descricao.value = rec ? rec.descricao : '';
+    e.competencia.value = String(rec ? rec.competenciaOffset || 0 : 0);
     _recPreencherInicio(rec ? String(rec.inicio).slice(0, 7) : null, !!rec);
     atualizarFormRecorrencia();
     requestAnimationFrame(atualizarFormRecorrencia); // depois do layout, p/ medir as larguras reais
@@ -412,6 +414,7 @@ async function salvarRecorrencia(ev) {
         
         valor, meses: _recMesesDe(_recDuracaoAtual()) || null, metodo: e.metodo.value, categoria: e.categoria.value,
         descricao: e.descricao.value.trim(),
+        competencia_offset: Number(e.competencia.value) || 0,
     };
     const btn = e.painel.querySelector('.rec-btn-salvar');
     btn.disabled = true;
@@ -445,7 +448,7 @@ async function salvarRecorrencia(ev) {
 async function _recSalvarEdicao(id, campos) {
     const atual = _recorrencias.find(r => r.id === id);
     const hoje = hojeISO();
-    const mudouAgenda = atual.frequencia !== campos.frequencia || (atual.diaSemana ?? null) !== campos.dia_semana || (atual.diaMes ?? null) !== campos.dia_mes || (atual.meses || null) !== campos.meses;
+    const mudouAgenda = atual.frequencia !== campos.frequencia || (atual.diaSemana ?? null) !== campos.dia_semana || (atual.diaMes ?? null) !== campos.dia_mes || (atual.meses || null) !== campos.meses || (atual.competenciaOffset || 0) !== campos.competencia_offset;
     const { error } = await sb.from('recorrencias').update(campos).eq('id', id);
     if (error) throw error;
     const comuns = { valor: campos.valor, metodo: campos.metodo, categoria: campos.categoria, descricao: campos.descricao };
@@ -514,7 +517,7 @@ function _recCardHTML(r) {
                     <span class="chip chip--neutro">🔁 ${_recRotuloFrequencia(r)}</span>
                     <span class="rec-chips-par"><span class="chip" style="background:${corCat}">${r.categoria}</span><span class="chip" style="background:${corMet}">${r.metodo}</span></span>
                 </span>
-                <span class="despesa-desc">${r.meses ? `Total: ${_recTotalTexto(r)}` : 'Contínuo'} · ${r.status === 'encerrada' && r.encerradaEm ? `${_recMesCriacaoTexto(r.ativaDesde)} – ${_recMesCriacaoTexto(String(r.encerradaEm).slice(0, 7))}` : `Desde ${_recMesCriacaoTexto(r.criadoEm)}`}</span>
+                <span class="despesa-desc">${r.competenciaOffset ? `Competência: mês ${r.competenciaOffset > 0 ? 'seguinte' : 'anterior'} · ` : ''}${r.meses ? `Total: ${_recTotalTexto(r)}` : 'Contínuo'} · ${r.status === 'encerrada' && r.encerradaEm ? `${_recMesCriacaoTexto(r.ativaDesde)} – ${_recMesCriacaoTexto(String(r.encerradaEm).slice(0, 7))}` : `Desde ${_recMesCriacaoTexto(r.criadoEm)}`}</span>
             </div>
             <div class="despesa-actions">
                 ${r.status === 'encerrada' ? '' : '<button type="button" class="btn-icon" data-rec-act="editar" title="Editar">✏️</button>'}

@@ -191,12 +191,7 @@ function configurarEventListeners() {
         if (box && !box.hidden && box.dataset.recentes === '1') atualizarBuscaGlobal(); // toggle: fecha
         else mostrarRecemLancados(5);
     });
-    // Recém-lançados só parece selecionado enquanto a página dele está na frente (não quando outra aba abre por cima dela)
-    const btnRecentesEl = document.getElementById('btnRecentes');
-    if (btnRecentesEl) {
-        const sincRecentes = () => btnRecentesEl.classList.toggle('active', document.body.classList.contains('buscando') && !document.body.classList.contains('aba-por-cima') && document.getElementById('resultadoBusca')?.dataset.recentes === '1');
-        new MutationObserver(sincRecentes).observe(document.body, { attributes: true, attributeFilter: ['class'] });
-    }
+    new MutationObserver(sincronizarBotoesTopo).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     const buscaLimparEl = document.getElementById('buscaLimpar');
     const sincronizarBuscaLimpar = () => { if (buscaLimparEl) buscaLimparEl.hidden = !buscaGlobalEl.value; };
     if (buscaGlobalEl) buscaGlobalEl.addEventListener('input', () => {
@@ -398,6 +393,11 @@ function sincronizarMesComFormulario(mes) {
  */
 function mudarTipoTransacao(tipo) {
     const mudou = estadoApp.tipoAtual !== tipo;
+    const anterior = estadoApp.tipoAtual;
+    // saindo da despesa: lembra a forma de pagamento e as parcelas (a receita não tem), pra voltar como estavam
+    if (mudou && anterior === 'saidas') {
+        estadoApp.memoriaDespesa = { metodo: document.querySelector(SELECTORS.metodo)?.value || '', parcelas: document.getElementById('parcelas')?.value || '' };
+    }
     estadoApp.tipoAtual = tipo;
     console.log(`🔄 Tipo alterado para: ${tipo}`);
 
@@ -414,20 +414,11 @@ function mudarTipoTransacao(tipo) {
     const tipoField = document.querySelector(SELECTORS.tipoTransacao);
     if (tipoField) tipoField.value = tipo;
 
-    // Trocar receita <-> despesa zera tudo que estiver preenchido (fora da edição)
-    if (mudou && !estadoApp.editandoId) {
-        const form = document.querySelector(SELECTORS.formTransacao);
-        form?.reset();
-        if (tipoField) tipoField.value = tipo;            // reset() volta ao default
-        const dataEl = document.querySelector(SELECTORS.data);
-        if (dataEl) { dataEl.readOnly = false; dataEl.classList.remove('campo-travado'); aplicarDataPadrao(true); }
-    }
-
-    // Limpar categoria e recarregar opções
-    const categoriaField = document.querySelector(SELECTORS.categoria);
-    if (categoriaField) categoriaField.value = '';
+    // Trocar receita <-> despesa NÃO zera o formulário: data, valor, mês, descrição (e a categoria, se existir nos dois tipos)
+    // continuam como estavam; a forma de pagamento e as parcelas voltam quando se volta para despesa.
 
     if (typeof atualizarLabelsPorTipo === 'function') atualizarLabelsPorTipo();
+    _restaurarMemoriaDespesa(tipo);
     if (typeof atualizarCampoParcelas === 'function') atualizarCampoParcelas();
 
     // Recarregar menus para o novo tipo — se o usuário trocar de tipo antes
@@ -437,8 +428,22 @@ function mudarTipoTransacao(tipo) {
     carregarMenus().then(() => {
         if (estadoApp.tipoAtual !== tipo) return; // trocou de novo enquanto carregava
         if (typeof atualizarLabelsPorTipo === 'function') atualizarLabelsPorTipo();
+        _restaurarMemoriaDespesa(tipo);
         if (typeof atualizarCampoParcelas === 'function') atualizarCampoParcelas();
     });
+}
+
+/** Voltando para despesa: repõe a forma de pagamento e as parcelas de antes (se ainda existirem e o campo estiver vazio). */
+function _restaurarMemoriaDespesa(tipo) {
+    const mem = estadoApp.memoriaDespesa;
+    if (tipo !== 'saidas' || !mem) return;
+    const sel = document.querySelector(SELECTORS.metodo);
+    if (sel && !sel.value && mem.metodo && [...sel.options].some(o => o.value === mem.metodo)) {
+        sel.value = mem.metodo;
+        if (typeof atualizarCampoCredito === 'function') atualizarCampoCredito();
+        const p = document.getElementById('parcelas');
+        if (p && mem.parcelas) p.value = mem.parcelas;
+    }
 }
 
 /**
@@ -446,6 +451,17 @@ function mudarTipoTransacao(tipo) {
  */
 /** Desativa todas as abas (nenhum conteúdo aberto) */
 let _abaAnterior = null; // memória de 1 nível: a aba que estava aberta antes da atual
+/** Botões do topo (Recorrências / Recém-lançados / Próximos / ...): só o que está NA FRENTE fica destacado. Com a busca ou os
+ *  Recém-lançados na frente (sem aba por cima), nenhuma aba fica "ligada"; com uma aba por cima, o Recém-lançados desliga. */
+function sincronizarBotoesTopo() {
+    const corpo = document.body;
+    const buscaNaFrente = corpo.classList.contains('buscando') && !corpo.classList.contains('aba-por-cima');
+    const recentesNaFrente = buscaNaFrente && document.getElementById('resultadoBusca')?.dataset.recentes === '1';
+    document.getElementById('btnRecentes')?.classList.toggle('active', recentesNaFrente);
+    const ativa = document.querySelector('.tab-content.active')?.id;
+    document.querySelectorAll('.acoes-topo [data-tab]').forEach(b => b.classList.toggle('active', !buscaNaFrente && b.dataset.tab === ativa));
+}
+
 function fecharAbas() {
     _abaAnterior = null;
     document.body.classList.remove('aba-por-cima');
@@ -455,6 +471,7 @@ function fecharAbas() {
     document.querySelectorAll('[data-tab], #btnConfig').forEach(b => b.classList.remove('active'));
     document.getElementById('btnConfig')?.setAttribute('aria-pressed', 'false');
     if (typeof resetarModosListaParaCronologica === 'function') resetarModosListaParaCronologica();
+    sincronizarBotoesTopo();
 }
 
 function mudarAba(novaAba) {
@@ -499,6 +516,7 @@ function mudarAba(novaAba) {
     document.getElementById(novaAba)?.classList.add('active');
     document.querySelector(`[data-tab="${novaAba}"]`)?.classList.add('active');
     document.getElementById('btnConfig')?.setAttribute('aria-pressed', String(novaAba === 'menus'));
+    sincronizarBotoesTopo();
 
     // Receita/Despesa/Próximas sempre abrem no filtro Cronológica, nunca no
     // modo em que a aba ficou da última vez.
