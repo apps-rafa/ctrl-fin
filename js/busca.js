@@ -103,8 +103,8 @@ async function mostrarRecemLancados(qtd = 5) {
     box.dataset.modo = 'ampla'; // não deixa a atualização da tela/lixeira sobrescrever
     box.dataset.recentes = '1';
     box.dataset.recentesQtd = String(qtd);
-    document.getElementById('btnRecentes')?.classList.add('active');
     document.body.classList.add('buscando');
+    if (typeof sincronizarBotoesTopo === 'function') sincronizarBotoesTopo();
     if (!box.querySelector('.rec-grupo-itens')) box.innerHTML = '<p class="loading">Carregando...</p>';
     const { data, error } = await sb.from('transacoes').select('*')
         .order('criado_em', { ascending: false }).order('id', { ascending: false }).range(0, qtd * 12 - 1);
@@ -128,7 +128,7 @@ async function mostrarRecemLancados(qtd = 5) {
             <b>🕓 Recém-lançados</b>
             <span>${itens.length} últimos</span>
         </div>
-        <div class="rec-grupo-itens recentes-lista">${itens.map(i => gerarHTMLTransacao(i, i.tipo === 'entradas' ? 'entrada' : 'saida')).join('') || '<p class="empty-message">Nenhum lançamento ainda</p>'}</div>
+        <div class="rec-grupo-itens recentes-lista">${itens.map(i => gerarHTMLTransacao(i, i.tipo === 'entradas' ? 'entrada' : 'saida', { descReservada: true })).join('') || '<p class="empty-message">Nenhum lançamento ainda</p>'}</div>
         ${temMais ? `<button type="button" class="busca-ampla-btn" data-recentes-mais="${qtd + 5}">Carregar mais 5</button>` : ''}`;
     box.onclick = e => {
         const mais = e.target.closest('[data-recentes-mais]');
@@ -239,7 +239,7 @@ function atualizarBuscaGlobal() {
     box.hidden = !termo;
     box.dataset.modo = '';
     box.dataset.recentes = '';
-    document.getElementById('btnRecentes')?.classList.remove('active');
+    if (typeof sincronizarBotoesTopo === 'function') sincronizarBotoesTopo();
     if (!termo) { box.innerHTML = ''; box.onclick = null; return; }
 
     // Mês ou ano na busca ("uber agosto", "2025") pede outros períodos: vai direto pra todos os meses

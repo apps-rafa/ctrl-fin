@@ -120,6 +120,9 @@
   const $ = id => document.getElementById(id);
   const lista = k => { try { return JSON.parse(q.get(k) || '[]'); } catch (_) { return []; } };
   const CAT_ESTORNO = 'Estorno';
+  // Editando um lançamento que já existe (id "t123", vindo do /ultimos) ou confirmando uma ocorrência de recorrência: "Atualizar"
+  const editando = /^td+$/.test(q.get('id') || '') || q.get('o') === '1';
+  if (editando) { const bs = document.querySelector('.btn-submit'); if (bs) bs.textContent = 'Atualizar'; }
 
   // Listas vindas do bot (+ o que for criado aqui no "+" e o bot cadastra ao lançar)
   const cats = { entradas: lista('cr'), saidas: lista('cd') };
