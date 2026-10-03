@@ -338,6 +338,9 @@ function _recCardHTML(r) {
     const corMet = coresMet[r.metodo] || corPadraoChip(r.metodo);
     return `
         <div class="despesa-item rec-item ${despesa ? 'saida' : 'entrada'}" data-id="${r.id}">
+            ${r.status === 'encerrada'
+                ? '<button type="button" class="rec-toggle" data-rec-act="voltar" title="Voltar (reativar a recorrência)" aria-label="Reativar"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M7 4.5v15l12-7.5z"/></svg></button>'
+                : '<button type="button" class="rec-toggle" data-rec-act="encerrar" title="Encerrar a recorrência" aria-label="Encerrar"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg></button>'}
             <div class="despesa-conteudo">
                 <span class="rec-nome">${r.descricao || r.categoria}</span>
                 <span class="despesa-valor">${despesa ? '-' : '+'} ${formatarMoeda(r.valor)}</span>
@@ -345,12 +348,10 @@ function _recCardHTML(r) {
                     <span class="chip chip--neutro">🔁 ${_recRotuloFrequencia(r)}</span>
                     <span class="rec-chips-par"><span class="chip" style="background:${corCat}">${r.categoria}</span><span class="chip" style="background:${corMet}">${r.metodo}</span></span>
                 </span>
-                <span class="despesa-desc">Total: ${_recTotalTexto(r)} · Desde ${_recMesCriacaoTexto(r.criadoEm)}</span>
+                <span class="despesa-desc">${r.meses ? `Total: ${_recTotalTexto(r)}` : 'Contínuo'} · Desde ${_recMesCriacaoTexto(r.criadoEm)}</span>
             </div>
             <div class="despesa-actions">
-                ${r.status === 'encerrada'
-                    ? '<button type="button" class="btn-icon" data-rec-act="voltar" title="Voltar (reativar a recorrência)">↩️</button>'
-                    : '<button type="button" class="btn-icon" data-rec-act="editar" title="Editar">✏️</button><button type="button" class="btn-icon" data-rec-act="encerrar" title="Encerrar a recorrência">⏹️</button>'}
+                ${r.status === 'encerrada' ? '' : '<button type="button" class="btn-icon" data-rec-act="editar" title="Editar">✏️</button>'}
                 <button type="button" class="btn-icon btn-danger" data-rec-act="excluir" title="Excluir">🗑️</button>
             </div>
         </div>`;
