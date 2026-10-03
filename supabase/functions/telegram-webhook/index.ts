@@ -54,6 +54,7 @@ import {
 } from "./lancamentos.ts";
 import { executarBackup } from "./backup.ts";
 import { executarLembretes } from "./lembretes.ts";
+import { responderFila, abrirDuplicata, aprovarDuplicata } from "./fila.ts";
 import { gerarOcorrencias } from "../_shared/ocorrencias.ts";
 import {
   idRascunhoDaResposta, tratarRespostaRascunho,
@@ -468,6 +469,12 @@ Deno.serve(async (req: Request) => {
         return json({ ok: true });
       }
 
+      // /fila: duplicatas e recorrências a confirmar, com um botão numerado por item
+      if (/^\/fila(?:@\w+)?(?:\s|$)/i.test(texto)) {
+        await responderFila(supabaseAdmin, token, chatId);
+        return json({ ok: true });
+      }
+
       // Consultas rápidas do mês.
       const cmd = texto.match(/^\/(resumo|diario|credito|pix|ultimos)(?:@\w+)?(?:\s|$)/i);
       if (cmd) {
@@ -508,6 +515,16 @@ Deno.serve(async (req: Request) => {
 
       if (acao === "ultedit" && chatId) {
         await tratarUltimoEditar({ supabaseAdmin, token, cq, chatId, idStr, acao });
+        return json({ ok: true });
+      }
+
+      if (acao === "filadup" && chatId) {
+        await abrirDuplicata(supabaseAdmin, token, cq, chatId, Number(idStr));
+        return json({ ok: true });
+      }
+
+      if (acao === "dupok" && chatId) {
+        await aprovarDuplicata(supabaseAdmin, token, cq, chatId, Number(idStr));
         return json({ ok: true });
       }
 
