@@ -891,7 +891,8 @@ body.modo-anual .barra-pendencias, body.modo-docs .barra-pendencias { display: n
 #filaHome { margin: .6rem 0; }
 #filaHome:empty { display: none; }
 body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none; }
-/* ⏰/🏦 + 🔁 sem descrição: os dois lado a lado na margem, na altura da linha da data (a linha não muda de altura) */
-.conc-selos-col { position: absolute; left: -.78rem; top: 50%; translate: -50% -50%; display: flex; flex-direction: row; align-items: center; gap: .08rem; line-height: 1; font-style: normal; }
-.conc-selos-col .conc-selo { position: static; font-size: .56rem; }
-@media (max-width: 480px) { .conc-selos-col .conc-selo { font-size: .5rem; } }
+/* ⏰/🏦 + 🔁 sem descrição: coluna de 2 selos na margem; a linha ganha altura mínima e o lançamento fica centralizado verticalmente */
+.conc-selos-col { position: absolute; left: -.78rem; top: 50%; translate: -50% -50%; display: flex; flex-direction: column; align-items: center; gap: .35rem; line-height: 1; font-style: normal; }
+.conc-selos-col .conc-selo { position: static; font-size: .7rem; }
+.despesa-item.com-2-selos { min-height: 3.1rem; }
+@media (max-width: 480px) { .conc-selos-col .conc-selo { font-size: .58rem; } }

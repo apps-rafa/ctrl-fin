@@ -960,10 +960,15 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
         seloNaData = '<span class="conc-selo conc-selo--in" title="Conciliado com uma transação do banco (Open Finance)">🏦</span>';
     }
     const seloRec = trans.recorrenciaId ? '<span class="conc-selo conc-selo--in" title="Lançamento de uma recorrência">🔁</span>' : '';
-    // Só 1 selo por linha: o 🔁 fica na linha da descrição (que existe, mesmo vazia, quando há outro selo na linha da data)
-    const recNaDesc = !!(seloRec && (trans.descricao || seloNaData));
+    // Com descrição: ⏰/🏦 na linha da data e 🔁 na da descrição. Sem descrição: os dois em coluna (⏰ em cima, 🔁 embaixo) na
+    // margem, com o lançamento centralizado verticalmente numa linha um pouco mais alta.
+    const recNaDesc = !!(seloRec && trans.descricao);
     let seloLinha = '';
-    if (seloRec && !recNaDesc) seloNaData = seloRec; // sem descrição e sem outro selo: o 🔁 vai para a linha da data
+    let doisSelos = false;
+    if (seloRec && !recNaDesc) {
+        if (seloNaData) { doisSelos = true; seloNaData = '<span class="conc-selos-col">' + seloNaData.replace(' conc-selo--in', '') + seloRec.replace(' conc-selo--in', '') + '</span>'; }
+        else seloNaData = seloRec;
+    }
 
     const lado = `<span class="despesa-data">`
         + seloNaData
@@ -992,8 +997,8 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     // completo continua no title) pra o chip não empurrar a linha pra baixo.
     const catChip = (!opts.semCategoriaChip && trans.categoria)
         ? chip(corDaCategoria(trans.categoria, (tipo === 'entrada' && !_ehEstornoCartao(trans)) ? 'entradas' : 'saidas'), _htmlNomeCategoriaChip(trans.categoria)) : '';
-    const descTxt = (trans.descricao || recNaDesc)
-        ? `<span class="despesa-desc">${recNaDesc ? seloRec : ''}${trans.descricao || '&nbsp;'}</span>` : '';
+    const descTxt = trans.descricao
+        ? `<span class="despesa-desc">${recNaDesc ? seloRec : ''}${trans.descricao}</span>` : '';
 
     // Ações
     let acoes = '';
@@ -1012,7 +1017,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
         }
     }
 
-    const classes = `despesa-item ${tipo}` + (trans.quitada ? ' quitada' : '') + '';
+    const classes = `despesa-item ${tipo}` + (trans.quitada ? ' quitada' : '') + (doisSelos ? ' com-2-selos' : '');
 
     // .despesa-conteudo (dia/valor/tags/descrição) e .despesa-actions são
     // colunas separadas de um flex externo — o conteúdo nunca invade a
