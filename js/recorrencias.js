@@ -60,6 +60,22 @@ async function confirmarOcorrenciaRecorrencia(id) {
     atualizarUI();
 }
 
+/** "Confirmar todas" do bloco A confirmar. */
+async function confirmarOcorrenciasRecorrencia(ids) {
+    const { error } = await sb.from('transacoes').update({ a_confirmar: false }).in('id', ids);
+    if (error) { console.error(error); mostrarNotificacao('Não consegui confirmar', 'erro'); return; }
+    await recarregarDados();
+    atualizarUI();
+}
+
+/** "Apagar todas" do bloco A confirmar: só estas ocorrências (as recorrências seguem ativas). */
+async function apagarOcorrenciasRecorrencia(ids) {
+    const { error } = await sb.from('transacoes').delete().in('id', ids);
+    if (error) { console.error(error); mostrarNotificacao('Erro ao excluir', 'erro'); return; }
+    await recarregarDados();
+    atualizarUI();
+}
+
 /** Apagar/✗ de um lançamento de recorrência: pergunta se é só este mês ou se encerra a recorrência.
  *  Resolve true se algo foi apagado. */
 function perguntarExcluirRecorrente(trans) {
