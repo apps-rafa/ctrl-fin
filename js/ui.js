@@ -1316,6 +1316,18 @@ function iniciarLimiteListas() {
 }
 window.addEventListener('load', iniciarLimiteListas);
 
+// Fechar um grupo zera o "Carregar mais 5" dele (e dos subgrupos de dentro): ao abrir de novo, voltam os 5 primeiros.
+document.addEventListener('toggle', e => {
+    const d = e.target;
+    if (!d || d.tagName !== 'DETAILS' || d.open) return;
+    const aba = d.closest('.tab-content');
+    if (!aba || !['entradas', 'saidas', 'proximas'].includes(aba.id)) return;
+    const base = _chaveLista(d);
+    let mudou = false;
+    Object.keys(_limitesLista).forEach(k => { if (k === base || k.startsWith(base + '>')) { delete _limitesLista[k]; mudou = true; } });
+    if (mudou) _aplicarLimiteListas(aba);
+}, true);
+
 /** Reavalia _ajustarBadgesQuebrados depois de qualquer render de lista —
  *  despesa-item aparece em várias telas/abas (mês corrente, busca,
  *  Próximos, visão anual...), então observar o documento inteiro é mais
