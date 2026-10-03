@@ -111,7 +111,7 @@ async function mostrarRecemLancados(qtd = 5) {
     if (box.dataset.modo !== 'ampla') return; // o usuário já mudou de tela/busca
     if (error) { console.error(error); box.innerHTML = '<p class="empty-message">Erro ao carregar</p>'; return; }
     // Parcelas da mesma compra (grupo_id) viram UMA linha: a parcela 1
-    const todos = (data || []).map(r => ({ ...mapearTransacao(r), tipo: r.tipo }));
+    const todos = (data || []).map(r => ({ ...mapearTransacao(r), tipo: r.tipo })).filter(t => !t.aConfirmar); // rascunho de recorrência só no grupo "A confirmar"
     const porGrupo = new Map();
     todos.forEach(i => { if (i.grupoId && (!porGrupo.has(i.grupoId) || (i.parcelaNum || 0) < (porGrupo.get(i.grupoId).parcelaNum || 0))) porGrupo.set(i.grupoId, i); });
     const vistos = new Set();
@@ -179,7 +179,7 @@ async function buscarAmpla(termo) {
     }
     _amplaCache = { termo, linhas };
     if ((document.getElementById('buscaGlobal')?.value || '').trim() !== termo) return;
-    const itens = linhas.map(r => ({ ...mapearTransacao(r), tipo: r.tipo })).filter(tr => _bateConsulta(tr, q, t));
+    const itens = linhas.map(r => ({ ...mapearTransacao(r), tipo: r.tipo })).filter(tr => !tr.aConfirmar && _bateConsulta(tr, q, t));
     const brl = v => formatarMoeda(v);
     const soma = tipo => itens.filter(i => i.tipo === tipo).reduce((a, i) => a + (Number(i.valor) || 0), 0);
     const porMes = new Map();
@@ -221,7 +221,7 @@ async function buscarAmpla(termo) {
 function _itensProximosBusca(termo) {
     const metodos = (estadoApp.menus && (estadoApp.menus.metodosTodos || estadoApp.menus.metodos)) || [];
     const credito = new Set(metodos.filter(m => m.metodoKind === 'Crédito').map(m => rotuloMetodo(m)));
-    const todos = [...(estadoApp.transacoes.entradas || []), ...(estadoApp.transacoes.saidas || [])];
+    const todos = [...(estadoApp.transacoes.entradas || []), ...(estadoApp.transacoes.saidas || [])].filter(t => !t.aConfirmar);
     // Só o que AINDA não aconteceu (vencimento/pagamento não passou) — o que já
     // aconteceu aparece só em Receitas/Despesas, nunca nos dois grupos.
     return _filtrarPorBusca(todos, termo).filter(t => !_transacaoRealizada(t));
@@ -265,7 +265,7 @@ async function _linhasDoMesPorData() {
         linhas.push(...(data || []));
         if (!data || data.length < 1000) break;
     }
-    const itens = linhas.map(r => ({ ...mapearTransacao(r), tipo: r.tipo }));
+    const itens = linhas.map(r => ({ ...mapearTransacao(r), tipo: r.tipo })).filter(t => !t.aConfirmar);
     _buscaMesCache = { chave, itens };
     return itens;
 }
