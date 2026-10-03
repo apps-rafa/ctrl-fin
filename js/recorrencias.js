@@ -224,18 +224,18 @@ function _recRotulosInicio(numerico) {
 const _TRI_MESES = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
 
 /** Início: só o mês, em tricode (12 meses: 3 antes e 8 depois do mês do cabeçalho); padrão = o mês selecionado no cabeçalho.
- *  Ao editar fica travado no mês em que a recorrência começou. */
+ *  Ao editar mostra o mês em que a recorrência começou e dá para mudar (ver _recSalvarEdicao). */
 function _recPreencherInicio(selecionado, travado) {
     const e = _recElementos();
     if (!e.inicio) return;
     const base = (estadoApp.mesAtual instanceof Date) ? estadoApp.mesAtual : new Date();
     const ym = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     const valores = [];
-    if (travado && selecionado) valores.push(selecionado);
-    else for (let k = -3; k <= 8; k++) valores.push(ym(new Date(base.getFullYear(), base.getMonth() + k, 1)));
+    for (let k = -3; k <= 8; k++) valores.push(ym(new Date(base.getFullYear(), base.getMonth() + k, 1)));
+    if (selecionado && !valores.includes(selecionado)) { valores.push(selecionado); valores.sort(); } // editando: o mês de início da recorrência sempre aparece
     e.inicio.innerHTML = valores.map(v => `<option value="${v}" title="${_MESES_ABREV_REC[Number(v.slice(5, 7)) - 1]}/${v.slice(0, 4)}">${_TRI_MESES[Number(v.slice(5, 7)) - 1]}</option>`).join('');
     e.inicio.value = selecionado || ym(base);
-    e.inicio.disabled = !!travado;
+    e.inicio.disabled = false;
 }
 
 /** Datas (ISO) da recorrência de `inicio` até `ate` — mesma regra do servidor (supabase/functions/_shared/ocorrencias.ts):
@@ -351,9 +351,10 @@ function _recPreencherListas() {
     e.categoria.innerHTML = '<option value="">Selecione...</option>' + cats.map(c => `<option>${c}</option>`).join('');
     if (cats.includes(atualCat)) e.categoria.value = atualCat;
     const atualMet = e.metodo.value;
-    const mets = (estadoApp.menus.metodos || []).map(m => rotuloMetodo(m));
-    e.metodo.innerHTML = '<option value="">Selecione...</option>' + mets.map(m => `<option>${m}</option>`).join('');
-    if (mets.includes(atualMet)) e.metodo.value = atualMet;
+    // Receita entra sempre por PIX (nunca cartão de crédito): os cartões aparecem, mas desabilitados
+    const lista = (estadoApp.menus.metodos || []).map(m => ({ rotulo: rotuloMetodo(m), bloqueado: !despesa && m.metodoKind === 'Crédito' }));
+    e.metodo.innerHTML = '<option value="">Selecione...</option>' + lista.map(m => `<option${m.bloqueado ? ' disabled title="Receita não entra no cartão de crédito"' : ''}>${m.rotulo}</option>`).join('');
+    if (lista.some(m => m.rotulo === atualMet && !m.bloqueado)) e.metodo.value = atualMet;
 }
 
 function _recDefinirTipo(tipo) {
@@ -399,6 +400,24 @@ function fecharFormRecorrencia() {
     _recEditandoId = null;
 }
 
+/** Mês de início escolhido -> data de início. Se já passaram ocorrências desde esse mês, pergunta se cria também as anteriores
+ *  (sempre como rascunho). Devolve a data de início, ou null se o usuário cancelou. */
+async function _recResolverInicio(freq, campos, mesIni) {
+    const hoje = hojeISO();
+    const inicioMes = mesIni + '-01';
+    const ehCredito = ((estadoApp.menus && (estadoApp.menus.metodosTodos || estadoApp.menus.metodos)) || []).some(m => m.metodoKind === 'Crédito' && rotuloMetodo(m) === campos.metodo);
+    const ref = { frequencia: freq, diaSemana: campos.dia_semana, diaMes: campos.dia_mes, meses: campos.meses, inicio: inicioMes, semDiaUtil: ehCredito };
+    const passadas = _recDatas(ref, hoje).filter(d => d < hoje);
+    let inicio = inicioMes > hoje ? inicioMes : hoje;
+    if (passadas.length) {
+        const proxima = _recDatas(ref, formatarDataISO(new Date(new Date().getFullYear() + 1, 0, 1))).find(d => d >= hoje);
+        const escolha = await _recPerguntarRetroativas({ frequencia: freq, passadas, proxima, mesCorrente: inicioMes.slice(0, 7) === hoje.slice(0, 7), diaMes: campos.dia_mes, hoje });
+        if (escolha === null) return null;
+        if (escolha === 'todas') inicio = inicioMes;
+    }
+    return inicio;
+}
+
 async function salvarRecorrencia(ev) {
     ev.preventDefault();
     const e = _recElementos();
@@ -419,20 +438,17 @@ async function salvarRecorrencia(ev) {
     const btn = e.painel.querySelector('.rec-btn-salvar');
     btn.disabled = true;
     try {
-        if (_recEditandoId) await _recSalvarEdicao(_recEditandoId, campos);
-        else {
-            const hoje = hojeISO();
-            const inicioMes = (e.inicio.value || hoje.slice(0, 7)) + '-01';
-            const ehCredito = ((estadoApp.menus && (estadoApp.menus.metodosTodos || estadoApp.menus.metodos)) || []).some(m => m.metodoKind === 'Crédito' && rotuloMetodo(m) === campos.metodo);
-            const ref = { frequencia: freq, diaSemana: campos.dia_semana, diaMes: campos.dia_mes, meses: campos.meses, inicio: inicioMes, semDiaUtil: ehCredito };
-            const passadas = _recDatas(ref, hoje).filter(d => d < hoje);
-            let inicio = inicioMes > hoje ? inicioMes : hoje;
-            if (passadas.length) {
-                const proxima = _recDatas(ref, formatarDataISO(new Date(new Date().getFullYear() + 1, 0, 1))).find(d => d >= hoje);
-                const escolha = await _recPerguntarRetroativas({ frequencia: freq, passadas, proxima, mesCorrente: inicioMes.slice(0, 7) === hoje.slice(0, 7), diaMes: campos.dia_mes, hoje });
-                if (escolha === null) { btn.disabled = false; return; } // cancelou: segue no formulário
-                if (escolha === 'todas') inicio = inicioMes;
+        if (_recEditandoId) {
+            const atual = _recorrencias.find(r => r.id === _recEditandoId);
+            let novoInicio = null;
+            if (e.inicio.value && e.inicio.value !== String(atual.inicio).slice(0, 7)) { // mudou o mês de início
+                novoInicio = await _recResolverInicio(freq, campos, e.inicio.value);
+                if (novoInicio === null) { btn.disabled = false; return; }
             }
+            await _recSalvarEdicao(_recEditandoId, campos, novoInicio);
+        } else {
+            const inicio = await _recResolverInicio(freq, campos, e.inicio.value || hojeISO().slice(0, 7));
+            if (inicio === null) { btn.disabled = false; return; } // cancelou: segue no formulário
             const { error } = await sb.from('recorrencias').insert({ ...campos, inicio, ativa_desde: inicio });
             if (error) throw error;
         }
@@ -445,9 +461,15 @@ async function salvarRecorrencia(ev) {
 }
 
 /** Edita a recorrência: só as ocorrências FUTURAS ainda "a confirmar" acompanham; confirmadas/editadas à mão e passadas ficam. */
-async function _recSalvarEdicao(id, campos) {
+async function _recSalvarEdicao(id, campos, novoInicio = null) {
     const atual = _recorrencias.find(r => r.id === id);
     const hoje = hojeISO();
+    if (novoInicio) { // mudou o início: recomeça a geração do zero (as ocorrências JÁ confirmadas ficam como estão)
+        const { error: erroI } = await sb.from('recorrencias').update({ ...campos, inicio: novoInicio, ativa_desde: novoInicio, gerado_ate: null }).eq('id', id);
+        if (erroI) throw erroI;
+        await sb.from('transacoes').delete().eq('recorrencia_id', id).eq('a_confirmar', true);
+        return;
+    }
     const mudouAgenda = atual.frequencia !== campos.frequencia || (atual.diaSemana ?? null) !== campos.dia_semana || (atual.diaMes ?? null) !== campos.dia_mes || (atual.meses || null) !== campos.meses || (atual.competenciaOffset || 0) !== campos.competencia_offset;
     const { error } = await sb.from('recorrencias').update(campos).eq('id', id);
     if (error) throw error;
