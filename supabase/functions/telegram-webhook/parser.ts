@@ -325,3 +325,31 @@ export function addMeses(dataISO: string, n: number): string {
   const ultimo = new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate();
   return `${ano}-${String(mes + 1).padStart(2, "0")}-${String(Math.min(dia0, ultimo)).padStart(2, "0")}`;
 }
+
+/** Resposta (reply) a um rascunho: se cita uma categoria cadastrada, troca a categoria; se cita uma forma
+ *  de pagamento (despesa), troca a forma; o que sobrar vira a descrição. Sem nenhuma das duas, o texto
+ *  inteiro é a descrição. Citou só categoria/forma e nada mais: a descrição atual fica como está. */
+export function aplicarRespostaAoRascunho(
+  r: RascunhoLancamento,
+  texto: string,
+  categorias: { nome: string; categoria_tipo: string | null }[],
+  metodos: MetodoMenu[],
+): RascunhoLancamento {
+  const limpo = texto.replace(/\s+/g, " ").trim().slice(0, 200);
+  const cat = categoriaCadastradaNoTexto(limpo, categorias.filter((c) => c.categoria_tipo === r.tipo));
+  const met = r.tipo === "saidas" ? detectarMetodoNoTexto(limpo, metodos) : null;
+  if (!cat && !met) return { ...r, descricao: limpo.charAt(0).toUpperCase() + limpo.slice(1) };
+  const novo: RascunhoLancamento = { ...r };
+  if (cat) novo.categoria = cat.nome;
+  if (met) {
+    novo.metodo = met.banco && met.metodo_kind && met.metodo_kind !== "Dinheiro" ? `${met.metodo_kind} ${met.banco}` : (met.metodo_kind && met.metodo_kind !== "Dinheiro" ? met.metodo_kind : met.nome);
+    novo.metodoKind = met.metodo_kind;
+    novo.diaFechamento = met.dia_fechamento;
+    novo.metodoOrigem = "texto";
+    novo.competencia = null;
+    if (met.metodo_kind !== "Crédito") novo.parcelas = null;
+  }
+  const desc = montarDescricao(limpo, { palavrasCategoria: cat?.palavras, metodo: met });
+  if (desc) novo.descricao = desc;
+  return novo;
+}

@@ -3,7 +3,7 @@
 import type { createClient } from "npm:@supabase/supabase-js@2";
 import { executarBackup } from "./backup.ts";
 import { tg, rotuloMetodo, TELEGRAM_API } from "./util.ts";
-import { competenciaDe, hojeBrasiliaISO, type RascunhoLancamento } from "./parser.ts";
+import { competenciaDe, hojeBrasiliaISO, aplicarRespostaAoRascunho, type RascunhoLancamento, type MetodoMenu } from "./parser.ts";
 import { enviarRascunho, carregarListasUsuario, confirmarRascunhoNoBanco, criarCategoria, criarMetodo } from "./lancamentos.ts";
 import { carregarContasPluggy, executarAtualizacaoPluggy, rotuloBotaoConta, BOTAO_TODAS_CONTAS } from "./pluggy.ts";
 
@@ -255,8 +255,12 @@ export async function tratarRespostaRascunho(
     await tg(token, "sendMessage", { chat_id: chatId, text: "Esse rascunho já não existe mais." });
     return;
   }
-  const limpo = texto.replace(/\s+/g, " ").trim().slice(0, 200);
-  const novo = { ...(rasc.dados as RascunhoLancamento), descricao: limpo.charAt(0).toUpperCase() + limpo.slice(1) };
+  // O texto pode citar uma categoria ou forma de pagamento cadastrada: troca o campo em vez de virar descrição
+  const [{ data: cats }, { data: mets }] = await Promise.all([
+    supabaseAdmin.from("menu_itens").select("nome, categoria_tipo").eq("tipo", "Categoria").eq("status", "Ativo").eq("user_id", tgUser.user_id),
+    supabaseAdmin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("tipo", "Método").eq("status", "Ativo").eq("user_id", tgUser.user_id),
+  ]);
+  const novo = aplicarRespostaAoRascunho(rasc.dados as RascunhoLancamento, texto, (cats ?? []) as { nome: string; categoria_tipo: string | null }[], (mets ?? []) as MetodoMenu[]);
   await supabaseAdmin.from("telegram_rascunhos").update({ dados: novo }).eq("id", rascunhoId);
   if (mensagemRespondidaId) await tg(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: mensagemRespondidaId, reply_markup: { inline_keyboard: [] } });
   await enviarRascunho(token, chatId, rascunhoId, novo, supabaseAdmin, tgUser.user_id);
