@@ -866,3 +866,6 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 .fatura-nome .mes-med, .fatura-nome .mes-num { display: none; }
 @container (max-width: 300px) { .fatura-nome .mes-longo { display: none; } .fatura-nome .mes-med { display: inline; } }
 @container (max-width: 210px) { .fatura-nome .mes-med { display: none; } .fatura-nome .mes-num { display: inline; } }
+
+/* Grupo "Fatura <cartão>": contorno em volta (sem usar a borda esquerda) pra ver onde começa e onde termina */
+.subgrupo[data-nome^="Fatura"] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--cor-rec, var(--primary)) 55%, var(--border)); border-radius: var(--radius-sm); margin: .35rem .4rem; }

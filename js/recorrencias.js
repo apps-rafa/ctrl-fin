@@ -188,8 +188,8 @@ function _recMontarMenuDia(freq, valor) {
     if (e.dia.dataset.freq === freq) return;
     e.dia.dataset.freq = freq;
     if (freq === 'mensal') {
-        e.dia.innerHTML = Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
-        e.dia.value = valor != null && valor !== '' ? String(valor) : String(Number(hojeISO().slice(8, 10)));
+        e.dia.innerHTML = '<option value="hoje">Hoje</option>' + Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
+        e.dia.value = valor != null && valor !== '' ? String(valor) : 'hoje'; // novo: "Hoje" (vira o dia de hoje ao salvar)
     } else {
         e.dia.innerHTML = '<option value="">Variável</option><option value="1">SEG</option><option value="2">TER</option><option value="3">QUA</option><option value="4">QUI</option><option value="5">SEX</option><option value="6">SÁB</option><option value="0">DOM</option>';
         e.dia.value = valor != null ? String(valor) : '';
@@ -203,7 +203,10 @@ function atualizarFormRecorrencia() {
     const semanal = e.freq.value === 'semanal';
     _recMontarMenuDia(e.freq.value);
     e.diaGrupo.hidden = false;
-    e.painel.querySelector('.rec-linha--1').classList.add('is-semanal'); // o Dia aparece nos dois ritmos
+    const linha1 = e.painel.querySelector('.rec-linha--1');
+    linha1.classList.add('is-semanal'); // o Dia aparece nos dois ritmos
+    linha1.classList.remove('freq-larga');
+    if (e.freq.clientWidth && !_recCabe(e.freq, 'Semanal', 8)) linha1.classList.add('freq-larga'); // nome inteiro, sem "Sema..."
     const n = _recDuracaoAtual();
     if (document.activeElement !== e.duracao) e.duracao.value = _recDuracaoTexto(n, e.duracao); // em digitação fica o número cru
     _recAjustarDia();
@@ -286,7 +289,8 @@ async function salvarRecorrencia(ev) {
     const campos = {
         tipo: e.tipo.value, frequencia: freq,
         dia_semana: freq === 'semanal' && e.dia.value !== '' ? Number(e.dia.value) : null,
-        dia_mes: freq === 'mensal' ? Number(e.dia.value) || Number(hojeISO().slice(8, 10)) : null,
+        dia_mes: freq === 'mensal' ? (Number(e.dia.value) || Number(hojeISO().slice(8, 10))) : null, // "Hoje" = o dia de hoje
+        
         valor, meses: _recMesesDe(_recDuracaoAtual()) || null, metodo: e.metodo.value, categoria: e.categoria.value,
         descricao: e.descricao.value.trim(),
     };
