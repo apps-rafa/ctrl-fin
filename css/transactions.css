@@ -879,5 +879,11 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 body.modo-anual .barra-pendencias, body.modo-docs .barra-pendencias { display: none; }
 /* Fila: só um título (não é grupo) + o texto de vazio em itálico */
 .fila-titulo { margin: .2rem 0 .4rem; font-size: .85rem; font-weight: 700; color: var(--text); }
-.fila-vazia { margin: 0 0 .6rem; font-size: .8rem; font-style: italic; color: var(--text-muted); }
+.fila-vazia { margin: .4rem 0 .8rem; font-size: .8rem; font-style: italic; color: var(--text-muted); text-align: center; }
+.pendencias-titulo { margin: 0 0 .6rem; font-size: 1rem; font-weight: 700; color: var(--text); }
+/* Botões "todas" do cabeçalho do grupo: texto menor; o título nunca quebra (apertando, só o ✓ e a lixeira) */
+.rec-grupo[data-nome="__duplicatas__"] > summary, .rec-grupo[data-nome="__aconfirmar__"] > summary { flex-wrap: nowrap; }
+.rec-grupo[data-nome="__duplicatas__"] > summary > .rec-grupo-nome, .rec-grupo[data-nome="__aconfirmar__"] > summary > .rec-grupo-nome { white-space: nowrap; }
+.rec-grupo[data-nome="__duplicatas__"] > summary > .mini-btn, .rec-grupo[data-nome="__aconfirmar__"] > summary > .mini-btn { font-size: .66rem; padding: .12rem .4rem; white-space: nowrap; }
+.rec-grupo > summary > .mini-btn.so-ico .mb-txt { display: none; }
 #filaHome { margin: .6rem 0; }
