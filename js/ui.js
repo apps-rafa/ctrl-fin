@@ -140,8 +140,8 @@ function _renderGrupoDuplicatas(transacoes, tipoUI, aberto, duplicatasPre) {
     <details class="rec-grupo" data-nome="__duplicatas__" style="--cor-rec:var(--despesa-text)" ${aberto ? 'open' : ''}>
       <summary>
         <span class="rec-grupo-nome">📑 Duplicatas</span>
-        <span role="button" tabindex="0" class="mini-btn" data-dup-aceitar-todas title="Marca todas como &quot;não é duplicata&quot; — não avisa de novo sobre elas">✓ Aceitar todas</span>
-        <span role="button" tabindex="0" class="mini-btn armed" data-dup-apagar-todas title="Apaga todos os lançamentos listados aqui">🗑 Apagar todas</span>
+        <span role="button" tabindex="0" class="mini-btn" data-dup-aceitar-todas title="Aceitar todas: marca todas como &quot;não é duplicata&quot; — não avisa de novo sobre elas"><span class="mb-ico">✓</span><span class="mb-txt"> Aceitar todas</span></span>
+        <span role="button" tabindex="0" class="mini-btn armed" data-dup-apagar-todas title="Apagar todas: apaga todos os lançamentos listados aqui"><span class="mb-ico">🗑</span><span class="mb-txt"> Apagar todas</span></span>
         <span class="rec-grupo-espaco"></span>
         <span class="rec-grupo-contagem">${duplicatas.length}</span>
         <span class="rec-grupo-total">${formatarMoeda(total)}</span>
@@ -158,11 +158,11 @@ function _renderGrupoAConfirmar(itens, tipoUI, aberto) {
     const tipoDe = typeof tipoUI === 'function' ? tipoUI : () => tipoUI;
     const total = itens.reduce((s, t) => s + ((t.valorMes != null ? t.valorMes : t.valor) || 0), 0);
     return `
-    <details class="rec-grupo" data-nome="__aconfirmar__" style="--cor-rec:var(--text-muted)" ${aberto === false ? '' : 'open'}>
+    <details class="rec-grupo" data-nome="__aconfirmar__" style="--cor-rec:var(--text-muted)" ${aberto ? 'open' : ''}>
       <summary>
         <span class="rec-grupo-nome">🔁 A confirmar</span>
-        <span role="button" tabindex="0" class="mini-btn" data-ac-confirmar-todas title="Confirma todas as ocorrências listadas aqui">✓ Confirmar todas</span>
-        <span role="button" tabindex="0" class="mini-btn armed" data-ac-apagar-todas title="Apaga só estas ocorrências (as recorrências continuam ativas)">🗑 Apagar todas</span>
+        <span role="button" tabindex="0" class="mini-btn" data-ac-confirmar-todas title="Confirmar todas as ocorrências listadas aqui"><span class="mb-ico">✓</span><span class="mb-txt"> Confirmar todas</span></span>
+        <span role="button" tabindex="0" class="mini-btn armed" data-ac-apagar-todas title="Apagar todas: apaga só estas ocorrências (as recorrências continuam ativas)"><span class="mb-ico">🗑</span><span class="mb-txt"> Apagar todas</span></span>
         <span class="rec-grupo-espaco"></span>
         <span class="rec-grupo-contagem">${itens.length}</span>
         <span class="rec-grupo-total">${formatarMoeda(total)}</span>
@@ -176,9 +176,34 @@ function _renderGrupoAConfirmar(itens, tipoUI, aberto) {
 /** "Fila": um TÍTULO (não é grupo) e, embaixo, os grupos que existirem (Duplicatas e/ou A confirmar). Aparece mesmo com só um
  *  deles; sem nenhum, mostra `textoVazio` (se houver). */
 function _renderFila(htmlAConfirmar, htmlDuplicatas, textoVazio) {
-    if (!htmlAConfirmar && !htmlDuplicatas) return textoVazio ? `<h3 class="fila-titulo">📥 Fila</h3><p class="fila-vazia">${textoVazio}</p>` : '';
+    if (!htmlAConfirmar && !htmlDuplicatas) return textoVazio ? `<p class="fila-vazia">${textoVazio}</p>` : '';
     return `<h3 class="fila-titulo">📥 Fila</h3>${htmlAConfirmar}${htmlDuplicatas}`;
 }
+
+/** Abre/fecha dos grupos da Fila feito pelo usuário (chave "<onde>:<grupo>"); sem escolha o grupo segue o padrão. */
+const _filaManual = {};
+function _ligarFilaManual(box, onde) {
+    if (box.dataset.filaManual) return;
+    box.dataset.filaManual = '1';
+    box.addEventListener('click', e => {
+        const sm = e.target.closest('summary');
+        if (!sm || e.target.closest('.mini-btn') || !sm.parentElement.dataset.nome) return;
+        _filaManual[onde + ':' + sm.parentElement.dataset.nome] = !sm.parentElement.open; // o clique ainda vai inverter
+    }, true);
+}
+
+/** Botões "Confirmar/Aceitar todas" e "Apagar todas": se o cabeçalho do grupo não comporta o texto (o título nunca quebra
+ *  em 2 linhas), ficam só o ✓ e a lixeira. */
+function ajustarBotoesTodas() {
+    document.querySelectorAll('.rec-grupo[data-nome="__duplicatas__"] > summary, .rec-grupo[data-nome="__aconfirmar__"] > summary').forEach(sm => {
+        const btns = sm.querySelectorAll('.mini-btn');
+        btns.forEach(b => b.classList.remove('so-ico'));
+        if (!sm.clientWidth) return; // grupo oculto: mede quando aparecer
+        if (sm.scrollWidth > sm.clientWidth + 1) btns.forEach(b => b.classList.add('so-ico'));
+    });
+}
+window.addEventListener('resize', () => ajustarBotoesTodas());
+document.addEventListener('toggle', e => { if (e.target && e.target.matches && e.target.matches('details')) ajustarBotoesTodas(); }, true);
 
 /** Fila do mês na Home (nenhuma aba aberta): duplicatas e ocorrências a confirmar de Receitas e Despesas juntas. */
 function renderFilaHome() {
@@ -188,12 +213,15 @@ function renderFilaHome() {
     const sai = estadoApp.transacoes.saidas || [];
     const aConf = [...ent, ...sai].filter(t => t.aConfirmar);
     const dups = [..._detectarDuplicatas(ent.filter(t => !t.aConfirmar)), ..._detectarDuplicatas(sai.filter(t => !t.aConfirmar))];
-    const aberto = nome => { const d = box.querySelector('details.rec-grupo[data-nome="' + nome + '"]'); return d ? d.open : undefined; };
+    _ligarFilaManual(box, 'home');
+    const aberto = nome => _filaManual['home:' + nome]; // só o que VOCÊ abriu/fechou; sem escolha, vale o padrão (aberto só se for o único)
     const tipoDe = t => (ent.includes(t) ? 'entrada' : 'saida');
-    const htmlAC = _renderGrupoAConfirmar(aConf, tipoDe, aberto('__aconfirmar__'));
-    const htmlDup = dups.length ? _renderGrupoDuplicatas(null, tipoDe, aberto('__duplicatas__'), dups) : '';
+    const soAC = aConf.length > 0 && !dups.length, soDup = dups.length > 0 && !aConf.length; // nasce aberto só se for o único grupo
+    const htmlAC = _renderGrupoAConfirmar(aConf, tipoDe, aberto('__aconfirmar__') ?? soAC);
+    const htmlDup = dups.length ? _renderGrupoDuplicatas(null, tipoDe, aberto('__duplicatas__') ?? soDup, dups) : '';
     box.innerHTML = _renderFila(htmlAC, htmlDup, 'Nenhuma duplicata nem recorrência a confirmar por aqui');
     box.onclick = onListaTransacaoClick;
+    ajustarBotoesTodas();
 }
 
 /** Escolhe a renderização certa pro modo de visualização selecionado — usado
@@ -216,11 +244,9 @@ function renderListaPorModo(container, transacoes, tipoUI, modo, msgVazia) {
     const aConfirmar = (transacoes || []).filter(t => t.aConfirmar); // ficam no bloco "A confirmar", fora da lista
     if (transacoes) transacoes = transacoes.filter(t => !t.aConfirmar);
     const dupContainer = document.getElementById(tipoUI === 'entrada' ? 'duplicatasEntradas' : 'duplicatasSaidas');
-    let abertoDuplicatas = dupContainer?.querySelector('details.rec-grupo[data-nome="__duplicatas__"]')?.open;
-    const detAC = dupContainer?.querySelector('details.rec-grupo[data-nome="__aconfirmar__"]');
-    const abertoAConfirmar = detAC ? detAC.open : undefined;
-    const detFila = dupContainer?.querySelector('details.rec-grupo[data-nome="__fila__"]');
-    const abertoFila = detFila ? detFila.open : undefined;
+    if (dupContainer) _ligarFilaManual(dupContainer, tipoUI);
+    let abertoDuplicatas = _filaManual[tipoUI + ':__duplicatas__'];
+    const abertoAConfirmar = _filaManual[tipoUI + ':__aconfirmar__'];
     if (_forcarAbrirDuplicatas[tipoUI]) {
         abertoDuplicatas = true;
         _forcarAbrirDuplicatas[tipoUI] = false;
@@ -282,9 +308,11 @@ function renderListaPorModo(container, transacoes, tipoUI, modo, msgVazia) {
     }
 
     if (dupContainer) {
-        const htmlAC = _renderGrupoAConfirmar(aConfirmar, tipoUI, abertoAConfirmar);
-        const htmlDup = (transacoes && transacoes.length) ? _renderGrupoDuplicatas(transacoes, tipoUI, abertoDuplicatas) : '';
+        const nDup = (transacoes && transacoes.length) ? _detectarDuplicatas(transacoes).length : 0;
+        const htmlAC = _renderGrupoAConfirmar(aConfirmar, tipoUI, abertoAConfirmar ?? (aConfirmar.length > 0 && !nDup));
+        const htmlDup = nDup ? _renderGrupoDuplicatas(transacoes, tipoUI, abertoDuplicatas ?? (!aConfirmar.length)) : '';
         dupContainer.innerHTML = _renderFila(htmlAC, htmlDup, '');
+        ajustarBotoesTodas();
         dupContainer.onclick = onListaTransacaoClick;
     }
 }

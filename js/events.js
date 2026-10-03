@@ -191,6 +191,12 @@ function configurarEventListeners() {
         if (box && !box.hidden && box.dataset.recentes === '1') atualizarBuscaGlobal(); // toggle: fecha
         else mostrarRecemLancados(5);
     });
+    // Recém-lançados só parece selecionado enquanto a página dele está na frente (não quando outra aba abre por cima dela)
+    const btnRecentesEl = document.getElementById('btnRecentes');
+    if (btnRecentesEl) {
+        const sincRecentes = () => btnRecentesEl.classList.toggle('active', document.body.classList.contains('buscando') && !document.body.classList.contains('aba-por-cima') && document.getElementById('resultadoBusca')?.dataset.recentes === '1');
+        new MutationObserver(sincRecentes).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    }
     const buscaLimparEl = document.getElementById('buscaLimpar');
     const sincronizarBuscaLimpar = () => { if (buscaLimparEl) buscaLimparEl.hidden = !buscaGlobalEl.value; };
     if (buscaGlobalEl) buscaGlobalEl.addEventListener('input', () => {

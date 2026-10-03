@@ -653,7 +653,7 @@ body.modo-anual main.main { padding-top: 0; }
 }
 /* A dica acoplada acompanha a largura do campo de busca */
 /* Recém-lançados: botão aceso quando aberto; o ✕ nunca cai pra outra linha */
-.busca-recentes.active { background: var(--primary); border-color: var(--primary); color: var(--primary-contrast, #fff); }
+.busca-recentes.active { background: color-mix(in srgb, var(--primary) 14%, var(--surface)); border-color: var(--primary); color: var(--primary); font-weight: 600; outline: 2px solid var(--primary); outline-offset: -1px; } /* igual ao .tab-btn.active */
 .busca-ampla-resumo span { flex: 1 1 4rem; min-width: 0; }
 .busca-ampla-resumo .mini-btn { flex: none; margin-left: auto; white-space: nowrap; }
 
@@ -692,7 +692,7 @@ main.main > * { flex-shrink: 0; }
 .acoes-topo .acao-sec .b-emo { margin-right: .3rem; } /* respiro entre o emoji e o texto */
 .acoes-topo .acao-sec { height: var(--h-linha); padding: 0 .6rem; min-width: 0; font-size: .8rem; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
 .acoes-topo .busca-recentes { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
-.acoes-topo .busca-recentes.active { background: var(--primary); border-color: var(--primary); color: var(--primary-contrast, #fff); }
+.acoes-topo .busca-recentes.active { background: color-mix(in srgb, var(--primary) 14%, var(--surface)); border-color: var(--primary); color: var(--primary); font-weight: 600; outline: 2px solid var(--primary); outline-offset: -1px; } /* igual ao .tab-btn.active */
 .acoes-topo .busca-campo .busca-lista { height: var(--h-linha); box-sizing: border-box; }
 .acoes-topo .tab-btn-icone { height: var(--h-linha); padding: 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; }
 /* Lixeira: ícone SVG sem contorno; apagada em repouso, acesa quando selecionada */
