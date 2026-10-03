@@ -150,6 +150,36 @@ function _maisNoGrupoBusca(chaveBusca, grupo) {
 function _htmlMaisGrupo(grupo, total, lim) {
     return total > lim ? `<button type="button" class="busca-ampla-btn" data-mais-grupo="${String(grupo).replace(/"/g, '&quot;')}">Carregar mais 5 <small>restam ${total - lim}</small></button>` : '';
 }
+/** Grupos "A confirmar" e "Duplicatas" dos resultados da busca (separados dos de Receitas/Despesas). */
+function _htmlGruposFilaBusca(acs, dups, chaveBusca, abertos = {}) {
+    const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
+    const tipoUI = t => (t.tipo === 'entradas' ? 'entrada' : 'saida');
+    const grupo = (nome, titulo, cor, lista, opts) => !lista.length ? '' : `
+    <details class="rec-grupo" data-nome="${nome}" style="--cor-rec:${cor}" ${abertos[nome] !== false ? 'open' : ''}>
+      <summary>
+        <span class="rec-grupo-nome">${titulo}</span>
+        <span class="rec-grupo-contagem">${lista.length}</span>
+        <span class="rec-grupo-total">${formatarMoeda(lista.reduce((s, x) => s + valorDe(x), 0))}</span>
+      </summary>
+      <div class="rec-grupo-itens">${lista.slice(0, _limiteGrupoBusca(chaveBusca, nome)).map(x => gerarHTMLTransacao(x, tipoUI(x), opts)).join('')}${_htmlMaisGrupo(nome, lista.length, _limiteGrupoBusca(chaveBusca, nome))}</div>
+    </details>`;
+    return grupo('__busca_aconfirmar__', '🔁 A confirmar', 'var(--text-muted)', acs, { comConfirmarOcorrencia: true })
+        + grupo('__busca_duplicatas__', '📑 Duplicatas', 'var(--despesa-text)', dups, { comAprovarDuplicata: true });
+}
+
+/** ids das duplicatas de uma lista (mesma regra do grupo Duplicatas: dentro do mesmo mês e tipo; a confirmar fica de fora). */
+function _idsDuplicatasLista(lista, chaveMes) {
+    const grupos = new Map();
+    lista.filter(t => !t.aConfirmar && !(t.tipo === 'entradas' && _ehEstornoCartao(t))).forEach(t => {
+        const k = chaveMes(t) + '|' + t.tipo;
+        if (!grupos.has(k)) grupos.set(k, []);
+        grupos.get(k).push(t);
+    });
+    const ids = new Set();
+    grupos.forEach(l => _detectarDuplicatas(l).forEach(t => ids.add(t.id)));
+    return ids;
+}
+
 let _amplaCache = null; // { termo, linhas } — "Carregar mais" não refaz a consulta
 
 /** Busca em TODOS os meses (não só o que está em tela), com os mesmos filtros de
@@ -179,7 +209,12 @@ async function buscarAmpla(termo) {
     }
     _amplaCache = { termo, linhas };
     if ((document.getElementById('buscaGlobal')?.value || '').trim() !== termo) return;
-    const itens = linhas.map(r => ({ ...mapearTransacao(r), tipo: r.tipo })).filter(tr => !tr.aConfirmar && _bateConsulta(tr, q, t));
+    const todosMapeados = linhas.map(r => ({ ...mapearTransacao(r), tipo: r.tipo }));
+    const achadosTodos = todosMapeados.filter(tr => _bateConsulta(tr, q, t));
+    const acs = achadosTodos.filter(tr => tr.aConfirmar);
+    const itens = achadosTodos.filter(tr => !tr.aConfirmar);
+    const idsDup = _idsDuplicatasLista(todosMapeados, x => String(x.competencia || x.data).slice(0, 7));
+    const dups = itens.filter(tr => idsDup.has(tr.id));
     const brl = v => formatarMoeda(v);
     const soma = tipo => itens.filter(i => i.tipo === tipo).reduce((a, i) => a + (Number(i.valor) || 0), 0);
     const porMes = new Map();
@@ -205,8 +240,9 @@ async function buscarAmpla(termo) {
             <span>${itens.length} lançamento${itens.length === 1 ? '' : 's'}${itens.length ? ` · Despesas ${brl(soma('saidas'))} · Receitas ${brl(soma('entradas'))}` : ''}</span>
             ${(q.mes != null || q.ano != null) ? '' : '<button type="button" class="mini-btn" data-busca-mes>← só este mês</button>'}
         </div>
-        ${grupos || `<div class="rec-grupo rec-grupo--vazio"><span class="rec-grupo-nome">🔎 Nada encontrado pra "${termo}"</span></div>`}`;
-    _transacoesExtra = itens; // editar/excluir precisam achar lançamentos de qualquer mês
+        ${_htmlGruposFilaBusca(acs, dups, 'a:' + termo)}
+        ${(grupos || acs.length) ? grupos : `<div class="rec-grupo rec-grupo--vazio"><span class="rec-grupo-nome">🔎 Nada encontrado pra "${termo}"</span></div>`}`;
+    _transacoesExtra = [...acs, ...itens]; // editar/excluir precisam achar lançamentos de qualquer mês
     box.dataset.termoAmpla = termo;
     box.onclick = e => {
         if (e.target.closest('[data-busca-mes]')) { atualizarBuscaGlobal(); return; }
@@ -265,7 +301,7 @@ async function _linhasDoMesPorData() {
         linhas.push(...(data || []));
         if (!data || data.length < 1000) break;
     }
-    const itens = linhas.map(r => ({ ...mapearTransacao(r), tipo: r.tipo })).filter(t => !t.aConfirmar);
+    const itens = linhas.map(r => ({ ...mapearTransacao(r), tipo: r.tipo }));
     _buscaMesCache = { chave, itens };
     return itens;
 }
@@ -282,8 +318,12 @@ async function _renderBuscaDoMes(termo, box, abertos) {
     if (!atual()) return;
     const q = _parseConsulta(termo);
     const t = _normalizarBusca(q.texto).trim();
-    const achados = itens.filter(tr => _bateConsulta(tr, q, t)).sort(_porDataDesc);
-    _transacoesExtra = achados; // editar/excluir precisam achar itens que não são da competência em tela
+    const achadosTodos = itens.filter(tr => _bateConsulta(tr, q, t)).sort(_porDataDesc);
+    const acs = achadosTodos.filter(tr => tr.aConfirmar);          // grupo "A confirmar"
+    const achados = achadosTodos.filter(tr => !tr.aConfirmar);
+    const idsDup = _idsDuplicatasLista(itens, () => 'mes');         // grupo "Duplicatas" (do mês, e que batem com a busca)
+    const dups = achados.filter(tr => idsDup.has(tr.id));
+    _transacoesExtra = achadosTodos; // editar/excluir precisam achar itens que não são da competência em tela
     // Estorno de cartão abate a fatura: fica em Despesas (com "+"), não em Receitas
     const receitas = achados.filter(x => x.tipo === 'entradas' && !_ehEstornoCartao(x));
     const despesas = achados.filter(x => x.tipo !== 'entradas' || _ehEstornoCartao(x));
@@ -297,7 +337,7 @@ async function _renderBuscaDoMes(termo, box, abertos) {
       </summary>
       <div class="rec-grupo-itens">${lista.slice(0, _limiteGrupoBusca('m:' + termo, nome)).map(x => gerarHTMLTransacao(x, x.tipo === 'entradas' ? 'entrada' : tipoUI)).join('')}${_htmlMaisGrupo(nome, lista.length, _limiteGrupoBusca('m:' + termo, nome))}</div>
     </details>`;
-    const html =
+    const html = _htmlGruposFilaBusca(acs, dups, 'm:' + termo, abertos) +
         grupo('__busca_receitas__', '⬇️ Receitas', 'var(--receita-text)', receitas, 'entrada') +
         grupo('__busca_despesas__', '⬆️ Despesas', 'var(--despesa-text)', despesas, 'saida');
 
