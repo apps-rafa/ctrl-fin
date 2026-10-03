@@ -2,7 +2,8 @@
 // Código compartilhado entre a função `recorrencias` (chamada pelo app) e a tarefa agendada do telegram-webhook.
 //
 // Regras:
-//  - Mensal: um por mês, no dia `dia_mes` (limitado ao último dia do mês). Semanal: no dia da semana escolhido
+//  - Mensal: um por mês, no dia `dia_mes` (limitado ao último dia do mês; fim de semana/feriado vai para o próximo dia útil,
+//    exceto no cartão de crédito, que vale qualquer dia). Semanal: no dia da semana escolhido
 //    ou, em "Variável" (dia_semana nulo), de 7 em 7 dias a partir do início.
 //  - Duração em meses (`meses`): vale até `inicio + meses` (exclusive); sem duração = contínua.
 //  - Antecedência: sempre até o fim do mês seguinte (mensal e semanal). `gerado_ate` guarda até onde já foi
@@ -117,10 +118,11 @@ export async function gerarOcorrencias(
       admin.from("feriados").select("data, origem, ativo").eq("user_id", r.user_id),
     ]);
     const ehFeriado = criarEhFeriado((feriados ?? []) as { data: string; origem: string; ativo: boolean }[]);
-    const ajustar = (d: string) => proximoDiaUtil(d, ehFeriado);
     const met = ((metodos ?? []) as { nome: string; metodo_kind: string | null; banco: string | null; dia_fechamento: number | null }[])
       .find((m) => rotuloMetodoShared(m) === r.metodo);
     const fech = met?.metodo_kind === "Crédito" ? met.dia_fechamento : null;
+    // Cartão de crédito vale qualquer dia (fim de semana/feriado incluídos); as demais formas vão para o próximo dia útil
+    const ajustar = met?.metodo_kind === "Crédito" ? (d: string) => d : (d: string) => proximoDiaUtil(d, ehFeriado);
     const valorRef = (ultimas && ultimas[0]) ? Number(ultimas[0].valor) : Number(r.valor); // último confirmado vira a referência
     const datas = datasParaGerar(r, hoje, ajustar);
     if (datas.length) {

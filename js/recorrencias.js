@@ -252,7 +252,7 @@ function _recDatas(r, ate) {
             const d = iso(base);
             if (d < r.inicio) continue;
             if (d > ate || (fim && d >= fim)) break;
-            out.push(typeof proximoDiaUtil === 'function' ? iso(proximoDiaUtil(base)) : d);
+            out.push(!r.semDiaUtil && typeof proximoDiaUtil === 'function' ? iso(proximoDiaUtil(base)) : d); // cartão de crédito: qualquer dia
         }
         return out;
     }
@@ -413,7 +413,8 @@ async function salvarRecorrencia(ev) {
         else {
             const hoje = hojeISO();
             const inicioMes = (e.inicio.value || hoje.slice(0, 7)) + '-01';
-            const ref = { frequencia: freq, diaSemana: campos.dia_semana, diaMes: campos.dia_mes, meses: campos.meses, inicio: inicioMes };
+            const ehCredito = ((estadoApp.menus && (estadoApp.menus.metodosTodos || estadoApp.menus.metodos)) || []).some(m => m.metodoKind === 'Crédito' && rotuloMetodo(m) === campos.metodo);
+            const ref = { frequencia: freq, diaSemana: campos.dia_semana, diaMes: campos.dia_mes, meses: campos.meses, inicio: inicioMes, semDiaUtil: ehCredito };
             const passadas = _recDatas(ref, hoje).filter(d => d < hoje);
             let inicio = inicioMes > hoje ? inicioMes : hoje;
             if (passadas.length) {
