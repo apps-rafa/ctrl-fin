@@ -15,21 +15,21 @@
          anterior por um tempo depois do deploy, e um ajuste visual "não
          pegava" até um refresh forçado. Muda algum arquivo em css/ ou js/?
          Sobe esse número (data de hoje, ou +1 se já usou a data). -->
-    <link rel="stylesheet" href="css/variables.css?v=20261022">
-    <link rel="stylesheet" href="css/base.css?v=20261022">
-    <link rel="stylesheet" href="css/animations.css?v=20261022">
-    <link rel="stylesheet" href="css/layout.css?v=20261022">
-    <link rel="stylesheet" href="css/dashboard.css?v=20261022">
-    <link rel="stylesheet" href="css/tabs.css?v=20261022">
-    <link rel="stylesheet" href="css/transactions.css?v=20261022">
-    <link rel="stylesheet" href="css/charts.css?v=20261022">
-    <link rel="stylesheet" href="css/forms.css?v=20261022">
-    <link rel="stylesheet" href="css/menus.css?v=20261022">
-    <link rel="stylesheet" href="css/responsive.css?v=20261022">
-    <link rel="stylesheet" href="css/anual.css?v=20261022">
-    <link rel="stylesheet" href="css/docs.css?v=20261022">
-    <link rel="stylesheet" href="css/theme.css?v=20261022">
-    <link rel="stylesheet" href="css/recorrencias.css?v=20261022">
+    <link rel="stylesheet" href="css/variables.css?v=20261024">
+    <link rel="stylesheet" href="css/base.css?v=20261024">
+    <link rel="stylesheet" href="css/animations.css?v=20261024">
+    <link rel="stylesheet" href="css/layout.css?v=20261024">
+    <link rel="stylesheet" href="css/dashboard.css?v=20261024">
+    <link rel="stylesheet" href="css/tabs.css?v=20261024">
+    <link rel="stylesheet" href="css/transactions.css?v=20261024">
+    <link rel="stylesheet" href="css/charts.css?v=20261024">
+    <link rel="stylesheet" href="css/forms.css?v=20261024">
+    <link rel="stylesheet" href="css/menus.css?v=20261024">
+    <link rel="stylesheet" href="css/responsive.css?v=20261024">
+    <link rel="stylesheet" href="css/anual.css?v=20261024">
+    <link rel="stylesheet" href="css/docs.css?v=20261024">
+    <link rel="stylesheet" href="css/theme.css?v=20261024">
+    <link rel="stylesheet" href="css/recorrencias.css?v=20261024">
     <script>
         // Aplica o tema antes de renderizar (evita flash)
         (function () {
@@ -97,6 +97,8 @@
                 <div class="mini-linha2" hidden>
                     <button type="button" id="miniLancamento" class="mini-lancamento"><span class="tab-mais">+</span> Lançamento</button>
                     <div class="mini-dir">
+                        <button type="button" id="miniRecorrencias" class="mini-proximos" title="Recorrências" aria-label="Recorrências">🔁</button>
+                        <button type="button" id="miniRecentes" class="mini-proximos" title="Recém-lançados" aria-label="Recém-lançados">🕓</button>
                         <button type="button" id="miniProximos" class="mini-proximos" title="Próximos" aria-label="Próximos">⏰</button>
                         <button type="button" id="miniLixeira" class="mini-proximos" title="Lixeira" aria-label="Lixeira"><svg class="ico-lixeira" viewBox="0 0 24 24" width="1.1em" height="1.1em" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>
                     </div>
@@ -469,33 +471,33 @@
 
     <!-- Supabase (banco de dados) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-    <script src="js/config.js?v=20261022"></script>
-    <script src="js/auth.js?v=20261022"></script>
-    <script src="js/state.js?v=20261022"></script>
-    <script src="js/recorrencia.js?v=20261022"></script>
-    <script src="js/feriados.js?v=20261022"></script>
-    <script src="js/api.js?v=20261022"></script>
-    <script src="js/utils.js?v=20261022"></script>
-    <script src="js/data.js?v=20261022"></script>
-    <script src="js/ui.js?v=20261022"></script>
-    <script src="js/dashboard.js?v=20261022"></script>
-    <script src="js/proximos.js?v=20261022"></script>
-    <script src="js/pendencias.js?v=20261022"></script>
-    <script src="js/formulario.js?v=20261022"></script>
-    <script src="js/busca.js?v=20261022"></script>
-    <script src="js/edicao.js?v=20261022"></script>
-    <script src="js/recorrencias.js?v=20261022"></script>
-    <script src="js/menus-api.js?v=20261022"></script>
-    <script src="js/menus-ui.js?v=20261022"></script>
-    <script src="js/revisao-importacao.js?v=20261022"></script>
-    <script src="js/lixeira.js?v=20261022"></script>
-    <script src="js/dados.js?v=20261022"></script>
-    <script src="js/pluggy.js?v=20261022"></script>
-    <script src="js/pluggy-revisao.js?v=20261022"></script>
-    <script src="js/pluggy-credenciais.js?v=20261022"></script>
-    <script src="js/anual.js?v=20261022"></script>
-    <script src="js/docs.js?v=20261022"></script>
-    <script src="js/events.js?v=20261022"></script>
-    <script src="js/main.js?v=20261022"></script>
+    <script src="js/config.js?v=20261024"></script>
+    <script src="js/auth.js?v=20261024"></script>
+    <script src="js/state.js?v=20261024"></script>
+    <script src="js/recorrencia.js?v=20261024"></script>
+    <script src="js/feriados.js?v=20261024"></script>
+    <script src="js/api.js?v=20261024"></script>
+    <script src="js/utils.js?v=20261024"></script>
+    <script src="js/data.js?v=20261024"></script>
+    <script src="js/ui.js?v=20261024"></script>
+    <script src="js/dashboard.js?v=20261024"></script>
+    <script src="js/proximos.js?v=20261024"></script>
+    <script src="js/pendencias.js?v=20261024"></script>
+    <script src="js/formulario.js?v=20261024"></script>
+    <script src="js/busca.js?v=20261024"></script>
+    <script src="js/edicao.js?v=20261024"></script>
+    <script src="js/recorrencias.js?v=20261024"></script>
+    <script src="js/menus-api.js?v=20261024"></script>
+    <script src="js/menus-ui.js?v=20261024"></script>
+    <script src="js/revisao-importacao.js?v=20261024"></script>
+    <script src="js/lixeira.js?v=20261024"></script>
+    <script src="js/dados.js?v=20261024"></script>
+    <script src="js/pluggy.js?v=20261024"></script>
+    <script src="js/pluggy-revisao.js?v=20261024"></script>
+    <script src="js/pluggy-credenciais.js?v=20261024"></script>
+    <script src="js/anual.js?v=20261024"></script>
+    <script src="js/docs.js?v=20261024"></script>
+    <script src="js/events.js?v=20261024"></script>
+    <script src="js/main.js?v=20261024"></script>
 </body>
 </html>

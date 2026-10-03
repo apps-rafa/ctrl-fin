@@ -661,7 +661,8 @@
 .dialogo p { margin: 0 0 1.25rem; color: #4B5563; font-size: .92rem; }
 /* Botões do alerta: dividem a largura da linha; se precisar quebrar, o que sobra sozinho ocupa 100% (sem viúva) */
 .dialogo-acoes { display: flex; gap: .6rem; flex-wrap: wrap; }
-.dialogo-acoes > button { flex: 1 1 0; min-width: max-content; }
+.dialogo-acoes > button { flex: 1 1 0; min-width: max-content; box-sizing: border-box; min-height: 2.7rem; padding: .5rem 1rem; line-height: 1.2; display: inline-flex; align-items: center; justify-content: center; border-width: 1px; border-style: solid; }
+.dialogo-acoes > button:not(.btn-cancelar) { border-color: transparent; } /* mesma altura: todos têm 1px de borda */
 
 .despesa-valor .valor-meta { font-weight: 400; opacity: .6; }
 
