@@ -173,18 +173,11 @@ function _renderGrupoAConfirmar(itens, tipoUI, aberto) {
     </details>`;
 }
 
-/** "Fila": junta Duplicatas e A confirmar num grupo só quando existem os dois; com um só, ele aparece sozinho. */
-function _renderFila(htmlAConfirmar, htmlDuplicatas, qtd, aberto) {
-    if (!htmlAConfirmar || !htmlDuplicatas) return htmlAConfirmar + htmlDuplicatas;
-    return `
-    <details class="rec-grupo rec-grupo-fila" data-nome="__fila__" style="--cor-rec:var(--despesa-text)" ${aberto === false ? '' : 'open'}>
-      <summary>
-        <span class="rec-grupo-nome">📥 Fila</span>
-        <span class="rec-grupo-espaco"></span>
-        <span class="rec-grupo-contagem">${qtd}</span>
-      </summary>
-      <div class="rec-grupo-itens">${htmlAConfirmar}${htmlDuplicatas}</div>
-    </details>`;
+/** "Fila": um TÍTULO (não é grupo) e, embaixo, os grupos que existirem (Duplicatas e/ou A confirmar). Aparece mesmo com só um
+ *  deles; sem nenhum, mostra `textoVazio` (se houver). */
+function _renderFila(htmlAConfirmar, htmlDuplicatas, textoVazio) {
+    if (!htmlAConfirmar && !htmlDuplicatas) return textoVazio ? `<h3 class="fila-titulo">📥 Fila</h3><p class="fila-vazia">${textoVazio}</p>` : '';
+    return `<h3 class="fila-titulo">📥 Fila</h3>${htmlAConfirmar}${htmlDuplicatas}`;
 }
 
 /** Fila do mês na Home (nenhuma aba aberta): duplicatas e ocorrências a confirmar de Receitas e Despesas juntas. */
@@ -199,7 +192,7 @@ function renderFilaHome() {
     const tipoDe = t => (ent.includes(t) ? 'entrada' : 'saida');
     const htmlAC = _renderGrupoAConfirmar(aConf, tipoDe, aberto('__aconfirmar__'));
     const htmlDup = dups.length ? _renderGrupoDuplicatas(null, tipoDe, aberto('__duplicatas__'), dups) : '';
-    box.innerHTML = _renderFila(htmlAC, htmlDup, aConf.length + dups.length, aberto('__fila__'));
+    box.innerHTML = _renderFila(htmlAC, htmlDup, 'Nenhuma duplicata nem recorrência a confirmar por aqui');
     box.onclick = onListaTransacaoClick;
 }
 
@@ -291,7 +284,7 @@ function renderListaPorModo(container, transacoes, tipoUI, modo, msgVazia) {
     if (dupContainer) {
         const htmlAC = _renderGrupoAConfirmar(aConfirmar, tipoUI, abertoAConfirmar);
         const htmlDup = (transacoes && transacoes.length) ? _renderGrupoDuplicatas(transacoes, tipoUI, abertoDuplicatas) : '';
-        dupContainer.innerHTML = _renderFila(htmlAC, htmlDup, aConfirmar.length + (htmlDup ? _detectarDuplicatas(transacoes).length : 0), abertoFila);
+        dupContainer.innerHTML = _renderFila(htmlAC, htmlDup, '');
         dupContainer.onclick = onListaTransacaoClick;
     }
 }

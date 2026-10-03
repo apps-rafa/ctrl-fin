@@ -85,7 +85,7 @@
     font-style: italic;
     opacity: 0.7;
     text-align: left;
-    font-size: clamp(0.6rem, 5cqw, 0.85rem);
+    font-size: clamp(0.65rem, 6cqw, 1rem);
     white-space: nowrap;
 }
 /* Linha "ponta a ponta" separando o total (sem rótulo — só o valor,
@@ -429,7 +429,7 @@
 @container (max-width: 125px) {
     .card-linhas-topo .linha { gap: .15rem; }
     .card-linhas-topo .linha b { font-size: clamp(.5rem, 7.5cqw, 1.25rem); }
-    .card-linhas-topo .linha i { font-size: clamp(.4rem, 5cqw, .85rem); }
+    .card-linhas-topo .linha i { font-size: clamp(.5rem, 6cqw, .95rem); }
     .summary-card .linha-detalhe i { font-size: clamp(.42rem, 4.6cqw, .62rem); }
 }
 /* Menu flutuante (mini-resumo): sem emoji e com fonte menor quando a tela é muito estreita */
@@ -439,6 +439,6 @@
 }
 
 /* Rótulos viraram emoji (🟢 / ⏭️): tamanho legível, independente da escala do card */
-.card-linhas-topo.rot-emoji .linha i[data-rot] { font-size: .7rem; font-style: normal; }
+.card-linhas-topo.rot-emoji .linha i[data-rot] { font-size: .8rem; font-style: normal; }
 /* sobrou espaço (o rótulo virou emoji): o valor cresce */
 .card-linhas-topo.rot-emoji .linha b { font-size: clamp(.7rem, 10.5cqw, 1.25rem); }
