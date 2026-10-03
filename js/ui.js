@@ -917,7 +917,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     let acoes = '';
     if (!opts.semAcoes) {
         if (opts.comConfirmarOcorrencia || trans.aConfirmar) {
-            acoes += `<button class="btn-icon btn-success" data-act="confirmar-ocorrencia" data-id="${trans.id}" title="Confirmar este lançamento">✓</button>`;
+            acoes += `<button class="btn-icon btn-success" data-act="confirmar-ocorrencia" data-id="${trans.id}" title="Confirmar: este lançamento veio de uma recorrência e ainda é só um rascunho" aria-label="Confirmar">✓</button>`;
         }
         if (opts.comAprovarDuplicata) {
             acoes += `<button class="btn-icon btn-success" data-act="aprovar-duplicata" data-id="${trans.id}" title="Não é duplicata — não avisar de novo sobre este lançamento">✓</button>`;
@@ -944,7 +944,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
                 <span class="despesa-valor">${sinal} ${valorFormatado}</span>
                 ${parcelaTag}
                 ${quitarCheckbox}
-                ${(metaChip || catChip || quandoTag || quitadoTag) ? `<span class="despesa-badges">${metaChip}${catChip}${quandoTag}${quitadoTag}</span>` : ''}
+                ${(metaChip || catChip || quandoTag || quitadoTag || trans.aConfirmar) ? `<span class="despesa-badges">${metaChip}${catChip}${quandoTag}${quitadoTag}${trans.aConfirmar ? '<span class="chip chip--neutro" title="Rascunho de uma recorrência: confirme com o ✓">a confirmar</span>' : ''}</span>` : ''}
                 ${descTxt}
             </div>
             <div class="despesa-actions">${acoes}</div>

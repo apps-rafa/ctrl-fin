@@ -35,11 +35,11 @@ test("semanal por 3 meses às terças = 13 ocorrências (igual ao total estimado
   assert.equal(datasDaRecorrencia(r, "2030-01-01").length, 13);
 });
 
-test("antecedência: mensal até o fim do mês seguinte, semanal 5 semanas", () => {
+test("antecedência: mensal e semanal até o fim do mês seguinte", () => {
   assert.equal(horizonteDeGeracao("mensal", "2026-10-02"), "2026-11-30");
   assert.equal(horizonteDeGeracao("mensal", "2026-11-30"), "2026-12-31");
   assert.equal(horizonteDeGeracao("mensal", "2026-12-15"), "2027-01-31");
-  assert.equal(horizonteDeGeracao("semanal", "2026-10-02"), "2026-11-06");
+  assert.equal(horizonteDeGeracao("semanal", "2026-10-02"), "2026-11-30");
 });
 
 test("só gera o que falta (depois de gerado_ate) e nunca recria datas antigas", () => {
@@ -89,4 +89,12 @@ test("dia 5 criada em 03/10: o rascunho de novembro (05/11) já existe; em novem
   const r = { ...base, frequencia: "mensal", dia_semana: null, dia_mes: 5, inicio: "2026-10-03", meses: null, gerado_ate: null };
   assert.deepEqual(datasParaGerar(r, "2026-10-03"), ["2026-10-05", "2026-11-05"]);
   assert.deepEqual(datasParaGerar({ ...r, gerado_ate: "2026-11-05" }, "2026-11-01"), ["2026-12-05"]);
+});
+
+test("semanal às segundas: 4 ou 5 por mês conforme o mês, sempre até o fim do mês seguinte", () => {
+  const r = { ...base, frequencia: "semanal", dia_semana: 1, dia_mes: null, inicio: "2026-10-01", meses: null, gerado_ate: null };
+  const ds = datasParaGerar(r, "2026-10-03"); // até 30/11
+  assert.deepEqual(ds, ["2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26", "2026-11-02", "2026-11-09", "2026-11-16", "2026-11-23", "2026-11-30"]);
+  assert.equal(ds.filter((d) => d.startsWith("2026-10")).length, 4); // outubro/2026 tem 4 segundas
+  assert.equal(ds.filter((d) => d.startsWith("2026-11")).length, 5); // novembro/2026 tem 5 segundas
 });
