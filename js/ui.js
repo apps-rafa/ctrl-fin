@@ -930,19 +930,25 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
         ? `<span class="quitado-badge">quitado ${typeof mesTri === 'function' ? mesTri(String(trans.quitadoEm).slice(5, 7)) + '/' + String(trans.quitadoEm).slice(2, 4) : ''}</span>`
         : '';
 
-    // Selo na margem esquerda: ⏰ = ainda não aconteceu (data futura/pendente); 🏦 = conciliado com o banco
-    let seloLinha = '';
+    // Selos na margem esquerda, cada um alinhado ao texto da SUA linha: ⏰ (ainda não aconteceu) ou 🏦 (conciliado com o
+    // banco) na linha da data; 🔁 (recorrência) na linha da descrição. Sem descrição, o 🔁 vai para a linha da data
+    // (embaixo do ⏰/🏦, se houver).
+    let seloNaData = '';
     if (!opts.semRelogio && !_transacaoRealizada(trans)) {
-        seloLinha = '<span class="conc-selo" title="Ainda não aconteceu (data futura)">⏰</span>';
+        seloNaData = '<span class="conc-selo conc-selo--in" title="Ainda não aconteceu (data futura)">⏰</span>';
     } else if (estadoApp.conciliadas && estadoApp.conciliadas.has(trans.id) && trans.origem !== 'pluggy') {
-        seloLinha = '<span class="conc-selo" title="Conciliado com uma transação do banco (Open Finance)">🏦</span>';
+        seloNaData = '<span class="conc-selo conc-selo--in" title="Conciliado com uma transação do banco (Open Finance)">🏦</span>';
     }
-
-    if (trans.recorrenciaId) {
-        seloLinha += `<span class="conc-selo${seloLinha ? ' conc-selo--baixo' : ''}" title="Lançamento de uma recorrência">🔁</span>`;
+    const seloRec = trans.recorrenciaId ? '<span class="conc-selo conc-selo--in" title="Lançamento de uma recorrência">🔁</span>' : '';
+    const recNaDesc = !!(seloRec && trans.descricao);
+    let seloLinha = ''; // só quando não há descrição E já existe ⏰/🏦: o 🔁 desce na margem
+    if (seloRec && !recNaDesc) {
+        if (seloNaData) seloLinha = '<span class="conc-selo conc-selo--baixo" title="Lançamento de uma recorrência">🔁</span>';
+        else seloNaData = seloRec;
     }
 
     const lado = `<span class="despesa-data">`
+        + seloNaData
         + `<span class="despesa-dia">${diaFormatado}</span>`
         + (dowFormatado ? `<span class="despesa-dow">${dowFormatado}</span>` : '')
         + `</span>`;
@@ -969,7 +975,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     const catChip = (!opts.semCategoriaChip && trans.categoria)
         ? chip(corDaCategoria(trans.categoria, (tipo === 'entrada' && !_ehEstornoCartao(trans)) ? 'entradas' : 'saidas'), _htmlNomeCategoriaChip(trans.categoria)) : '';
     const descTxt = trans.descricao
-        ? `<span class="despesa-desc">${trans.descricao}</span>` : '';
+        ? `<span class="despesa-desc">${recNaDesc ? seloRec : ''}${trans.descricao}</span>` : '';
 
     // Ações
     let acoes = '';
