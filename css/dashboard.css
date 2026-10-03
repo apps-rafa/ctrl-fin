@@ -22,12 +22,6 @@
 .summary-card.saidas       { grid-column: 3 / span 2; grid-row: 1 / span 2; }
 .summary-card.balanco      { grid-column: 5 / span 2; grid-row: 1; }
 .summary-card.gasto-diario { grid-column: 5 / span 2; grid-row: 2; }
-/* Barra de pendências (100% da largura, primeiro item): com ela visível, os cards descem uma linha */
-.dashboard > .barra-pendencias { grid-column: 1 / -1; grid-row: 1; }
-.dashboard:has(.barra-pendencias:not([hidden])) .summary-card.entradas { grid-row: 2 / span 2; }
-.dashboard:has(.barra-pendencias:not([hidden])) .summary-card.saidas { grid-row: 2 / span 2; }
-.dashboard:has(.barra-pendencias:not([hidden])) .summary-card.balanco { grid-row: 2; }
-.dashboard:has(.barra-pendencias:not([hidden])) .summary-card.gasto-diario { grid-row: 3; }
 /* Alinhado no topo (não centralizado) — com o valor logo abaixo do
    título nos 2, "Balanço" e "Gasto diário" ficam com o número na mesma
    altura; centralizar bagunçava isso, já que só "Gasto diário" tem uma
@@ -58,10 +52,6 @@
     .summary-card.saidas       { grid-column: 2; grid-row: 1; }
     .summary-card.balanco      { grid-column: 1; grid-row: 2; }
     .summary-card.gasto-diario { grid-column: 2; grid-row: 2; }
-    .dashboard:has(.barra-pendencias:not([hidden])) .summary-card.entradas,
-    .dashboard:has(.barra-pendencias:not([hidden])) .summary-card.saidas { grid-row: 2; }
-    .dashboard:has(.barra-pendencias:not([hidden])) .summary-card.balanco,
-    .dashboard:has(.barra-pendencias:not([hidden])) .summary-card.gasto-diario { grid-row: 3; }
 }
 
 /* Grade 2x2: Receitas | Despesas ; Balanço | Gasto diário */

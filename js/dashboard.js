@@ -324,16 +324,24 @@ function diasRestantesMesVigente() {
     return 0;
 }
 
+/** As linhas de detalhe dos cards (pago/pendentes) usam o MESMO tamanho: vale o menor entre elas (nenhuma fica maior que a outra). */
+function _unificarDetalhes() {
+    const els = [...document.querySelectorAll('.linha-detalhe i')].filter(x => x._f);
+    if (!els.length) return;
+    const menor = Math.min(...els.map(x => x._f));
+    els.forEach(x => { x.style.fontSize = menor + 'px'; });
+}
+
 /** Texto de detalhe do dashboard (ex.: "pendentes 10 + crédito 20"): usa a 1ª versão que cabe com respiro; senão a mais curta. */
 function _ajustarDetalhe(el, variantes) {
     el._variantes = variantes;
     const aplicar = () => {
         const v = el._variantes;
-        if (!v) { el.textContent = '\u00a0'; el.style.fontSize = ''; return; }
+        if (!v) { el.textContent = '\u00a0'; el.style.fontSize = ''; el._f = null; _unificarDetalhes(); return; }
         el.style.whiteSpace = 'nowrap';
         el.style.fontSize = '';
         const caixa = (el.closest('.linha') || el.parentElement).clientWidth;
-        if (!caixa) { el.textContent = v[0]; return; }
+        if (!caixa) { el.textContent = v[0]; el._f = null; return; }
         const util = caixa - 4; // até a largura da linha que separa do total (respiro mínimo)
         // Cada variante, esticada até a largura da linha, dá um tamanho de fonte; vale a mais completa (completo -> emojis ->
         // só números) cujo tamanho continua legível (>= 9px). Sobrou espaço = a fonte cresce (até 13px).
@@ -347,9 +355,10 @@ function _ajustarDetalhe(el, variantes) {
             if (!melhor || f > melhor.f && melhor.f < 9) melhor = { texto, f };
             if (f >= 9) { melhor = { texto, f }; break; }
         }
-        if (!melhor) { el.textContent = v[0]; return; }
+        if (!melhor) { el.textContent = v[0]; el._f = null; return; }
         el.textContent = melhor.texto;
-        el.style.fontSize = Math.max(7, Math.min(melhor.f, 13)) + 'px';
+        el._f = Math.max(7, Math.min(melhor.f, 13));
+        _unificarDetalhes();
     };
     el._reajustar = aplicar;
     aplicar();
