@@ -87,14 +87,20 @@ export async function tratarFormularioMiniApp(c: ContextoFormulario): Promise<vo
     return;
   }
   const idEditado = Number(p?.id);
-  if (idEditado) await supabaseAdmin.from("telegram_rascunhos").delete().eq("id", idEditado).eq("chat_id", chatId);
+  if (idEditado) {
+    // rascunho de ocorrência de recorrência: a confirmação atualiza a linha existente (ver confirmarRascunhoNoBanco)
+    const { data: rascEd } = await supabaseAdmin.from("telegram_rascunhos").select("dados").eq("id", idEditado).eq("chat_id", chatId).maybeSingle();
+    const ocId = Number((rascEd?.dados as RascunhoLancamento | undefined)?.ocorrenciaId);
+    if (ocId) dadosF.ocorrenciaId = ocId;
+    await supabaseAdmin.from("telegram_rascunhos").delete().eq("id", idEditado).eq("chat_id", chatId);
+  }
   const { erro: erroF } = await confirmarRascunhoNoBanco(supabaseAdmin, tgUser.user_id, dadosF);
   if (erroF) {
     console.error(erroF);
-    await tg(token, "sendMessage", { chat_id: chatId, text: "Erro ao lançar — tenta de novo.", reply_markup: remover });
+    await tg(token, "sendMessage", { chat_id: chatId, text: dadosF.ocorrenciaId ? `${(erroF as Error)?.message || "Erro ao confirmar"}` : "Erro ao lançar — tenta de novo.", reply_markup: remover });
     return;
   }
-  await tg(token, "sendMessage", { chat_id: chatId, text: "✅ Lançado!", reply_markup: remover });
+  await tg(token, "sendMessage", { chat_id: chatId, text: dadosF.ocorrenciaId ? "✅ Recorrência confirmada!" : "✅ Lançado!", reply_markup: remover });
   return;
 }
 

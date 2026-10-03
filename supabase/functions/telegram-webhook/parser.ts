@@ -135,6 +135,8 @@ export interface RascunhoLancamento {
   competencia?: string | null;
   /** De onde veio a forma de pagamento: dita no texto, ou o padrão do /pgtopadrao. */
   metodoOrigem?: "texto" | "padrao" | null;
+  /** Rascunho de uma OCORRÊNCIA de recorrência (transacoes.id, a_confirmar): confirmar ATUALIZA essa linha em vez de inserir outra. */
+  ocorrenciaId?: number | null;
 }
 
 export type MetodoMenu = { nome: string; metodo_kind: string | null; banco: string | null; dia_fechamento: number | null };

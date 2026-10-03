@@ -13,6 +13,7 @@
 //    não a alcançam mais. Ocorrência "a confirmar" vencida continua esperando o usuário decidir.
 
 import type { createClient } from "npm:@supabase/supabase-js@2";
+import { criarEhFeriado, proximoDiaUtil } from "./diautil.ts";
 
 export interface RecorrenciaLinha {
   id: number; user_id: string; tipo: "entradas" | "saidas"; frequencia: "mensal" | "semanal";
@@ -44,7 +45,10 @@ export function fimDaRecorrencia(r: Pick<RecorrenciaLinha, "inicio" | "meses" | 
 }
 
 /** Todas as datas da recorrência de `inicio` até `ate` (inclusive), respeitando a duração. */
-export function datasDaRecorrencia(r: Pick<RecorrenciaLinha, "frequencia" | "dia_semana" | "dia_mes" | "inicio" | "meses">, ate: string): string[] {
+export function datasDaRecorrencia(
+  r: Pick<RecorrenciaLinha, "frequencia" | "dia_semana" | "dia_mes" | "inicio" | "meses">, ate: string,
+  ajustar: (d: string) => string = (d) => d,
+): string[] {
   const fim = fimDaRecorrencia(r);
   const dentro = (d: string) => d <= ate && (!fim || d < fim);
   const saida: string[] = [];
@@ -54,7 +58,7 @@ export function datasDaRecorrencia(r: Pick<RecorrenciaLinha, "frequencia" | "dia
       const d = somarMesesNoDia(r.inicio, k, dia);
       if (d < r.inicio.slice(0, 10)) continue; // no mês do início o dia escolhido já tinha passado: começa no mês seguinte
       if (d > ate || (fim && d >= fim)) break;
-      saida.push(d);
+      saida.push(ajustar(d)); // mensal: fim de semana/feriado vai para o próximo dia útil
     }
     return saida;
   }
@@ -72,15 +76,15 @@ export function horizonteDeGeracao(frequencia: "mensal" | "semanal", hoje: strin
 }
 
 /** Datas que ainda faltam materializar (depois de `gerado_ate`, até o horizonte). */
-export function datasParaGerar(r: RecorrenciaLinha, hoje: string): string[] {
-  const todas = datasDaRecorrencia(r, horizonteDeGeracao(r.frequencia, hoje));
+export function datasParaGerar(r: RecorrenciaLinha, hoje: string, ajustar?: (d: string) => string): string[] {
+  const todas = datasDaRecorrencia(r, horizonteDeGeracao(r.frequencia, hoje), ajustar);
   return r.gerado_ate ? todas.filter((d) => d > r.gerado_ate!) : todas;
 }
 
 /** A recorrência com duração terminou (todas as datas passaram)? Então vira "encerrada". */
-export function recorrenciaConcluida(r: RecorrenciaLinha, hoje: string): boolean {
+export function recorrenciaConcluida(r: RecorrenciaLinha, hoje: string, ajustar?: (d: string) => string): boolean {
   const fim = fimDaRecorrencia(r);
-  return !!fim && hoje >= fim && !!r.gerado_ate && datasDaRecorrencia(r, fim).every((d) => d <= r.gerado_ate!);
+  return !!fim && hoje >= fim && !!r.gerado_ate && datasDaRecorrencia(r, fim, ajustar).every((d) => d <= r.gerado_ate!);
 }
 
 export function rotuloMetodoShared(m: { nome: string; metodo_kind: string | null; banco: string | null }): string {
@@ -106,15 +110,18 @@ export async function gerarOcorrencias(
   const { data: recs } = await q;
   let criadas = 0;
   for (const r of (recs ?? []) as RecorrenciaLinha[]) {
-    const [{ data: metodos }, { data: ultimas }] = await Promise.all([
+    const [{ data: metodos }, { data: ultimas }, { data: feriados }] = await Promise.all([
       admin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("tipo", "Método").eq("user_id", r.user_id),
       admin.from("transacoes").select("valor, data").eq("recorrencia_id", r.id).eq("a_confirmar", false).order("data", { ascending: false }).limit(1),
+      admin.from("feriados").select("data, origem, ativo").eq("user_id", r.user_id),
     ]);
+    const ehFeriado = criarEhFeriado((feriados ?? []) as { data: string; origem: string; ativo: boolean }[]);
+    const ajustar = (d: string) => proximoDiaUtil(d, ehFeriado);
     const met = ((metodos ?? []) as { nome: string; metodo_kind: string | null; banco: string | null; dia_fechamento: number | null }[])
       .find((m) => rotuloMetodoShared(m) === r.metodo);
     const fech = met?.metodo_kind === "Crédito" ? met.dia_fechamento : null;
     const valorRef = (ultimas && ultimas[0]) ? Number(ultimas[0].valor) : Number(r.valor); // último confirmado vira a referência
-    const datas = datasParaGerar(r, hoje);
+    const datas = datasParaGerar(r, hoje, ajustar);
     if (datas.length) {
       const linhas = datas.map((d) => ({
         user_id: r.user_id, tipo: r.tipo, data: d, valor: valorRef, metodo: r.metodo, categoria: r.categoria,
@@ -127,7 +134,7 @@ export async function gerarOcorrencias(
       r.gerado_ate = datas[datas.length - 1];
       await admin.from("recorrencias").update({ gerado_ate: r.gerado_ate }).eq("id", r.id);
     }
-    if (recorrenciaConcluida(r, hoje)) await admin.from("recorrencias").update({ status: "encerrada", encerrada_em: hoje }).eq("id", r.id);
+    if (recorrenciaConcluida(r, hoje, ajustar)) await admin.from("recorrencias").update({ status: "encerrada", encerrada_em: hoje }).eq("id", r.id);
   }
   // O que já passou e foi confirmado deixa de ser recorrente (não é mais afetado por edições da recorrência)
   let d = admin.from("transacoes").update({ recorrencia_id: null }).not("recorrencia_id", "is", null).eq("a_confirmar", false).lt("data", hoje);

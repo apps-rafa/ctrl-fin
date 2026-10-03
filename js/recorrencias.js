@@ -156,14 +156,14 @@ function _recDuracaoTexto(n, el) {
 /** "Variável" vira "Var." quando o menu de dias não comporta o nome inteiro. */
 function _recAjustarDia() {
     const e = _recElementos();
-    if (!e.dia || !e.dia.options.length || !e.dia.clientWidth) return;
+    if (!e.dia || e.freq.value !== 'semanal' || !e.dia.options.length || !e.dia.clientWidth) return;
     e.dia.options[0].textContent = _recCabe(e.dia, 'Variável', 18) ? 'Variável' : 'Var.';
 }
 function _recMesesDe(n) { return n > 1 ? n : 0; }
 
 /** Texto curto da recorrência para a lista ("Mensal", "Semanal · SEG", "Semanal · Variável"). */
 function _recRotuloFrequencia(r) {
-    if (r.frequencia === 'mensal') return 'Mensal';
+    if (r.frequencia === 'mensal') return r.diaMes ? `Mensal · dia ${r.diaMes}` : 'Mensal';
     return `Semanal · ${r.diaSemana !== '' && r.diaSemana != null ? _DIAS_TRI[Number(r.diaSemana)] : 'Variável'}`;
 }
 
@@ -182,13 +182,28 @@ function _recDuracaoAtual() {
     return Math.max(1, parseInt(e.duracao.value, 10) || 1);
 }
 
-/** Atualiza o que depende das escolhas: menu de dias (só semanal), texto da duração e o Total. */
+/** Menu "Dia": mensal = dia do mês (1–31; cai em fim de semana/feriado, vai para o próximo dia útil); semanal = dia da semana ou Variável. */
+function _recMontarMenuDia(freq, valor) {
+    const e = _recElementos();
+    if (e.dia.dataset.freq === freq) return;
+    e.dia.dataset.freq = freq;
+    if (freq === 'mensal') {
+        e.dia.innerHTML = Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
+        e.dia.value = valor != null && valor !== '' ? String(valor) : String(Number(hojeISO().slice(8, 10)));
+    } else {
+        e.dia.innerHTML = '<option value="">Variável</option><option value="1">SEG</option><option value="2">TER</option><option value="3">QUA</option><option value="4">QUI</option><option value="5">SEX</option><option value="6">SÁB</option><option value="0">DOM</option>';
+        e.dia.value = valor != null ? String(valor) : '';
+    }
+}
+
+/** Atualiza o que depende das escolhas: menu de dias, texto da duração e o Total. */
 function atualizarFormRecorrencia() {
     const e = _recElementos();
     if (!e.painel) return;
     const semanal = e.freq.value === 'semanal';
-    e.diaGrupo.hidden = !semanal;
-    e.painel.querySelector('.rec-linha--1').classList.toggle('is-semanal', semanal);
+    _recMontarMenuDia(e.freq.value);
+    e.diaGrupo.hidden = false;
+    e.painel.querySelector('.rec-linha--1').classList.add('is-semanal'); // o Dia aparece nos dois ritmos
     const n = _recDuracaoAtual();
     if (document.activeElement !== e.duracao) e.duracao.value = _recDuracaoTexto(n, e.duracao); // em digitação fica o número cru
     _recAjustarDia();
@@ -200,7 +215,7 @@ function atualizarFormRecorrencia() {
         e.total.title = valor ? `≈ ${formatarMoeda(porMes)} por mês, enquanto durar` : 'Informe o valor para estimar o gasto mensal';
         return;
     }
-    const ocorr = calcularOcorrenciasRecorrencia({ frequencia: e.freq.value, diaSemana: e.dia.value, meses });
+    const ocorr = calcularOcorrenciasRecorrencia({ frequencia: e.freq.value, diaSemana: semanal ? e.dia.value : '', meses });
     e.total.value = formatarMoeda(valor * ocorr);
     e.total.title = `${ocorr} ocorrência${ocorr === 1 ? '' : 's'} × ${formatarMoeda(valor)} em ${meses} meses`;
 }
@@ -238,7 +253,8 @@ function abrirFormRecorrencia(rec) {
     e.erro.textContent = '';
     _recDefinirTipo(rec ? rec.tipo : 'saidas');
     e.freq.value = rec ? rec.frequencia : 'mensal';
-    e.dia.value = rec && rec.diaSemana != null ? String(rec.diaSemana) : '';
+    delete e.dia.dataset.freq; // remonta o menu de dias do ritmo escolhido
+    _recMontarMenuDia(e.freq.value, rec ? (rec.frequencia === 'mensal' ? rec.diaMes : rec.diaSemana) : null);
     e.valor.value = rec ? formatarValorParaCampo(rec.valor) : '';
     e.duracao.value = rec && rec.meses ? String(rec.meses) : '1';
     e.metodo.value = rec ? rec.metodo : '';
@@ -270,6 +286,7 @@ async function salvarRecorrencia(ev) {
     const campos = {
         tipo: e.tipo.value, frequencia: freq,
         dia_semana: freq === 'semanal' && e.dia.value !== '' ? Number(e.dia.value) : null,
+        dia_mes: freq === 'mensal' ? Number(e.dia.value) || Number(hojeISO().slice(8, 10)) : null,
         valor, meses: _recMesesDe(_recDuracaoAtual()) || null, metodo: e.metodo.value, categoria: e.categoria.value,
         descricao: e.descricao.value.trim(),
     };
@@ -279,7 +296,7 @@ async function salvarRecorrencia(ev) {
         if (_recEditandoId) await _recSalvarEdicao(_recEditandoId, campos);
         else {
             const hoje = hojeISO();
-            const { error } = await sb.from('recorrencias').insert({ ...campos, dia_mes: freq === 'mensal' ? Number(hoje.slice(8, 10)) : null, inicio: hoje });
+            const { error } = await sb.from('recorrencias').insert({ ...campos, inicio: hoje });
             if (error) throw error;
         }
         fecharFormRecorrencia();
@@ -294,7 +311,7 @@ async function salvarRecorrencia(ev) {
 async function _recSalvarEdicao(id, campos) {
     const atual = _recorrencias.find(r => r.id === id);
     const hoje = hojeISO();
-    const mudouAgenda = atual.frequencia !== campos.frequencia || (atual.diaSemana ?? null) !== campos.dia_semana || (atual.meses || null) !== campos.meses;
+    const mudouAgenda = atual.frequencia !== campos.frequencia || (atual.diaSemana ?? null) !== campos.dia_semana || (atual.diaMes ?? null) !== campos.dia_mes || (atual.meses || null) !== campos.meses;
     const { error } = await sb.from('recorrencias').update(campos).eq('id', id);
     if (error) throw error;
     const comuns = { valor: campos.valor, metodo: campos.metodo, categoria: campos.categoria, descricao: campos.descricao };
@@ -302,9 +319,7 @@ async function _recSalvarEdicao(id, campos) {
     if (mudouAgenda) { // novo ritmo/duração: apaga as futuras a confirmar e recomeça a geração de hoje em diante
         await sb.from('transacoes').delete().eq('recorrencia_id', id).eq('a_confirmar', true).gte('data', hoje);
         const ontem = new Date(); ontem.setDate(ontem.getDate() - 1);
-        const upd = { gerado_ate: formatarDataISO(ontem) };
-        if (campos.frequencia === 'mensal' && atual.frequencia !== 'mensal') upd.dia_mes = Number(hoje.slice(8, 10));
-        await sb.from('recorrencias').update(upd).eq('id', id);
+        await sb.from('recorrencias').update({ gerado_ate: formatarDataISO(ontem) }).eq('id', id);
     }
 }
 

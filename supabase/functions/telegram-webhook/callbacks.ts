@@ -3,7 +3,7 @@
 import type { createClient } from "npm:@supabase/supabase-js@2";
 import { tg, formatarMoedaBR, rotuloMetodo } from "./util.ts";
 import { type RascunhoLancamento } from "./parser.ts";
-import { carregarListasUsuario, confirmarRascunhoNoBanco, urlMiniApp } from "./lancamentos.ts";
+import { carregarListasUsuario, confirmarRascunhoNoBanco, urlMiniApp, enviarRascunho } from "./lancamentos.ts";
 import { carregarContasPluggy, executarAtualizacaoPluggy, tituloContaPluggyDetalhado } from "./pluggy.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -93,12 +93,14 @@ export async function tratarRascunhoConfirmarOuCancelar(c: ContextoCallback): Pr
       return;
     }
 
+    const ehOcorrencia = !!(rascunho.dados as RascunhoLancamento).ocorrenciaId;
     if (acao === "nlcancelar") {
       await supabaseAdmin.from("telegram_rascunhos").delete().eq("id", rascunhoId);
-      await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Cancelado" });
+      await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: ehOcorrencia ? "Rascunho cancelado" : "Cancelado" });
       await tg(token, "editMessageText", {
         chat_id: chatId, message_id: cq.message.message_id,
-        text: `${cq.message.text}\n\n❌ Cancelado`,
+        // cancelar o rascunho NUNCA mexe na recorrência nem na ocorrência: ela segue "a confirmar" no app
+        text: ehOcorrencia ? `${cq.message.text}\n\n❌ Rascunho cancelado — o lançamento segue em "a confirmar" no app` : `${cq.message.text}\n\n❌ Cancelado`,
       });
       return;
     }
@@ -107,7 +109,7 @@ export async function tratarRascunhoConfirmarOuCancelar(c: ContextoCallback): Pr
     await supabaseAdmin.from("telegram_rascunhos").delete().eq("id", rascunhoId);
     if (insertError) {
       console.error(insertError);
-      await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Erro ao confirmar" });
+      await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: ehOcorrencia ? String((insertError as Error)?.message || "Erro ao confirmar").slice(0, 190) : "Erro ao confirmar" });
       return;
     }
     await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Lançado ✅" });
@@ -167,4 +169,48 @@ export async function tratarPgtoPadrao(c: ContextoCallback): Promise<void> {
       text: `✅ Forma de pagamento padrão: ${rotuloMetodo(escolhida)}`,
     });
     return;
+}
+
+  // "📝 Gerar rascunho" no lembrete de uma recorrência: monta o rascunho a partir da própria ocorrência
+  // ("a confirmar") — mesmos dados, nenhuma linha nova. Se já existe rascunho dela, reenvia o mesmo (sem duplicar).
+export async function tratarRecorrenciaRascunho(c: ContextoCallback): Promise<void> {
+  const { supabaseAdmin, token, cq, chatId, idStr } = c;
+  const txId = Number(idStr);
+  const { data: tgUser } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+  if (!tgUser) {
+    await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Conta não vinculada" });
+    return;
+  }
+  const { data: t } = await supabaseAdmin.from("transacoes").select("id, tipo, data, valor, metodo, categoria, descricao, competencia")
+    .eq("id", txId).eq("user_id", tgUser.user_id).eq("a_confirmar", true).not("recorrencia_id", "is", null).maybeSingle();
+  if (!t) {
+    await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Esse lançamento já foi confirmado ou apagado" });
+    await tg(token, "editMessageText", { chat_id: chatId, message_id: cq.message.message_id, text: `${cq.message.text}\n\n✔️ Já resolvido no app` });
+    return;
+  }
+  const { data: existentes } = await supabaseAdmin.from("telegram_rascunhos").select("id, dados")
+    .eq("user_id", tgUser.user_id).eq("chat_id", chatId).contains("dados", { ocorrenciaId: txId }).limit(1);
+  let rascunhoId: number; let dados: RascunhoLancamento;
+  if (existentes && existentes.length) {
+    rascunhoId = existentes[0].id; dados = existentes[0].dados as RascunhoLancamento;
+  } else {
+    const listas = await carregarListasUsuario(supabaseAdmin, tgUser.user_id);
+    const met = t.metodo ? listas.metodos.find((m) => rotuloMetodo(m) === t.metodo) ?? null : null;
+    dados = {
+      tipo: t.tipo === "entradas" ? "entradas" : "saidas", valor: Number(t.valor), descricao: t.descricao || "", categoria: t.categoria,
+      metodo: t.metodo, metodoKind: met?.metodo_kind ?? null, diaFechamento: met?.dia_fechamento ?? null,
+      data: String(t.data).slice(0, 10), parcelas: null, competencia: t.competencia ? String(t.competencia).slice(0, 10) : null,
+      metodoOrigem: "texto", ocorrenciaId: txId,
+    };
+    const { data: novo, error } = await supabaseAdmin.from("telegram_rascunhos").insert({ user_id: tgUser.user_id, chat_id: chatId, dados }).select("id").single();
+    if (error || !novo) {
+      console.error(error);
+      await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Erro ao montar o rascunho" });
+      return;
+    }
+    rascunhoId = novo.id;
+  }
+  await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Rascunho gerado" });
+  await tg(token, "editMessageText", { chat_id: chatId, message_id: cq.message.message_id, text: `${cq.message.text}\n\n📝 Rascunho enviado abaixo` });
+  await enviarRascunho(token, chatId, rascunhoId, dados, supabaseAdmin, tgUser.user_id, "🔁 Recorrência");
 }

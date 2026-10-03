@@ -859,3 +859,10 @@ body .despesa-item { padding-left: 1.55rem !important; }
 body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none; }
 #filaHome { margin: .6rem 0; }
 .rec-grupo[data-nome="__aconfirmar__"] > summary { flex-wrap: wrap; row-gap: .3rem; }
+
+/* Próximos: o grupo do MÊS (Novembro/2026) não tem borda nenhuma; só Receitas e Despesas dentro dele mantêm a sua */
+.fatura-item[data-pend^="mes:"] { border: 0 !important; background: transparent; box-shadow: none; container-type: inline-size; }
+.fatura-item[data-pend^="mes:"] > summary { padding-left: .2rem; padding-right: .2rem; }
+.fatura-nome .mes-med, .fatura-nome .mes-num { display: none; }
+@container (max-width: 300px) { .fatura-nome .mes-longo { display: none; } .fatura-nome .mes-med { display: inline; } }
+@container (max-width: 210px) { .fatura-nome .mes-med { display: none; } .fatura-nome .mes-num { display: inline; } }

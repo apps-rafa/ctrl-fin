@@ -57,13 +57,20 @@ function renderProximasAgrupado(abertos = {}, futurasMeses = []) {
     const mesSel = estadoApp.mesAtual || new Date();
     const compSel = `${mesSel.getFullYear()}-${String(mesSel.getMonth() + 1).padStart(2, '0')}`;
     const rotuloMes = comp => { const [a, m] = comp.split('-').map(Number); const t = new Date(a, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }); return t.charAt(0).toUpperCase() + t.slice(1); };
+    // "Novembro/2026" -> "NOV/26" -> "11/26" conforme a largura (ver .mes-longo/.mes-med/.mes-num no CSS)
+    const _rotuloMesCurto = comp => {
+        const [a, m] = comp.split('-').map(Number);
+        const nome = new Date(a, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long' });
+        const tri = new Date(a, m - 1, 1).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
+        return `<span class="mes-longo">${nome.charAt(0).toUpperCase() + nome.slice(1)}/${a}</span><span class="mes-med">${tri}/${String(a).slice(2)}</span><span class="mes-num">${String(m).padStart(2, '0')}/${String(a).slice(2)}</span>`;
+    };
     const meses = new Map([[compSel, mesCom(compSel, receitas, despesas, true)]]);
     futurasMeses.forEach(([comp, recs, desps]) => meses.set(comp, mesCom(comp, recs, desps, false)));
     return [...meses.entries()].filter(([, m]) => m.qtd).sort((a, b) => a[0].localeCompare(b[0]))
         .map(([comp, m]) => `
         <details class="fatura-item" data-pend="mes:${comp}" ${(abertos['mes:' + comp] !== undefined ? abertos['mes:' + comp] : comp === compSel) ? 'open' : ''}>
           <summary>
-            <span class="fatura-nome">${rotuloMes(comp)}</span>
+            <span class="fatura-nome">${_rotuloMesCurto(comp)}</span>
             <span class="fatura-contagem">${m.qtd}</span>
           </summary>
           <div class="fatura-itens">${m.html}</div>
