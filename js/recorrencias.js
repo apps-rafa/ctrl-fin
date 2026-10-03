@@ -503,9 +503,11 @@ async function iniciarRecorrencias() {
             if (acao === 'editar') abrirFormRecorrencia(_recorrencias.find(r => r.id === id));
             else if (acao === 'voltar') executar(() => reativarRecorrencia(id), 'Não consegui reativar a recorrência');
             else if (acao === 'encerrar') {
-                if (confirm('Encerrar esta recorrência? Os próximos lançamentos "a confirmar" são apagados; os já confirmados continuam. Ela vai para "Encerradas" e dá para voltar depois.')) executar(() => encerrarRecorrencia(id), 'Não consegui encerrar a recorrência');
+                mostrarDialogo({ titulo: 'Encerrar a recorrência?', texto: 'Os próximos lançamentos "a confirmar" são apagados; os já confirmados continuam. Ela vai para "Encerradas" e dá para voltar depois.',
+                    acoes: [{ label: 'Cancelar' }, { label: 'Encerrar', primario: true, perigo: true, onClick: () => executar(() => encerrarRecorrencia(id), 'Não consegui encerrar a recorrência') }] });
             } else if (acao === 'excluir') {
-                if (confirm('Excluir esta recorrência? Os próximos lançamentos "a confirmar" são apagados; os já confirmados continuam como lançamentos normais.')) executar(() => excluirRecorrencia(id), 'Não consegui excluir a recorrência');
+                mostrarDialogo({ titulo: 'Excluir a recorrência?', texto: 'Os próximos lançamentos "a confirmar" são apagados; os já confirmados continuam como lançamentos normais.',
+                    acoes: [{ label: 'Cancelar' }, { label: 'Excluir', primario: true, perigo: true, onClick: () => executar(() => excluirRecorrencia(id), 'Não consegui excluir a recorrência') }] });
             }
         });
     }

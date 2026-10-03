@@ -2,10 +2,12 @@
 /* Idêntico ao "+ Lançamento" do dashboard */
 .rec-btn-criar { display: block; width: 100%; margin: 0 0 .4rem; padding: .51rem .7rem; cursor: pointer; text-align: center; white-space: nowrap;
     font-size: .8rem; font-weight: 700; border-radius: var(--radius); outline: none;
+    /* mesmo encolhimento do texto dos botões do topo (a área útil é ~32px menor que a janela) */
     color: color-mix(in srgb, var(--primary) 85%, var(--text));
     background: color-mix(in srgb, var(--primary) 16%, var(--surface));
     border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--border)); }
 .rec-btn-criar:hover { color: var(--primary); }
+@media (max-width: 542px) { .rec-btn-criar { font-size: .66rem; } }
 .rec-btn-criar[hidden], .rec-aviso[hidden], .rec-lista[hidden] { display: none; }
 .rec-aviso { margin: 0 0 var(--spacing-md); font-size: .74rem; color: var(--text-muted); }
 
