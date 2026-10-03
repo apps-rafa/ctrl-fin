@@ -870,8 +870,8 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 /* Grupo "Fatura <cartão>": contorno em volta (sem usar a borda esquerda) pra ver onde começa e onde termina */
 .subgrupo[data-nome^="Fatura"] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--cor-rec, var(--primary)) 55%, var(--border)); border-radius: var(--radius-sm); margin: .35rem .4rem; }
 
-/* Barra de pendências: primeiro elemento da página, 100% da largura, só aparece quando há algo a resolver */
-.barra-pendencias { display: flex; align-items: center; gap: .5rem; width: 100%; box-sizing: border-box; margin: 0; padding: .55rem var(--pad-main, 1rem); border: 0; border-bottom: 1px solid color-mix(in srgb, var(--balanco-text, #f5b942) 55%, var(--border)); background: color-mix(in srgb, var(--balanco-text, #f5b942) 22%, var(--surface)); color: var(--text); font-size: .85rem; font-weight: 700; cursor: pointer; text-align: left; }
+/* Barra de pendências: primeiro item do dashboard, 100% da largura (como "+ Lançamento"); só aparece quando há algo a resolver */
+.barra-pendencias { display: flex; align-items: center; gap: .5rem; width: 100%; box-sizing: border-box; margin: 0; padding: .7rem; border: 1px solid color-mix(in srgb, var(--balanco-text, #f5b942) 55%, var(--border)); border-radius: var(--radius); background: color-mix(in srgb, var(--balanco-text, #f5b942) 22%, var(--surface)); color: var(--text); font-size: .85rem; font-weight: 700; cursor: pointer; text-align: left; }
 .barra-pendencias[hidden] { display: none; }
 .barra-pendencias:hover { background: color-mix(in srgb, var(--balanco-text, #f5b942) 30%, var(--surface)); }
 .barra-pendencias.active { outline: 2px solid var(--balanco-text, #f5b942); outline-offset: -2px; }

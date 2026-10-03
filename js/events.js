@@ -234,16 +234,6 @@ function configurarEventListeners() {
     document.querySelector('.summary-card.entradas')?.addEventListener('click', () => mudarAba('entradas'));
     document.querySelector('.summary-card.saidas')?.addEventListener('click', () => mudarAba('saidas'));
 
-    // Aviso "⚠️ Duplicatas" dentro do card — clique próprio (não é só abrir a
-    // aba: precisa também abrir o grupo de duplicatas já expandido), então
-    // para a propagação pro listener do card acima (que só faz toggle).
-    document.querySelectorAll('.dup-aviso').forEach(badge => {
-        badge.addEventListener('click', e => {
-            e.stopPropagation();
-            if (typeof abrirGrupoDuplicatas === 'function') abrirGrupoDuplicatas(badge.dataset.dupAviso);
-        });
-    });
-    
     // Formulário
     const form = document.querySelector(SELECTORS.formTransacao);
     if (form) {
