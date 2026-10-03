@@ -74,16 +74,5 @@ body .rec-item { padding-left: 2.3rem !important; }
 .rec-toggle--play { color: #22c55e; }
 .rec-toggle--stop { color: #ef4444; }
 .rec-toggle:hover { background: color-mix(in srgb, currentColor 16%, transparent); }
-
-/* "Semanal"/"Mensal" nunca abreviam: sem espaço, a Recorrência ganha colunas do Valor (o Dia fica estreito, mas com espaço pro "Hoje") */
-.rec-linha--1.is-semanal > .rec-c-dia { grid-column: span 2; }
-.rec-linha--1.is-semanal.freq-larga > .rec-c-freq { grid-column: span 3; }
-.rec-linha--1.is-semanal.freq-larga > .rec-c-valor { grid-column: span 3; }
-.rec-linha--1 .rec-c-dia select { padding-left: .3rem; padding-right: .95rem; }
-@media (max-width: 560px) {
-    .rec-linha--1.is-semanal > .rec-c-freq { grid-column: span 4; }
-    .rec-linha--1.is-semanal > .rec-c-dia { grid-column: span 3; }
-    .rec-linha--1.is-semanal > .rec-c-valor { grid-column: span 5; }
-    .rec-linha--1.is-semanal.freq-larga > .rec-c-freq { grid-column: span 5; }
-    .rec-linha--1.is-semanal.freq-larga > .rec-c-valor { grid-column: span 4; }
-}
+/* Dia sem espaço pra seta: some a seta e o texto fica centralizado, inteiro */
+.rec-linha--1 .rec-c-dia select.compacto { appearance: none; -webkit-appearance: none; background-image: none; padding-left: .2rem; padding-right: .2rem; text-align: center; text-align-last: center; }
