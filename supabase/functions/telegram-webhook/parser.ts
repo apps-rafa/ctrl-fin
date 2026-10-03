@@ -93,7 +93,7 @@ export function sugerirCategoriaTexto(
   return { nome: outros?.nome || candidatas[0]?.nome || "Outros", termo: null, palavras: [], porNome: false };
 }
 
-const CONECTIVOS_DESCRICAO = new Set(["no", "na", "nos", "nas", "de", "do", "da", "dos", "das", "em", "pra", "para", "por", "com", "e", "a", "o", "um", "uma", "pelo", "pela"]);
+const CONECTIVOS_DESCRICAO = new Set(["foi", "era", "no", "na", "nos", "nas", "de", "do", "da", "dos", "das", "em", "pra", "para", "por", "com", "e", "a", "o", "um", "uma", "pelo", "pela"]);
 const PALAVRAS_FORMA_DESCRICAO = new Set(["pix", "credito", "cartao", "debito", "dinheiro"]);
 
 /** Descrição = o que sobra do texto (já sem valor/tipo/data/parcelas) depois de tirar a forma de pagamento
@@ -193,6 +193,15 @@ export function extrairData(texto: string, hoje = hojeBrasiliaISO()): { data: st
     return iso;
   };
   let m: RegExpMatchArray | null;
+  if ((m = texto.match(/(?<![\p{L}])semana\s+passada(?![\p{L}])/iu)) || (m = texto.match(/(?<![\p{L}])h[aá]\s+(?:uma|1)\s+semana(?![\p{L}])/iu))) return { data: somarDiasISO(hoje, -7), resto: limpar(m[0]) };
+  if ((m = texto.match(/(?<![\p{L}])semana\s+retrasada(?![\p{L}])/iu))) return { data: somarDiasISO(hoje, -14), resto: limpar(m[0]) };
+  if ((m = texto.match(/(?<![\p{L}])m[eê]s\s+passado(?![\p{L}])/iu))) {
+    const [ay, am, ad] = hoje.split("-").map(Number);
+    const mes = am === 1 ? 12 : am - 1, ano = am === 1 ? ay - 1 : ay;
+    const dia = Math.min(ad, new Date(Date.UTC(ano, mes, 0)).getUTCDate());
+    return { data: `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`, resto: limpar(m[0]) };
+  }
+  if ((m = texto.match(/(?<![\p{L}])h[aá]\s+(\d{1,2})\s+dias?(?![\p{L}])/iu))) return { data: somarDiasISO(hoje, -Number(m[1])), resto: limpar(m[0]) };
   if ((m = texto.match(/(?<![\p{L}])anteontem(?![\p{L}])/iu))) return { data: somarDiasISO(hoje, -2), resto: limpar(m[0]) };
   if ((m = texto.match(/(?<![\p{L}])ontem(?![\p{L}])/iu))) return { data: somarDiasISO(hoje, -1), resto: limpar(m[0]) };
   if ((m = texto.match(/(?<![\p{L}])hoje(?![\p{L}])/iu))) return { data: hoje, resto: limpar(m[0]) };
@@ -326,30 +335,86 @@ export function addMeses(dataISO: string, n: number): string {
   return `${ano}-${String(mes + 1).padStart(2, "0")}-${String(Math.min(dia0, ultimo)).padStart(2, "0")}`;
 }
 
-/** Resposta (reply) a um rascunho: se cita uma categoria cadastrada, troca a categoria; se cita uma forma
- *  de pagamento (despesa), troca a forma; o que sobrar vira a descrição. Sem nenhuma das duas, o texto
- *  inteiro é a descrição. Citou só categoria/forma e nada mais: a descrição atual fica como está. */
+/** Mesmo rótulo de forma de pagamento do app (js/menus-api.js:rotuloMetodo). */
+function rotuloMetodoParser(m: MetodoMenu): string {
+  if (!m.metodo_kind || m.metodo_kind === "Dinheiro") return m.nome;
+  return m.banco ? `${m.metodo_kind} ${m.banco}` : m.metodo_kind;
+}
+
+/** Resposta (reply) a um rascunho. O texto pode trazer, em qualquer combinação: o tipo ("receita"/"despesa"),
+ *  uma data ("ontem", "semana passada", "25/09"...), parcelas ("parcelado em 5", "5x", "à vista"), uma categoria
+ *  cadastrada, uma forma de pagamento e um novo valor — cada um troca o campo correspondente. O que sobrar vira
+ *  a descrição; sem nada reconhecido, o texto inteiro é a descrição. Citou só campos e nada mais: a descrição
+ *  atual fica. */
 export function aplicarRespostaAoRascunho(
   r: RascunhoLancamento,
   texto: string,
   categorias: { nome: string; categoria_tipo: string | null }[],
   metodos: MetodoMenu[],
+  hoje = hojeBrasiliaISO(),
 ): RascunhoLancamento {
   const limpo = texto.replace(/\s+/g, " ").trim().slice(0, 200);
-  const cat = categoriaCadastradaNoTexto(limpo, categorias.filter((c) => c.categoria_tipo === r.tipo));
-  const met = r.tipo === "saidas" ? detectarMetodoNoTexto(limpo, metodos) : null;
-  if (!cat && !met) return { ...r, descricao: limpo.charAt(0).toUpperCase() + limpo.slice(1) };
   const novo: RascunhoLancamento = { ...r };
-  if (cat) novo.categoria = cat.nome;
-  if (met) {
-    novo.metodo = met.banco && met.metodo_kind && met.metodo_kind !== "Dinheiro" ? `${met.metodo_kind} ${met.banco}` : (met.metodo_kind && met.metodo_kind !== "Dinheiro" ? met.metodo_kind : met.nome);
-    novo.metodoKind = met.metodo_kind;
-    novo.diaFechamento = met.dia_fechamento;
-    novo.metodoOrigem = "texto";
-    novo.competencia = null;
-    if (met.metodo_kind !== "Crédito") novo.parcelas = null;
+  let t = limpo;
+  let achouAlgo = false;
+
+  // data
+  const dt = extrairData(t, hoje);
+  if (dt.data) { novo.data = dt.data; novo.competencia = null; t = dt.resto; achouAlgo = true; }
+
+  // parcelas ("parcelado em 5", "5x", "em 5 vezes", "5 parcelas"; "à vista"/"1x" limpa)
+  let parcelas: number | null | undefined;
+  const mp = t.match(/(?:parcelad[oa]s?\s+)?(?:em\s+)?(\d{1,2})\s*(?:x|vezes|parcelas?)(?![\p{L}])/iu) || t.match(/parcelad[oa]s?\s+(?:em\s+)?(\d{1,2})(?![\d\p{L}])/iu);
+  if (mp) {
+    const n = parseInt(mp[1], 10);
+    if (n >= 1 && n <= 48) { parcelas = n >= 2 ? n : null; t = t.replace(mp[0], " "); achouAlgo = true; }
   }
-  const desc = montarDescricao(limpo, { palavrasCategoria: cat?.palavras, metodo: met });
+  const av = t.match(/(?<![\p{L}])[àa]\s+vista(?![\p{L}])/iu);
+  if (av) { parcelas = null; t = t.replace(av[0], " "); achouAlgo = true; }
+  t = t.replace(/(?<![\p{L}])parcelad[oa]s?(?![\p{L}])/giu, " ");
+
+  // tipo
+  let tipo = r.tipo;
+  const tr = t.match(/(?<![\p{L}])(receita|entrada)(?![\p{L}])/iu);
+  const td = t.match(/(?<![\p{L}])(despesa|sa[ií]da|gasto)(?![\p{L}])/iu);
+  if (tr && !td && !categorias.some((c) => normalizarTexto(c.nome) === normalizarTexto(tr[1]))) { tipo = "entradas"; t = t.replace(tr[0], " "); achouAlgo = true; }
+  else if (td && !tr && !categorias.some((c) => normalizarTexto(c.nome) === normalizarTexto(td[1]))) { tipo = "saidas"; t = t.replace(td[0], " "); achouAlgo = true; }
+  novo.tipo = tipo;
+
+  // categoria / forma de pagamento
+  const cat = categoriaCadastradaNoTexto(t, categorias.filter((c) => c.categoria_tipo === tipo));
+  const met = tipo === "saidas" ? detectarMetodoNoTexto(t, metodos) : null;
+  if (cat) { novo.categoria = cat.nome; achouAlgo = true; }
+  else if (tipo !== r.tipo) novo.categoria = sugerirCategoriaTexto(t, tipo, categorias).nome; // a antiga não existe no outro tipo
+  if (tipo === "entradas") {
+    novo.metodo = null; novo.metodoKind = null; novo.diaFechamento = null; novo.metodoOrigem = null; novo.parcelas = null; novo.competencia = null;
+  } else {
+    let escolhida: MetodoMenu | null = met;
+    if (!escolhida && !novo.metodo) escolhida = metodos.find((m) => m.metodo_kind === "PIX") ?? metodos[0] ?? null; // veio de receita
+    if (escolhida) {
+      novo.metodo = rotuloMetodoParser(escolhida); novo.metodoKind = escolhida.metodo_kind; novo.diaFechamento = escolhida.dia_fechamento;
+      novo.metodoOrigem = met ? "texto" : novo.metodoOrigem; novo.competencia = null;
+      if (met) achouAlgo = true;
+    }
+    if (parcelas !== undefined) novo.parcelas = parcelas;
+    if (novo.metodoKind !== "Crédito") novo.parcelas = null; // parcelado só existe no crédito
+  }
+  if (novo.tipo !== r.tipo) achouAlgo = true;
+
+  // valor: número solto no que sobrou (com R$/vírgula, ou sozinho na resposta)
+  let desc = montarDescricao(t, { palavrasCategoria: cat?.palavras, metodo: met });
+  const mv = desc.match(/(?:r\$\s*)?\d+(?:\.\d{3})*(?:[.,]\d{1,2})?(?:\s*(?:reais|conto|pila)(?![\p{L}]))?/iu);
+  if (mv) {
+    const bruto = (mv[0].match(/\d+(?:\.\d{3})*(?:[.,]\d{1,2})?/) as RegExpMatchArray)[0];
+    const sobra = (desc.slice(0, mv.index) + " " + desc.slice((mv.index ?? 0) + mv[0].length)).replace(/\s+/g, " ").trim();
+    const claro = /r\$|reais|conto|pila/i.test(mv[0]) || /[.,]\d{1,2}$/.test(bruto) || !sobra;
+    const normal = bruto.includes(",") ? bruto.replace(/\./g, "").replace(",", ".")
+      : /^\d+\.\d{1,2}$/.test(bruto) ? bruto : bruto.replace(/\./g, "");
+    const valor = parseFloat(normal);
+    if (claro && isFinite(valor) && valor > 0) { novo.valor = valor; desc = montarDescricao(sobra); achouAlgo = true; }
+  }
+
+  if (!achouAlgo) return { ...r, descricao: limpo.charAt(0).toUpperCase() + limpo.slice(1) };
   if (desc) novo.descricao = desc;
   return novo;
 }
