@@ -22,6 +22,12 @@
 .summary-card.saidas       { grid-column: 3 / span 2; grid-row: 1 / span 2; }
 .summary-card.balanco      { grid-column: 5 / span 2; grid-row: 1; }
 .summary-card.gasto-diario { grid-column: 5 / span 2; grid-row: 2; }
+/* Barra de pendências (100% da largura, primeiro item): com ela visível, os cards descem uma linha */
+.dashboard > .barra-pendencias { grid-column: 1 / -1; grid-row: 1; }
+.dashboard:has(.barra-pendencias:not([hidden])) .summary-card.entradas { grid-row: 2 / span 2; }
+.dashboard:has(.barra-pendencias:not([hidden])) .summary-card.saidas { grid-row: 2 / span 2; }
+.dashboard:has(.barra-pendencias:not([hidden])) .summary-card.balanco { grid-row: 2; }
+.dashboard:has(.barra-pendencias:not([hidden])) .summary-card.gasto-diario { grid-row: 3; }
 /* Alinhado no topo (não centralizado) — com o valor logo abaixo do
    título nos 2, "Balanço" e "Gasto diário" ficam com o número na mesma
    altura; centralizar bagunçava isso, já que só "Gasto diário" tem uma
@@ -52,6 +58,10 @@
     .summary-card.saidas       { grid-column: 2; grid-row: 1; }
     .summary-card.balanco      { grid-column: 1; grid-row: 2; }
     .summary-card.gasto-diario { grid-column: 2; grid-row: 2; }
+    .dashboard:has(.barra-pendencias:not([hidden])) .summary-card.entradas,
+    .dashboard:has(.barra-pendencias:not([hidden])) .summary-card.saidas { grid-row: 2; }
+    .dashboard:has(.barra-pendencias:not([hidden])) .summary-card.balanco,
+    .dashboard:has(.barra-pendencias:not([hidden])) .summary-card.gasto-diario { grid-row: 3; }
 }
 
 /* Grade 2x2: Receitas | Despesas ; Balanço | Gasto diário */
@@ -158,24 +168,6 @@
    detecta que faltou espaço, porque quem cede é sempre este aqui. */
 .card-titulo-txt { flex: 0 0 auto; }
 
-/* Aviso de duplicatas no card do dashboard — clicável, some se não houver
-   espaço (JS troca pro emoji sozinho; ver _atualizarAvisoDuplicatas). Nunca
-   quebra linha: ou cabe do jeito que está, ou encolhe pro emoji só. */
-.dup-aviso {
-    flex: 0 0 auto;
-    background: transparent;
-    border: none;
-    padding: 0;
-    margin: 0;
-    font: inherit;
-    font-weight: var(--font-weight-bold);
-    text-transform: none;
-    letter-spacing: normal;
-    color: var(--warning, #f59e0b);
-    cursor: pointer;
-    white-space: nowrap;
-}
-.dup-aviso:hover { text-decoration: underline; }
 
 .summary-card .amount {
     /* Tamanho-base (cqw) — ver comentário em .card-linhas .linha.total

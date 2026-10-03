@@ -278,8 +278,6 @@ function atualizarResumo() {
     setMini('miniBalanco', estadoApp.resumo.balanco);
     setMini('miniGasto', gastoDiarioValor);
 
-    _atualizarAvisoDuplicatas();
-
     // Chamada direta (não requestAnimationFrame): getComputedStyle já força o
     // layout synchronously, então não precisa esperar o próximo frame — com
     // rAF, o texto pintava 1 frame com o tamanho errado (ex.: o da atualização
@@ -304,43 +302,10 @@ function ajustarRotulosCards() {
 }
 window.addEventListener('resize', () => ajustarRotulosCards());
 
-/** Aviso "⚠️ Duplicatas" no card de Receita/Despesa do dashboard, só quando
- *  aquele mês tem alguma duplicata suspeita (mesma detecção do grupo da
- *  lista). Clicável — ver abrirGrupoDuplicatas(). Some o texto e deixa só o
- *  emoji se não couber (medido depois do layout aplicar, como
- *  definirLabelResp já faz noutros lugares do form). */
-function _atualizarAvisoDuplicatas() {
-    ['entrada', 'saida'].forEach(tipoUI => {
-        const badge = document.querySelector(`.dup-aviso[data-dup-aviso="${tipoUI}"]`);
-        if (!badge) return;
-        const lista = tipoUI === 'entrada' ? estadoApp.transacoes.entradas : estadoApp.transacoes.saidas;
-        const temDuplicata = _detectarDuplicatas(lista).length > 0;
-        badge.hidden = !temDuplicata;
-        if (!temDuplicata) return;
-        badge.textContent = '⚠️ Duplicatas';
-        requestAnimationFrame(() => {
-            const h3 = badge.closest('h3');
-            if (h3 && h3.scrollWidth > h3.clientWidth + 1) badge.textContent = '⚠️';
-        });
-    });
-}
-
 // Força o grupo de duplicatas a abrir no próximo render dessa lista — único
 // jeito de abrir sozinho (todo o resto começa fechado). Usado só pelo clique
 // no aviso do dashboard; reseta sozinho depois de 1 render.
 const _forcarAbrirDuplicatas = { entrada: false, saida: false };
-
-/** Clique no aviso "⚠️ Duplicatas" do dashboard: abre a aba (Receita/Despesa)
- *  já com o grupo de duplicatas expandido, sem precisar procurar/abrir na mão. */
-function abrirGrupoDuplicatas(tipoUI) {
-    const aba = tipoUI === 'entrada' ? 'entradas' : 'saidas';
-    _forcarAbrirDuplicatas[tipoUI] = true;
-    if (document.getElementById(aba)?.classList.contains('active')) {
-        if (tipoUI === 'entrada') atualizarEntradasLista(); else atualizarSaidasLista();
-    } else if (typeof mudarAba === 'function') {
-        mudarAba(aba);
-    }
-}
 
 /** Dias restantes do mês EXIBIDO (estadoApp.mesAtual), incluindo hoje.
  *  Mês atual de verdade: contagem regressiva normal (mínimo 1).

@@ -206,10 +206,13 @@ function _recDistribuirRecorrenciaEDia(linha) {
     const total = cols(gFreq) + cols(gDia);
     const larg = n => n * unidade + (n - 1) * gap;
     const necFreq = _recLarguraNecessaria(e.freq, 'Semanal') + (e.freq.offsetWidth - e.freq.clientWidth);
-    let fSpan = total - 1;
-    for (let n = 1; n < total; n++) if (larg(n) >= necFreq) { fSpan = n; break; }
-    gFreq.style.gridColumn = 'span ' + fSpan;
-    gDia.style.gridColumn = 'span ' + (total - fSpan);
+    let fSpan = cols(gFreq); // divisão padrão do CSS; só muda se o nome da Recorrência não couber
+    if (e.freq.clientWidth < necFreq) {
+        fSpan = total - 1;
+        for (let n = 1; n < total; n++) if (larg(n) >= necFreq) { fSpan = n; break; }
+        gFreq.style.gridColumn = 'span ' + fSpan;
+        gDia.style.gridColumn = 'span ' + (total - fSpan);
+    }
     // Dia sem espaço pro texto + seta: compacto (sem a seta); em falta extrema, "Hoje" vira "HJ"
     const textoDia = e.freq.value === 'mensal' ? 'Hoje' : 'Var.';
     const sobra = larg(total - fSpan);
