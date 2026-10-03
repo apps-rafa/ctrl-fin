@@ -1014,7 +1014,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
         }
     }
 
-    const classes = `despesa-item ${tipo}` + (trans.quitada ? ' quitada' : '') + (doisSelos ? ' com-2-selos' : '');
+    const classes = `despesa-item ${tipo}` + (trans.quitada ? ' quitada' : '') + '';
 
     // .despesa-conteudo (dia/valor/tags/descrição) e .despesa-actions são
     // colunas separadas de um flex externo — o conteúdo nunca invade a
