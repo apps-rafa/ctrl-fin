@@ -14,21 +14,17 @@
 .rec-form { margin-bottom: var(--spacing-md); }
 .rec-form[hidden] { display: none; }
 /* Formulário em 12 colunas
-   Linha 1: Recorrência 3 | Dia 2 | Início 2 | Valor 5
-   Linha 2: Duração 2 | Total 2 | Forma de pagamento 4 | Categoria 4
-   Linha 3: Descrição 12
+   Linha 1: Recorrência 2 | Dia 2 | Início 1 | Duração 2 | Valor 3 | Total 2
+   Linha 2: Forma de pagamento 4 | Categoria 4 | Descrição 4
    Ações:   Salvar 10 | Cancelar 2 */
 .rec-linha { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: .6rem; margin-bottom: .6rem; align-items: start; }
 .rec-linha > .form-group { margin: 0; min-width: 0; grid-column: span 4; }
-.rec-linha--1 > .rec-c-freq { grid-column: span 3; }
-.rec-linha--1 > .rec-c-dia, .rec-linha--1 > .rec-c-inicio { grid-column: span 2; }
-.rec-linha--1 > .rec-c-valor { grid-column: span 5; }
-.rec-linha--2 > .rec-c-dur, .rec-linha--2 > .rec-c-total { grid-column: span 2; }
-.rec-linha--2 > .form-group:nth-child(3), .rec-linha--2 > .form-group:nth-child(4) { grid-column: span 4; }
-.rec-linha--3 > .form-group { grid-column: span 12; }
+.rec-linha--1 > .rec-c-freq, .rec-linha--1 > .rec-c-dia, .rec-linha--1 > .rec-c-dur, .rec-linha--1 > .rec-c-total { grid-column: span 2; }
+.rec-linha--1 > .rec-c-inicio { grid-column: span 1; }
+.rec-linha--1 > .rec-c-valor { grid-column: span 3; }
 .rec-c-dia[hidden] { display: none; }
 .rec-c-dia select { padding-left: .35rem; padding-right: 1.1rem; }
-.rec-c-inicio select { padding-left: .5rem; padding-right: 1.2rem; }
+.rec-c-inicio select { padding-left: .35rem; padding-right: .35rem; }
 .rec-form .rec-c-dur .campo-com-stepper { width: 100%; }
 .rec-form .rec-c-dur .campo-com-stepper input { min-width: 0; flex: 1 1 auto; }
 .rec-form .form-actions { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: .6rem; }
@@ -36,20 +32,22 @@
 .rec-btn-cancelar { grid-column: span 2; min-width: 0; padding-left: 0; padding-right: 0; }
 .rec-cancel-x { display: none; }
 .rec-linha select { text-overflow: ellipsis; }
-/* Tela estreita: Recorrência 5 | Dia 3 | Início 4; Valor sozinho na linha; Duração | Total; Forma de pagamento | Categoria */
+/* Tela estreita: Recorrência 5 | Dia 3 | Início 4; Valor 5 | Duração 4 | Total 3; Forma de pagamento | Categoria; Descrição */
 @media (max-width: 560px) {
     .rec-linha--1 > .rec-c-freq { grid-column: span 5; }
     .rec-linha--1 > .rec-c-dia { grid-column: span 3; }
     .rec-linha--1 > .rec-c-inicio { grid-column: span 4; }
-    .rec-linha--1 > .rec-c-valor { grid-column: span 12; }
-    .rec-linha--2 > .rec-c-dur, .rec-linha--2 > .rec-c-total { grid-column: span 6; }
-    .rec-linha--2 > .form-group:nth-child(3), .rec-linha--2 > .form-group:nth-child(4) { grid-column: span 6; }
+    .rec-linha--1 > .rec-c-valor { grid-column: span 5; }
+    .rec-linha--1 > .rec-c-dur { grid-column: span 4; }
+    .rec-linha--1 > .rec-c-total { grid-column: span 3; }
+    .rec-linha--2 > .form-group:nth-child(1), .rec-linha--2 > .form-group:nth-child(2) { grid-column: span 6; }
+    .rec-linha--2 > .form-group:nth-child(3) { grid-column: span 12; }
     .rec-btn-salvar { grid-column: span 8; }
     .rec-btn-cancelar { grid-column: span 4; }
 }
 /* só em tela extrema forma de pagamento e categoria ficam uma por linha */
 @media (max-width: 340px) {
-    .rec-linha--2 > .form-group:nth-child(3), .rec-linha--2 > .form-group:nth-child(4) { grid-column: span 12; }
+    .rec-linha--2 > .form-group:nth-child(1), .rec-linha--2 > .form-group:nth-child(2) { grid-column: span 12; }
 }
 
 /* Campo "Total" (somente leitura): fundo escuro como o resto (forms.css traz um fundo claro) */
@@ -75,5 +73,5 @@ body .rec-item { padding-left: 2.3rem !important; }
 .rec-toggle--play { color: #22c55e; }
 .rec-toggle--stop { color: #ef4444; }
 .rec-toggle:hover { background: color-mix(in srgb, currentColor 16%, transparent); }
-/* Dia sem espaço pra seta: some a seta e o texto fica centralizado, inteiro */
-.rec-linha--1 .rec-c-dia select.compacto { appearance: none; -webkit-appearance: none; background-image: none; padding-left: .2rem; padding-right: .2rem; text-align: center; text-align-last: center; }
+/* Dia/Início sem espaço pra seta: some a seta e o texto fica centralizado, inteiro */
+.rec-linha--1 select.compacto { appearance: none; -webkit-appearance: none; background-image: none; padding-left: .2rem; padding-right: .2rem; text-align: center; text-align-last: center; }
