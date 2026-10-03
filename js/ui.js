@@ -152,10 +152,43 @@ function _renderGrupoDuplicatas(transacoes, tipoUI, aberto, duplicatasPre) {
     </details>`;
 }
 
-/** Botões "Aceitar todas" e "Apagar todas" das Duplicatas: se o cabeçalho do grupo não comporta o texto (o título nunca quebra
+/** Grupo "A confirmar": ocorrências de recorrência que aguardam decisão (✓ confirma, ✗ pergunta se pula o mês ou encerra). */
+function _renderGrupoAConfirmar(itens, tipoUI, aberto) {
+    if (!itens.length) return '';
+    const tipoDe = typeof tipoUI === 'function' ? tipoUI : () => tipoUI;
+    const total = itens.reduce((s, t) => s + ((t.valorMes != null ? t.valorMes : t.valor) || 0), 0);
+    return `
+    <details class="rec-grupo" data-nome="__aconfirmar__" style="--cor-rec:var(--text-muted)" ${aberto ? 'open' : ''}>
+      <summary>
+        <span class="rec-grupo-nome">🔁 A confirmar</span>
+        <span role="button" tabindex="0" class="mini-btn" data-ac-confirmar-todas title="Confirmar todas as ocorrências listadas aqui"><span class="mb-ico">✓</span><span class="mb-txt"> Confirmar todas</span></span>
+        <span role="button" tabindex="0" class="mini-btn armed" data-ac-apagar-todas title="Apagar todas: apaga só estas ocorrências (as recorrências continuam ativas)"><span class="mb-ico">🗑</span><span class="mb-txt"> Apagar todas</span></span>
+        <span class="rec-grupo-espaco"></span>
+        <span class="rec-grupo-contagem">${itens.length}</span>
+        <span class="rec-grupo-total">${formatarMoeda(total)}</span>
+      </summary>
+      <div class="rec-grupo-itens">
+        ${itens.slice().sort(_porDataDesc).map(t => gerarHTMLTransacao(t, tipoDe(t), { comConfirmarOcorrencia: true })).join('')}
+      </div>
+    </details>`;
+}
+
+/** Abre/fecha dos grupos da Fila feito pelo usuário (chave "<onde>:<grupo>"); sem escolha o grupo segue o padrão. */
+const _filaManual = {};
+function _ligarFilaManual(box, onde) {
+    if (box.dataset.filaManual) return;
+    box.dataset.filaManual = '1';
+    box.addEventListener('click', e => {
+        const sm = e.target.closest('summary');
+        if (!sm || e.target.closest('.mini-btn') || !sm.parentElement.dataset.nome) return;
+        _filaManual[onde + ':' + sm.parentElement.dataset.nome] = !sm.parentElement.open; // o clique ainda vai inverter
+    }, true);
+}
+
+/** Botões "Confirmar/Aceitar todas" e "Apagar todas" (Duplicatas e A confirmar): se o cabeçalho do grupo não comporta o texto (o título nunca quebra
  *  em 2 linhas), ficam só o ✓ e a lixeira. */
 function ajustarBotoesTodas() {
-    document.querySelectorAll('.rec-grupo[data-nome="__duplicatas__"] > summary').forEach(sm => {
+    document.querySelectorAll('.rec-grupo[data-nome="__duplicatas__"] > summary, .rec-grupo[data-nome="__aconfirmar__"] > summary').forEach(sm => {
         const btns = sm.querySelectorAll('.mini-btn');
         btns.forEach(b => b.classList.remove('so-ico'));
         if (!sm.clientWidth) return; // grupo oculto: mede quando aparecer
@@ -164,6 +197,27 @@ function ajustarBotoesTodas() {
 }
 window.addEventListener('resize', () => ajustarBotoesTodas());
 document.addEventListener('toggle', e => { if (e.target && e.target.matches && e.target.matches('details')) ajustarBotoesTodas(); }, true);
+
+/** Home de cada mês (nenhuma aba aberta): as duplicatas e as ocorrências "a confirmar" do mês em exibição, Receitas e Despesas
+ *  juntas. Sem título e sem texto quando não há nada; os grupos nascem fechados, exceto se for o único. (Para tudo o que está
+ *  pendente em todos os meses, ver Pendências.) */
+function renderFilaHome() {
+    const box = document.getElementById('filaHome');
+    if (!box) return;
+    const ent = (estadoApp.transacoes.entradas || []).filter(t => !_ehEstornoCartao(t));
+    const sai = estadoApp.transacoes.saidas || [];
+    const aConf = [...ent, ...sai].filter(t => t.aConfirmar);
+    const dups = [..._detectarDuplicatas(ent.filter(t => !t.aConfirmar)), ..._detectarDuplicatas(sai.filter(t => !t.aConfirmar))];
+    _ligarFilaManual(box, 'home');
+    const aberto = nome => _filaManual['home:' + nome]; // só o que VOCÊ abriu/fechou; sem escolha, vale o padrão
+    const tipoDe = t => (ent.includes(t) ? 'entrada' : 'saida');
+    const soAC = aConf.length > 0 && !dups.length, soDup = dups.length > 0 && !aConf.length; // nasce aberto só se for o único grupo
+    const htmlAC = _renderGrupoAConfirmar(aConf, tipoDe, aberto('__aconfirmar__') ?? soAC);
+    const htmlDup = dups.length ? _renderGrupoDuplicatas(null, tipoDe, aberto('__duplicatas__') ?? soDup, dups) : '';
+    box.innerHTML = htmlAC + htmlDup;
+    box.onclick = onListaTransacaoClick;
+    ajustarBotoesTodas();
+}
 
 /** Escolhe a renderização certa pro modo de visualização selecionado — usado
  *  tanto por Receitas quanto por Despesas. Nos modos que não são
@@ -960,6 +1014,21 @@ function onListaTransacaoClick(e) {
         const ids = [...det.querySelectorAll('[data-act="aprovar-duplicata"]')].map(b => Number(b.dataset.id)).filter(Number.isFinite);
         ids.forEach(id => _aprovarDuplicata(id));
         atualizarUI();
+        return;
+    }
+    const acConfirmar = e.target.closest('[data-ac-confirmar-todas]');
+    const acApagar = e.target.closest('[data-ac-apagar-todas]');
+    if (acConfirmar || acApagar) {
+        e.preventDefault();
+        const det = (acConfirmar || acApagar).closest('details.rec-grupo[data-nome="__aconfirmar__"]');
+        const ids = [...det.querySelectorAll('[data-act="confirmar-ocorrencia"]')].map(b => Number(b.dataset.id)).filter(Number.isFinite);
+        if (!ids.length) return;
+        if (acConfirmar) { confirmarOcorrenciasRecorrencia(ids); return; }
+        mostrarDialogo({
+            titulo: 'Apagar todas as ocorrências?',
+            texto: `Remove <strong>${ids.length}</strong> ocorrência${ids.length === 1 ? '' : 's'} listada${ids.length === 1 ? '' : 's'} aqui. As recorrências continuam ativas.`,
+            acoes: [{ label: 'Cancelar' }, { label: 'Apagar todas', primario: true, perigo: true, onClick: async () => { await apagarOcorrenciasRecorrencia(ids); } }]
+        });
         return;
     }
     const apagarTodas = e.target.closest('[data-dup-apagar-todas]');

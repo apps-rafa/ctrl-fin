@@ -876,14 +876,18 @@ body .despesa-item { padding-left: 1.55rem !important; }
 body.modo-anual .barra-pendencias, body.modo-docs .barra-pendencias { display: none; }
 /* Selos alinhados à linha do texto (dentro da data / da descrição, no espaço da margem esquerda) */
 .despesa-data, .despesa-desc { position: relative; }
-.conc-selo--in { font-style: normal; position: absolute; left: -1.4rem; top: 50%; translate: 0 -50%; font-size: .7rem; line-height: 1; transition: none !important; animation: none !important; }
-@media (max-width: 480px) { .conc-selo--in { font-size: .58rem; left: -1.3rem; } }
+.conc-selo--in { font-style: normal; position: absolute; left: -.78rem; top: 50%; translate: -50% -50%; font-size: .7rem; line-height: 1; transition: none !important; animation: none !important; }
+@media (max-width: 480px) { .conc-selo--in { font-size: .58rem; left: -.78rem; } }
 /* Botões "todas" do cabeçalho do grupo: texto menor; o título nunca quebra (apertando, só o ✓ e a lixeira) */
-.rec-grupo[data-nome="__duplicatas__"] > summary { flex-wrap: nowrap; }
-.rec-grupo[data-nome="__duplicatas__"] > summary > .rec-grupo-nome { white-space: nowrap; }
-.rec-grupo[data-nome="__duplicatas__"] > summary > .mini-btn { font-size: .66rem; padding: .12rem .4rem; white-space: nowrap; }
+.rec-grupo[data-nome="__duplicatas__"] > summary, .rec-grupo[data-nome="__aconfirmar__"] > summary { flex-wrap: nowrap; }
+.rec-grupo[data-nome="__duplicatas__"] > summary > .rec-grupo-nome, .rec-grupo[data-nome="__aconfirmar__"] > summary > .rec-grupo-nome { white-space: nowrap; }
+.rec-grupo[data-nome="__duplicatas__"] > summary > .mini-btn, .rec-grupo[data-nome="__aconfirmar__"] > summary > .mini-btn { font-size: .66rem; padding: .12rem .4rem; white-space: nowrap; }
 .rec-grupo > summary > .mini-btn.so-ico .mb-txt { display: none; }
 .mini-btn .mb-txt { margin-left: .25rem; } /* espaço entre o ✓/lixeira e o texto */
 .barra-pendencias.active { background: color-mix(in srgb, var(--balanco-text, #f5b942) 40%, var(--surface)); box-shadow: inset 0 -3px 0 var(--balanco-text, #f5b942); }
 /* Título da página Pendências */
 .pendencias-titulo { margin: .2rem 0 .4rem; font-size: .85rem; font-weight: 700; color: var(--text); }
+/* Home de cada mês: Duplicatas e A confirmar do mês, só com nenhuma aba aberta (as abas têm as suas) */
+#filaHome { margin: .6rem 0; }
+#filaHome:empty { display: none; }
+body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none; }

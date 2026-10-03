@@ -11,26 +11,50 @@ let _pendenciasTimer = null;
 
 const _compDe = t => String(t.competencia || t.data).slice(0, 7);
 
-/** Busca no banco (a tela só guarda o mês em exibição): a confirmar vencidas + os últimos 6 meses para achar duplicatas. */
+/** Todas as transações, só com as colunas que a detecção de duplicatas usa (em páginas: a tela só guarda o mês em exibição). */
+async function _transacoesParaDuplicatas() {
+    const TAM = 1000, saida = [];
+    for (let ini = 0; ini < 100000; ini += TAM) {
+        const { data, error } = await sb.from('transacoes')
+            .select('id, tipo, valor, metodo, descricao, data, competencia, duplicata_ok, a_confirmar')
+            .order('id', { ascending: true }).range(ini, ini + TAM - 1);
+        if (error) throw error;
+        saida.push(...(data || []));
+        if (!data || data.length < TAM) break;
+    }
+    return saida.map(r => ({ id: r.id, tipo: r.tipo, valor: Number(r.valor), metodo: r.metodo, descricao: r.descricao || '',
+        data: r.data, competencia: r.competencia, duplicataOk: !!r.duplicata_ok, aConfirmar: !!r.a_confirmar }));
+}
+
+/** Busca no banco: TODAS as ocorrências "a confirmar" já vencidas (de qualquer mês anterior) e as duplicatas de TODOS os meses
+ *  (mesma regra do grupo Duplicatas: mesmo valor, forma e descrição repetidos dentro do mesmo mês). */
 async function carregarPendencias() {
     const hoje = hojeISO();
-    const ref = new Date(); ref.setDate(1); ref.setMonth(ref.getMonth() - 5);
     try {
-        const [rAc, rMes] = await Promise.all([
-            sb.from('transacoes').select('*').eq('a_confirmar', true).lte('data', hoje).order('data', { ascending: true }).limit(500),
-            sb.from('transacoes').select('*').gte('competencia', formatarDataISO(ref)).limit(3000),
+        const [rAc, todas] = await Promise.all([
+            sb.from('transacoes').select('*').eq('a_confirmar', true).lte('data', hoje).order('data', { ascending: true }).limit(2000),
+            _transacoesParaDuplicatas(),
         ]);
         if (rAc.error) throw rAc.error;
-        if (rMes.error) throw rMes.error;
         const mapa = r => ({ ...mapearTransacao(r), tipo: r.tipo });
         const ac = (rAc.data || []).map(mapa);
-        const mes = (rMes.data || []).map(mapa).filter(t => !t.aConfirmar && !(t.tipo === 'entradas' && _ehEstornoCartao(t)));
+        const candidatas = todas.filter(t => !t.aConfirmar && !(t.tipo === 'entradas' && _ehEstornoCartao(t)));
+        const porMesTipo = new Map();
+        candidatas.forEach(t => { const k = _compDe(t) + '|' + t.tipo; if (!porMesTipo.has(k)) porMesTipo.set(k, []); porMesTipo.get(k).push(t); });
+        const idsDup = [];
+        porMesTipo.forEach(lista => _detectarDuplicatas(lista).forEach(t => idsDup.push(t.id)));
+        // só as duplicatas ganham a linha completa (para desenhar o lançamento)
+        const completas = [];
+        for (let i = 0; i < idsDup.length; i += 150) {
+            const { data, error } = await sb.from('transacoes').select('*').in('id', idsDup.slice(i, i + 150));
+            if (error) throw error;
+            completas.push(...(data || []).map(mapa));
+        }
         const meses = new Map();
         const slot = c => { if (!meses.has(c)) meses.set(c, { ac: [], dups: [] }); return meses.get(c); };
         ac.forEach(t => slot(_compDe(t)).ac.push(t));
-        const porMesTipo = new Map();
-        mes.forEach(t => { const k = _compDe(t) + '|' + t.tipo; if (!porMesTipo.has(k)) porMesTipo.set(k, []); porMesTipo.get(k).push(t); });
-        porMesTipo.forEach((lista, k) => { const d = _detectarDuplicatas(lista); if (d.length) slot(k.split('|')[0]).dups.push(...d); });
+        completas.forEach(t => slot(_compDe(t)).dups.push(t));
+        meses.forEach(m => m.dups.sort((x, y) => String(y.data).localeCompare(String(x.data))));
         let total = 0;
         meses.forEach(m => { total += m.ac.length + m.dups.length; });
         _pendencias = { total, meses };
