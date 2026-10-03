@@ -11,7 +11,7 @@
 function renderProximasAgrupado(abertos = {}, futurasMeses = []) {
     const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
     const soma = l => l.reduce((a, t) => a + valorDe(t), 0);
-    const futuras = lista => (lista || []).filter(t => !_transacaoRealizada(t))
+    const futuras = lista => (lista || []).filter(t => !_transacaoRealizada(t) && !t.aConfirmar) // rascunho de recorrência só aparece no grupo "A confirmar"
         .sort((a, b) => String(a.data).localeCompare(String(b.data)));
     const receitas = futuras(estadoApp.transacoes.entradas);
     const despesas = futuras(estadoApp.transacoes.saidas);
@@ -88,7 +88,7 @@ async function _carregarProximosMesesFuturos() {
             .or(`data.gt.${hojeISO()},pendente.eq.true`).order('data', { ascending: true }).limit(2000);
         if (error) throw error;
         const porMes = new Map();
-        (data || []).map(r => ({ ...mapearTransacao(r), tipo: r.tipo })).filter(t => !_transacaoRealizada(t)).forEach(t => {
+        (data || []).map(r => ({ ...mapearTransacao(r), tipo: r.tipo })).filter(t => !_transacaoRealizada(t) && !t.aConfirmar).forEach(t => {
             const comp = String(t.competencia).slice(0, 7);
             if (!porMes.has(comp)) porMes.set(comp, [[], []]);
             porMes.get(comp)[t.tipo === 'entradas' ? 0 : 1].push(t);
@@ -133,7 +133,7 @@ function renderPendentesProximas(abertos = {}, termo = '') {
     const rotulosCredito = new Set(metodos.filter(m => m.metodoKind === 'Crédito').map(m => rotuloMetodo(m)));
     const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
     const pend = lista => _filtrarPorBusca(lista || [], termo)
-        .filter(t => !rotulosCredito.has(t.metodo) && !_transacaoRealizada(t))
+        .filter(t => !rotulosCredito.has(t.metodo) && !_transacaoRealizada(t) && !t.aConfirmar)
         .sort((a, b) => String(a.data).localeCompare(String(b.data)));
     const grupo = (nome, chave, lista, tipoUI) => {
         if (!lista.length) return '';
@@ -184,7 +184,7 @@ function renderFaturasCartao(container, termo = '', soNaoRealizadas = false) {
 
     const linhas = cartoes.map(m => {
         const rot = (typeof rotuloMetodo === 'function') ? rotuloMetodo(m) : m.nome;
-        const naoFiltra = t => !soNaoRealizadas || !_transacaoRealizada(t);
+        const naoFiltra = t => !t.aConfirmar && (!soNaoRealizadas || !_transacaoRealizada(t));
         const despesas = _filtrarPorBusca(estadoApp.transacoes.saidas.filter(t => t.metodo === rot), termo).filter(naoFiltra);
         // Receita com esse método = estorno/reembolso lançado na fatura —
         // abate do total, não é receita separada (ver calcularResumoMes).
