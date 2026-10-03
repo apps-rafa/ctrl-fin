@@ -960,13 +960,10 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
         seloNaData = '<span class="conc-selo conc-selo--in" title="Conciliado com uma transação do banco (Open Finance)">🏦</span>';
     }
     const seloRec = trans.recorrenciaId ? '<span class="conc-selo conc-selo--in" title="Lançamento de uma recorrência">🔁</span>' : '';
-    const recNaDesc = !!(seloRec && trans.descricao);
-    let seloLinha = ''; // (reservado)
-    let doisSelos = false; // sem descrição E com ⏰/🏦: os dois ficam empilhados, centralizados na altura da linha
-    if (seloRec && !recNaDesc) {
-        if (seloNaData) { doisSelos = true; seloNaData = '<span class="conc-selos-col">' + seloNaData.replace(' conc-selo--in', '') + seloRec.replace(' conc-selo--in', '') + '</span>'; }
-        else seloNaData = seloRec;
-    }
+    // Só 1 selo por linha: o 🔁 fica na linha da descrição (que existe, mesmo vazia, quando há outro selo na linha da data)
+    const recNaDesc = !!(seloRec && (trans.descricao || seloNaData));
+    let seloLinha = '';
+    if (seloRec && !recNaDesc) seloNaData = seloRec; // sem descrição e sem outro selo: o 🔁 vai para a linha da data
 
     const lado = `<span class="despesa-data">`
         + seloNaData
@@ -995,8 +992,8 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     // completo continua no title) pra o chip não empurrar a linha pra baixo.
     const catChip = (!opts.semCategoriaChip && trans.categoria)
         ? chip(corDaCategoria(trans.categoria, (tipo === 'entrada' && !_ehEstornoCartao(trans)) ? 'entradas' : 'saidas'), _htmlNomeCategoriaChip(trans.categoria)) : '';
-    const descTxt = trans.descricao
-        ? `<span class="despesa-desc">${recNaDesc ? seloRec : ''}${trans.descricao}</span>` : '';
+    const descTxt = (trans.descricao || recNaDesc)
+        ? `<span class="despesa-desc">${recNaDesc ? seloRec : ''}${trans.descricao || '&nbsp;'}</span>` : '';
 
     // Ações
     let acoes = '';
