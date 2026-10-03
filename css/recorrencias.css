@@ -14,14 +14,22 @@
 .rec-form { margin-bottom: var(--spacing-md); }
 .rec-form[hidden] { display: none; }
 /* Formulário em 12 colunas
-   Linha 1: Recorrência 2 | Dia 2 | Início 1 | Duração 2 | Valor 3 | Total 2
+   Linha 1: Recorrência 2 | Dia 2 | Início 1 | Duração 3 | Valor 2 | Total 2 (em pares, ver abaixo)
    Linha 2: Forma de pagamento 4 | Categoria 4 | Descrição 4
    Ações:   Salvar 10 | Cancelar 2 */
 .rec-linha { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: .6rem; margin-bottom: .6rem; align-items: start; }
 .rec-linha > .form-group { margin: 0; min-width: 0; grid-column: span 4; }
-.rec-linha--1 > .rec-c-freq, .rec-linha--1 > .rec-c-dia, .rec-linha--1 > .rec-c-dur, .rec-linha--1 > .rec-c-total { grid-column: span 2; }
-.rec-linha--1 > .rec-c-inicio { grid-column: span 1; }
-.rec-linha--1 > .rec-c-valor { grid-column: span 3; }
+/* Linha 1 em 3 pares que nunca se separam: [Recorrência | Dia] [Início | Duração] [Valor | Total].
+   Largura máxima: os 3 pares lado a lado (Rec 2 | Dia 2 | Início 1 | Duração 3 | Valor 2 | Total 2).
+   Apertando: Valor+Total descem primeiro (Rec/Dia/Início/Duração ficam juntos o máximo possível); depois cada par numa linha. */
+.rec-linha--1 { container-type: inline-size; }
+.rec-par { display: grid; gap: .6rem; min-width: 0; grid-column: span 4; align-items: start; }
+.rec-par > .form-group { grid-column: auto; margin: 0; min-width: 0; }
+.rec-par--a { grid-template-columns: minmax(6.2rem, 1fr) minmax(0, 1fr); }  /* "Semanal"/"Mensal" nunca abreviam */
+.rec-par--b { grid-template-columns: minmax(3.2rem, 1fr) minmax(0, 3fr); }
+.rec-par--c { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+@container (max-width: 649px) { .rec-par--a, .rec-par--b { grid-column: span 6; } .rec-par--c { grid-column: span 12; } }
+@container (max-width: 349px) { .rec-par { grid-column: span 12; } }
 .rec-c-dia[hidden] { display: none; }
 .rec-c-dia select { padding-left: .35rem; padding-right: 1.1rem; }
 .rec-c-inicio select { padding-left: .35rem; padding-right: .35rem; }
@@ -32,14 +40,8 @@
 .rec-btn-cancelar { grid-column: span 2; min-width: 0; padding-left: 0; padding-right: 0; }
 .rec-cancel-x { display: none; }
 .rec-linha select { text-overflow: ellipsis; }
-/* Tela estreita: Recorrência 5 | Dia 3 | Início 4; Valor 5 | Duração 4 | Total 3; Forma de pagamento | Categoria; Descrição */
+/* Tela estreita: Forma de pagamento | Categoria; Descrição (a linha 1 se reorganiza sozinha pelos pares, ver acima) */
 @media (max-width: 560px) {
-    .rec-linha--1 > .rec-c-freq { grid-column: span 5; }
-    .rec-linha--1 > .rec-c-dia { grid-column: span 3; }
-    .rec-linha--1 > .rec-c-inicio { grid-column: span 4; }
-    .rec-linha--1 > .rec-c-valor { grid-column: span 5; }
-    .rec-linha--1 > .rec-c-dur { grid-column: span 4; }
-    .rec-linha--1 > .rec-c-total { grid-column: span 3; }
     .rec-linha--2 > .form-group:nth-child(1), .rec-linha--2 > .form-group:nth-child(2) { grid-column: span 6; }
     .rec-linha--2 > .form-group:nth-child(3) { grid-column: span 12; }
     .rec-btn-salvar { grid-column: span 8; }
