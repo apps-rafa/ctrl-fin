@@ -35,14 +35,16 @@ test("semanal por 3 meses às terças = 13 ocorrências (igual ao total estimado
   assert.equal(datasDaRecorrencia(r, "2030-01-01").length, 13);
 });
 
-test("antecedência: mensal 1 mês à frente, semanal 5 semanas", () => {
-  assert.equal(horizonteDeGeracao("mensal", "2026-10-02"), "2026-11-02");
+test("antecedência: mensal até o fim do mês seguinte, semanal 5 semanas", () => {
+  assert.equal(horizonteDeGeracao("mensal", "2026-10-02"), "2026-11-30");
+  assert.equal(horizonteDeGeracao("mensal", "2026-11-30"), "2026-12-31");
+  assert.equal(horizonteDeGeracao("mensal", "2026-12-15"), "2027-01-31");
   assert.equal(horizonteDeGeracao("semanal", "2026-10-02"), "2026-11-06");
 });
 
 test("só gera o que falta (depois de gerado_ate) e nunca recria datas antigas", () => {
   const r = { ...base, frequencia: "mensal", dia_semana: null, dia_mes: 2, inicio: "2026-10-02", meses: null, gerado_ate: "2026-11-02" };
-  assert.deepEqual(datasParaGerar(r, "2026-11-20"), ["2026-12-02"]); // horizonte 20/12
+  assert.deepEqual(datasParaGerar(r, "2026-11-20"), ["2026-12-02"]); // horizonte 31/12
   assert.deepEqual(datasParaGerar({ ...r, gerado_ate: "2026-12-02" }, "2026-11-20"), []);
 });
 
@@ -81,4 +83,10 @@ test("recorrência mensal aplica o dia útil; semanal não", () => {
   const m = { frequencia: "mensal", dia_semana: null, dia_mes: 2, inicio: "2026-10-02", meses: null };
   assert.deepEqual(datasDaRecorrencia(m, "2026-12-31", aj), ["2026-10-02", "2026-11-03", "2026-12-02"]);
   assert.deepEqual(datasDaRecorrencia(m, "2026-12-31"), ["2026-10-02", "2026-11-02", "2026-12-02"]);
+});
+
+test("dia 5 criada em 03/10: o rascunho de novembro (05/11) já existe; em novembro já nasce o de dezembro", () => {
+  const r = { ...base, frequencia: "mensal", dia_semana: null, dia_mes: 5, inicio: "2026-10-03", meses: null, gerado_ate: null };
+  assert.deepEqual(datasParaGerar(r, "2026-10-03"), ["2026-10-05", "2026-11-05"]);
+  assert.deepEqual(datasParaGerar({ ...r, gerado_ate: "2026-11-05" }, "2026-11-01"), ["2026-12-05"]);
 });

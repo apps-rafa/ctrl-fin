@@ -641,3 +641,15 @@
         align-items: stretch;
     }
 }
+
+/* Lixeiras (botão só com o ícone SVG): sem contorno nem fundo; acendem em vermelho ao passar o mouse */
+button:has(> .ico-lixeira:only-child) { border: 0 !important; background: transparent !important; box-shadow: none !important; color: var(--text-muted); }
+button:has(> .ico-lixeira:only-child):hover { color: var(--danger, #DC2626); background: transparent !important; }
+.ico-lixeira { display: inline-block; vertical-align: -.15em; }
+.btn-excluir-lancamento { border: 0 !important; background: transparent !important; color: var(--text-muted); }
+.btn-excluir-lancamento:hover { background: transparent !important; color: var(--danger, #DC2626); }
+.btn-apagar-tudo .ico-lixeira, .mb-ico .ico-lixeira, .dados-btn .ico-lixeira { display: inline-block; vertical-align: -.15em; }
+
+/* "Editar recorrência" (ao lado de Salvar alterações): mesmo tamanho de texto do Salvar */
+#editarRecorrenciaEdicao { font-size: .95rem; font-weight: var(--font-weight-bold); }
+@media (max-width: 480px) { #editarRecorrenciaEdicao { font-size: var(--font-size-sm); } }

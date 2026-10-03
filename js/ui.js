@@ -141,7 +141,7 @@ function _renderGrupoDuplicatas(transacoes, tipoUI, aberto, duplicatasPre) {
       <summary>
         <span class="rec-grupo-nome">📑 Duplicatas</span>
         <span role="button" tabindex="0" class="mini-btn" data-dup-aceitar-todas title="Aceitar todas: marca todas como &quot;não é duplicata&quot; — não avisa de novo sobre elas"><span class="mb-ico">✓</span><span class="mb-txt"> Aceitar todas</span></span>
-        <span role="button" tabindex="0" class="mini-btn armed" data-dup-apagar-todas title="Apagar todas: apaga todos os lançamentos listados aqui"><span class="mb-ico">🗑</span><span class="mb-txt"> Apagar todas</span></span>
+        <span role="button" tabindex="0" class="mini-btn armed" data-dup-apagar-todas title="Apagar todas: apaga todos os lançamentos listados aqui"><span class="mb-ico">${ICONE_LIXEIRA}</span><span class="mb-txt"> Apagar todas</span></span>
         <span class="rec-grupo-espaco"></span>
         <span class="rec-grupo-contagem">${duplicatas.length}</span>
         <span class="rec-grupo-total">${formatarMoeda(total)}</span>
@@ -926,7 +926,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
         if (opts.comConfirmarOcorrencia) {
             acoes += `<button class="btn-icon btn-danger" data-act="recusar-ocorrencia" data-id="${trans.id}" title="Não vai acontecer">✗</button>`;
         } else if (!trans.quitada) {
-            acoes += `<button class="btn-icon btn-danger" data-act="excluir-trans" data-id="${trans.id}" title="Excluir">🗑️</button>`;
+            acoes += `<button class="btn-icon btn-danger" data-act="excluir-trans" data-id="${trans.id}" title="Excluir" aria-label="Excluir">${ICONE_LIXEIRA}</button>`;
         }
     }
 

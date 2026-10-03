@@ -522,7 +522,7 @@ async function carregarRevisaoPluggy() {
     // sumir sem deixar rastro (ver query em cima). O ↺ manda de volta pra
     // "Para revisar" (bate no banco na hora, não é local como o X normal).
     const jaIgnoradasHTML = !jaIgnoradas.length ? '' : htmlGrupoRevisao({
-        id: 'pluggy-ja-ignoradas', titulo: '🗑️ Descartadas (não entraram)', abertos: _abertosPluggy, padraoAberto: false, subAberto: false,
+        id: 'pluggy-ja-ignoradas', titulo: ICONE_LIXEIRA + ' Descartadas (não entraram)', abertos: _abertosPluggy, padraoAberto: false, subAberto: false,
         itens: jaIgnoradas, semSubgrupos: soCartao(jaIgnoradas), tipoDe: i => i.tipo, colunas: ['Data', 'Valor', 'Categoria', 'Descrição'],
         htmlLinha: gerarHTMLIgnoradaDbPluggy,
         nota: `<p class="revisao-nota">Ficam aqui riscadas — nunca somem da página, nem depois de "Limpar". Clique no ↺ pra mandar de volta pra "Para revisar".</p>`,
@@ -610,7 +610,7 @@ function gerarHTMLHistoricoPluggy(item) {
     // Mesmo card dos lançamentos das páginas de Receitas/Despesas; só as ações
     // são trocadas pelas do histórico (editar/excluir pelo id da fila).
     const html = gerarHTMLTransacao(mapearTransacao(t), t.tipo === 'entradas' ? 'entrada' : 'saida', { semAcoes: true, semMetodoChip: true }); // a forma de pagamento já é a da conta mostrada nesta tela
-    const acoes = `<button class="btn-icon" data-act="editar-historico" data-id="${item.id}" title="Editar">✏️</button><button class="btn-icon btn-danger" data-act="excluir-historico" data-id="${item.id}" title="Excluir">🗑️</button>`;
+    const acoes = `<button class="btn-icon" data-act="editar-historico" data-id="${item.id}" title="Editar">✏️</button><button class="btn-icon btn-danger" data-act="excluir-historico" data-id="${item.id}" title="Excluir">${ICONE_LIXEIRA}</button>`;
     return html.replace('<div class="despesa-actions"></div>', `<div class="despesa-actions">${acoes}</div>`);
 }
 

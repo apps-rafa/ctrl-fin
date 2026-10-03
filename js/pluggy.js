@@ -394,7 +394,7 @@ function gerarHTMLContaPluggy(c) {
             ${desconectada
                 ? `<button class="btn-icon" data-act="reconectar-conta" data-id="${c.id}" title="Reconectar">🔌</button>`
                 : `<button class="btn-icon btn-danger" data-act="desconectar-conta" data-id="${c.id}" title="Desconectar">🔌</button>`}
-            <button class="btn-icon btn-danger" data-act="apagar-conta" data-id="${c.id}" title="Apagar">🗑️</button>
+            <button class="btn-icon btn-danger" data-act="apagar-conta" data-id="${c.id}" title="Apagar" aria-label="Apagar">${ICONE_LIXEIRA}</button>
         </div>
     </div>`;
 }
