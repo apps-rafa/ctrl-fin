@@ -128,8 +128,9 @@ function _detectarDuplicatas(transacoes) {
  *  sozinho conforme o usuário for resolvendo (editando, apagando ou
  *  aprovando) — não precisa "arquivar". Grupo vazio nunca abre (nem é
  *  clicável: não é um <details>, é uma linha estática). */
-function _renderGrupoDuplicatas(transacoes, tipoUI, aberto) {
-    const duplicatas = _detectarDuplicatas(transacoes);
+function _renderGrupoDuplicatas(transacoes, tipoUI, aberto, duplicatasPre) {
+    const duplicatas = duplicatasPre || _detectarDuplicatas(transacoes);
+    const tipoDe = typeof tipoUI === 'function' ? tipoUI : () => tipoUI;
     // Sem duplicata nenhuma: nada pra mostrar — some o grupo inteiro em vez
     // de deixar uma caixa vazia "🎉 Sem duplicatas" ocupando espaço à toa.
     if (!duplicatas.length) return '';
@@ -138,7 +139,7 @@ function _renderGrupoDuplicatas(transacoes, tipoUI, aberto) {
     return `
     <details class="rec-grupo" data-nome="__duplicatas__" style="--cor-rec:var(--despesa-text)" ${aberto ? 'open' : ''}>
       <summary>
-        <span class="rec-grupo-nome">🔁 Duplicatas</span>
+        <span class="rec-grupo-nome">📑 Duplicatas</span>
         <span role="button" tabindex="0" class="mini-btn" data-dup-aceitar-todas title="Marca todas como &quot;não é duplicata&quot; — não avisa de novo sobre elas">✓ Aceitar todas</span>
         <span role="button" tabindex="0" class="mini-btn armed" data-dup-apagar-todas title="Apaga todos os lançamentos listados aqui">🗑 Apagar todas</span>
         <span class="rec-grupo-espaco"></span>
@@ -146,7 +147,7 @@ function _renderGrupoDuplicatas(transacoes, tipoUI, aberto) {
         <span class="rec-grupo-total">${formatarMoeda(total)}</span>
       </summary>
       <div class="rec-grupo-itens">
-        ${duplicatas.map(t => gerarHTMLTransacao(t, tipoUI, { comAprovarDuplicata: true })).join('')}
+        ${duplicatas.map(t => gerarHTMLTransacao(t, tipoDe(t), { comAprovarDuplicata: true })).join('')}
       </div>
     </details>`;
 }
@@ -154,17 +155,20 @@ function _renderGrupoDuplicatas(transacoes, tipoUI, aberto) {
 /** Grupo "A confirmar": ocorrências de recorrência que aguardam decisão (✓ confirma, ✗ pergunta se pula o mês ou encerra). */
 function _renderGrupoAConfirmar(itens, tipoUI, aberto) {
     if (!itens.length) return '';
+    const tipoDe = typeof tipoUI === 'function' ? tipoUI : () => tipoUI;
     const total = itens.reduce((s, t) => s + ((t.valorMes != null ? t.valorMes : t.valor) || 0), 0);
     return `
     <details class="rec-grupo" data-nome="__aconfirmar__" style="--cor-rec:var(--text-muted)" ${aberto === false ? '' : 'open'}>
       <summary>
         <span class="rec-grupo-nome">🔁 A confirmar</span>
+        <span role="button" tabindex="0" class="mini-btn" data-ac-confirmar-todas title="Confirma todas as ocorrências listadas aqui">✓ Confirmar todas</span>
+        <span role="button" tabindex="0" class="mini-btn armed" data-ac-apagar-todas title="Apaga só estas ocorrências (as recorrências continuam ativas)">🗑 Apagar todas</span>
         <span class="rec-grupo-espaco"></span>
         <span class="rec-grupo-contagem">${itens.length}</span>
         <span class="rec-grupo-total">${formatarMoeda(total)}</span>
       </summary>
       <div class="rec-grupo-itens">
-        ${itens.slice().sort(_porDataDesc).map(t => gerarHTMLTransacao(t, tipoUI, { comConfirmarOcorrencia: true })).join('')}
+        ${itens.slice().sort(_porDataDesc).map(t => gerarHTMLTransacao(t, tipoDe(t), { comConfirmarOcorrencia: true })).join('')}
       </div>
     </details>`;
 }
@@ -181,6 +185,22 @@ function _renderFila(htmlAConfirmar, htmlDuplicatas, qtd, aberto) {
       </summary>
       <div class="rec-grupo-itens">${htmlAConfirmar}${htmlDuplicatas}</div>
     </details>`;
+}
+
+/** Fila do mês na Home (nenhuma aba aberta): duplicatas e ocorrências a confirmar de Receitas e Despesas juntas. */
+function renderFilaHome() {
+    const box = document.getElementById('filaHome');
+    if (!box) return;
+    const ent = (estadoApp.transacoes.entradas || []).filter(t => !_ehEstornoCartao(t));
+    const sai = estadoApp.transacoes.saidas || [];
+    const aConf = [...ent, ...sai].filter(t => t.aConfirmar);
+    const dups = [..._detectarDuplicatas(ent.filter(t => !t.aConfirmar)), ..._detectarDuplicatas(sai.filter(t => !t.aConfirmar))];
+    const aberto = nome => { const d = box.querySelector('details.rec-grupo[data-nome="' + nome + '"]'); return d ? d.open : undefined; };
+    const tipoDe = t => (ent.includes(t) ? 'entrada' : 'saida');
+    const htmlAC = _renderGrupoAConfirmar(aConf, tipoDe, aberto('__aconfirmar__'));
+    const htmlDup = dups.length ? _renderGrupoDuplicatas(null, tipoDe, aberto('__duplicatas__'), dups) : '';
+    box.innerHTML = _renderFila(htmlAC, htmlDup, aConf.length + dups.length, aberto('__fila__'));
+    box.onclick = onListaTransacaoClick;
 }
 
 /** Escolhe a renderização certa pro modo de visualização selecionado — usado
@@ -470,6 +490,24 @@ async function _alternarFaturaPagaBtn(fatBtn) {
     return true;
 }
 
+/** "Fatura CC Brad." — usado quando "Fatura Crédito Bradesco" não cabe na linha. */
+function _nomeCurtoFatura(f) {
+    const banco = f.banco || String(f.rot).replace(/^Crédito\s+/i, '');
+    return `Fatura CC ${banco.length > 5 ? banco.slice(0, 4) + '.' : banco}`;
+}
+
+/** Ajusta os nomes "Fatura <cartão>" dos cabeçalhos: nome inteiro; se estourar a linha, a versão curta. */
+function ajustarNomesFatura() {
+    document.querySelectorAll('.subgrupo-nome[data-fatura-longo]').forEach(el => {
+        const cab = el.closest('summary');
+        if (!cab || !cab.clientWidth) return; // grupo fechado/oculto: mede quando abrir
+        el.textContent = el.dataset.faturaLongo;
+        if (cab.scrollWidth > cab.clientWidth + 1) el.textContent = el.dataset.faturaCurto;
+    });
+}
+window.addEventListener('resize', () => ajustarNomesFatura());
+document.addEventListener('toggle', e => { if (e.target && e.target.matches && e.target.matches('details')) ajustarNomesFatura(); }, true);
+
 function _htmlFaturaVirtual(f, compacta = false) {
     const esc = x => String(x).replace(/"/g, '&quot;');
     const dd = f.venc.slice(8, 10) + '/' + f.venc.slice(5, 7);
@@ -497,7 +535,7 @@ function _htmlSubgrupoFatura(f, its, totalRef, tipoUI, abertosSub, estornos, for
     return `
         <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}"${forcarAberto ? ' data-auto="1"' : ''} style="--cor-rec:${cor}" ${forcarAberto || abertosSub[nome] ? 'open' : ''}>
           <summary class="subgrupo-cab">
-            <span class="subgrupo-nome">${nome}</span>
+            <span class="subgrupo-nome" data-fatura-longo="${nome}" data-fatura-curto="${_nomeCurtoFatura(f)}">${nome}</span>
             <span class="subgrupo-espaco"></span>
             <span class="subgrupo-contagem">${its.length}</span>
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(f.total)}</span>${totalRef ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct((f.total / totalRef) * 100)}%</span>` : ''}</span>
@@ -959,6 +997,21 @@ function onListaTransacaoClick(e) {
         const ids = [...det.querySelectorAll('[data-act="aprovar-duplicata"]')].map(b => Number(b.dataset.id)).filter(Number.isFinite);
         ids.forEach(id => _aprovarDuplicata(id));
         atualizarUI();
+        return;
+    }
+    const acConfirmar = e.target.closest('[data-ac-confirmar-todas]');
+    const acApagar = e.target.closest('[data-ac-apagar-todas]');
+    if (acConfirmar || acApagar) {
+        e.preventDefault();
+        const det = (acConfirmar || acApagar).closest('details.rec-grupo[data-nome="__aconfirmar__"]');
+        const ids = [...det.querySelectorAll('[data-act="confirmar-ocorrencia"]')].map(b => Number(b.dataset.id)).filter(Number.isFinite);
+        if (!ids.length) return;
+        if (acConfirmar) { confirmarOcorrenciasRecorrencia(ids); return; }
+        mostrarDialogo({
+            titulo: 'Apagar todas as ocorrências?',
+            texto: `Remove <strong>${ids.length}</strong> ocorrência${ids.length === 1 ? '' : 's'} listada${ids.length === 1 ? '' : 's'} aqui. As recorrências continuam ativas.`,
+            acoes: [{ label: 'Cancelar' }, { label: 'Apagar todas', primario: true, perigo: true, onClick: async () => { await apagarOcorrenciasRecorrencia(ids); } }]
+        });
         return;
     }
     const apagarTodas = e.target.closest('[data-dup-apagar-todas]');
