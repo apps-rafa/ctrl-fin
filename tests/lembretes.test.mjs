@@ -79,3 +79,28 @@ test("vários vencimentos do dia saem numa mensagem só, com total", () => {
   assert.match(msg, /Condomínio/); assert.match(msg, /Gás/); assert.match(msg, /Fatura/);
   assert.match(msg, /Total: .*450,50/);
 });
+
+// ---- recorrências a confirmar ----
+import { montarLembretesRecorrencia } from "../supabase/functions/telegram-webhook/lembretes.ts";
+
+test("ocorrência a confirmar não gera o lembrete comum de vencimento", () => {
+  const l = montarLembretes({
+    userId: "u", hojeISO: "2026-10-05",
+    transacoes: [{ id: 1, tipo: "saidas", data: "2026-10-05", valor: 150, categoria: "Casa", descricao: "Luz", metodo: "PIX", competencia: "2026-10-01", a_confirmar: true, criado_em: "2026-10-01T10:00:00Z" }],
+    metodos: [], faturasPagas: [], jaEnviados: new Set(),
+  });
+  assert.equal(l.length, 0);
+});
+
+test("lembrete de recorrência: só as que vencem hoje e uma vez só", () => {
+  const oc = [
+    { id: 7, tipo: "saidas", data: "2026-10-05", valor: 150, categoria: "Casa", descricao: "Luz", metodo: "PIX" },
+    { id: 8, tipo: "saidas", data: "2026-11-05", valor: 150, categoria: "Casa", descricao: "Luz", metodo: "PIX" },
+  ];
+  const l = montarLembretesRecorrencia({ userId: "u", hojeISO: "2026-10-05", ocorrencias: oc, jaEnviados: new Set() });
+  assert.equal(l.length, 1);
+  assert.equal(l[0].ocorrenciaId, 7);
+  assert.match(l[0].texto, /gere o rascunho/);
+  const de_novo = montarLembretesRecorrencia({ userId: "u", hojeISO: "2026-10-05", ocorrencias: oc, jaEnviados: new Set([l[0].chave]) });
+  assert.equal(de_novo.length, 0);
+});

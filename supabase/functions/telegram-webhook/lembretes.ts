@@ -17,7 +17,7 @@ import { mesAbrevAno } from "./lancamentos.ts";
 export interface TransacaoLembrete {
   id: number; tipo: string; data: string; valor: number | string; categoria: string | null;
   descricao: string | null; metodo: string | null; competencia: string | null; quitada?: boolean | null;
-  origem?: string | null; criado_em?: string | null;
+  origem?: string | null; criado_em?: string | null; a_confirmar?: boolean | null;
 }
 export interface MetodoLembrete { nome: string; metodo_kind: string | null; banco: string | null; dia_vencimento: number | null }
 
@@ -57,6 +57,7 @@ export function montarLembretes(p: {
     if (t.tipo !== "saidas" || String(t.data).slice(0, 10) !== hojeISO) continue;
     if (t.metodo && rotulosCartao.has(t.metodo)) continue; // cartão: só pelo vencimento da fatura
     if (t.quitada || t.origem === "pluggy") continue;
+    if (t.a_confirmar) continue; // ocorrência de recorrência: tem o lembrete próprio (montarLembretesRecorrencia)
     if (t.criado_em && new Date(t.criado_em).getTime() >= inicioHoje) continue; // lançado hoje
     const chave = `lembrete:${userId}:tx:${t.id}`;
     if (jaEnviados.has(chave)) continue;
@@ -90,6 +91,29 @@ export function montarLembretes(p: {
   return saida;
 }
 
+/** Ocorrência de recorrência "a confirmar" que vence hoje. */
+export interface OcorrenciaLembrete { id: number; tipo: string; data: string; valor: number | string; categoria: string | null; descricao: string | null; metodo: string | null }
+
+/** Lembretes de recorrência (um por ocorrência, cada um com seus botões): só as que vencem hoje e ainda não foram lembradas. */
+export function montarLembretesRecorrencia(p: { userId: string; hojeISO: string; ocorrencias: OcorrenciaLembrete[]; jaEnviados: Set<string> }): { chave: string; ocorrenciaId: number; texto: string }[] {
+  return p.ocorrencias
+    .filter((o) => String(o.data).slice(0, 10) === p.hojeISO && !p.jaEnviados.has(`lembrete:${p.userId}:rec:${o.id}`))
+    .map((o) => {
+      const valor = Number(o.valor) || 0;
+      const receita = o.tipo === "entradas";
+      return {
+        chave: `lembrete:${p.userId}:rec:${o.id}`, ocorrenciaId: o.id,
+        texto: [
+          `🔁 Recorrência de hoje (${dataBR(p.hojeISO)})`,
+          `${receita ? "💰" : "💸"} ${o.descricao || o.categoria || (receita ? "Receita" : "Despesa")} — ${formatarMoedaBR(valor)}`,
+          `Categoria: ${o.categoria || "—"}${receita ? "" : ` · Forma de pgto.: ${o.metodo || "—"}`}`,
+          "",
+          "Quer que eu gere o rascunho para você confirmar?",
+        ].join("\n"),
+      };
+    });
+}
+
 /** Texto único com todos os vencimentos do dia (um só envio por usuário). */
 export function montarMensagemVencimentos(hojeISO: string, lembretes: Lembrete[]): string {
   const linhas = [`⏰ Vencimentos de hoje (${dataBR(hojeISO)})`, ""];
@@ -109,9 +133,9 @@ export async function executarLembretes(
   for (const u of (users ?? []) as { user_id: string; chat_id: number }[]) {
     const [{ data: metodos }, { data: doDia }, { data: doMes }, { data: pagas }] = await Promise.all([
       admin.from("menu_itens").select("nome, metodo_kind, banco, dia_vencimento").eq("tipo", "Método").eq("user_id", u.user_id),
-      admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo, competencia, quitada, origem, criado_em")
+      admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo, competencia, quitada, origem, criado_em, a_confirmar")
         .eq("user_id", u.user_id).eq("tipo", "saidas").eq("data", hojeISO),
-      admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo, competencia, quitada, origem, criado_em")
+      admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo, competencia, quitada, origem, criado_em, a_confirmar")
         .eq("user_id", u.user_id).eq("competencia", compMes),
       admin.from("faturas_pagas").select("metodo, competencia").eq("user_id", u.user_id).eq("competencia", compMes),
     ]);
@@ -135,9 +159,30 @@ export async function executarLembretes(
       const { error } = await admin.from("alertas_bot").insert({ chave: l.chave, enviado_em: new Date().toISOString() });
       if (!error) novos.push(l); // erro = já existia (execução concorrente)
     }
-    if (!novos.length) continue;
-    await tg(token, "sendMessage", { chat_id: u.chat_id, text: montarMensagemVencimentos(hojeISO, novos) });
-    enviados += novos.length;
+    if (novos.length) {
+      await tg(token, "sendMessage", { chat_id: u.chat_id, text: montarMensagemVencimentos(hojeISO, novos) });
+      enviados += novos.length;
+    }
+
+    // Recorrências que vencem hoje (a confirmar): pergunta se quer o rascunho. Cada uma é lembrada uma vez só.
+    const { data: ocs } = await admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo")
+      .eq("user_id", u.user_id).eq("a_confirmar", true).not("recorrencia_id", "is", null).eq("data", hojeISO);
+    const ocorrencias = (ocs ?? []) as OcorrenciaLembrete[];
+    if (!ocorrencias.length) continue;
+    const { data: jaRec } = await admin.from("alertas_bot").select("chave").in("chave", ocorrencias.map((o) => `lembrete:${u.user_id}:rec:${o.id}`));
+    const lembRec = montarLembretesRecorrencia({ userId: u.user_id, hojeISO, ocorrencias, jaEnviados: new Set(((jaRec ?? []) as { chave: string }[]).map((x) => x.chave)) });
+    for (const l of lembRec) {
+      const { error } = await admin.from("alertas_bot").insert({ chave: l.chave, enviado_em: new Date().toISOString() });
+      if (error) continue; // já lembrada (execução concorrente)
+      await tg(token, "sendMessage", {
+        chat_id: u.chat_id, text: l.texto,
+        reply_markup: { inline_keyboard: [[
+          { text: "📝 Gerar rascunho", callback_data: `recrasc:${l.ocorrenciaId}` },
+          { text: "⏭️ Agora não", callback_data: "recdepois" },
+        ]] },
+      });
+      enviados += 1;
+    }
   }
   return enviados;
 }

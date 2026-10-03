@@ -54,3 +54,31 @@ test("recorrência com duração conclui quando tudo foi gerado e o prazo passou
 });
 
 test("somarMesesNoDia atravessa o ano", () => assert.equal(somarMesesNoDia("2026-11-15", 3, 15), "2027-02-15"));
+
+// ---- dia útil (mensal cai em fim de semana/feriado -> próximo dia útil) ----
+import { criarEhFeriado, proximoDiaUtil, feriadosNacionaisDoAno } from "../supabase/functions/_shared/diautil.ts";
+
+test("feriados nacionais do ano (fixos + Páscoa)", () => {
+  const f = feriadosNacionaisDoAno(2026);
+  assert.ok(f.includes("2026-11-02") && f.includes("2026-12-25"));
+  assert.ok(f.includes("2026-04-03")); // Sexta-feira Santa 2026
+  assert.ok(f.includes("2026-02-17")); // Carnaval (terça) 2026
+});
+test("próximo dia útil: sábado/domingo/feriado avançam", () => {
+  const ehF = criarEhFeriado([]);
+  assert.equal(proximoDiaUtil("2026-10-03", ehF), "2026-10-05"); // sábado -> segunda
+  assert.equal(proximoDiaUtil("2026-11-02", ehF), "2026-11-03"); // Finados (segunda) -> terça
+  assert.equal(proximoDiaUtil("2026-10-05", ehF), "2026-10-05"); // já é útil
+});
+test("feriado desativado pelo usuário não conta; feriado do usuário conta", () => {
+  const ehF = criarEhFeriado([{ data: "2026-11-02", origem: "nacional", ativo: false }, { data: "2026-10-06", origem: "municipal", ativo: true }]);
+  assert.equal(proximoDiaUtil("2026-11-02", ehF), "2026-11-02");
+  assert.equal(proximoDiaUtil("2026-10-06", ehF), "2026-10-07");
+});
+test("recorrência mensal aplica o dia útil; semanal não", () => {
+  const ehF = criarEhFeriado([]);
+  const aj = (d) => proximoDiaUtil(d, ehF);
+  const m = { frequencia: "mensal", dia_semana: null, dia_mes: 2, inicio: "2026-10-02", meses: null };
+  assert.deepEqual(datasDaRecorrencia(m, "2026-12-31", aj), ["2026-10-02", "2026-11-03", "2026-12-02"]);
+  assert.deepEqual(datasDaRecorrencia(m, "2026-12-31"), ["2026-10-02", "2026-11-02", "2026-12-02"]);
+});

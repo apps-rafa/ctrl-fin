@@ -15,6 +15,17 @@ export async function confirmarRascunhoNoBanco(
 ): Promise<{ erro: unknown }> {
   const ehCredito = d.metodoKind === "Crédito";
   const competencia = d.competencia || competenciaDe(d.data, ehCredito ? d.diaFechamento : null);
+  // Ocorrência de recorrência ("a confirmar"): o lançamento JÁ existe — confirma/edita a própria linha, nunca insere outra.
+  // O filtro a_confirmar=true evita duplicar/sobrescrever se ela já foi confirmada ou apagada pelo app.
+  if (d.ocorrenciaId) {
+    const { data: atualizadas, error: erroOc } = await supabaseAdmin.from("transacoes").update({
+      tipo: d.tipo, data: d.data, valor: d.valor, metodo: d.metodo, categoria: d.categoria, descricao: d.descricao,
+      competencia, a_confirmar: false,
+    }).eq("id", d.ocorrenciaId).eq("user_id", userId).eq("a_confirmar", true).select("id");
+    if (erroOc) return { erro: erroOc };
+    if (!atualizadas || !atualizadas.length) return { erro: new Error("Essa ocorrência já foi confirmada ou apagada no app") };
+    return { erro: null };
+  }
   // Despesa > categoria "Estorno" = crédito na fatura do cartão (gravado como entrada, igual ao app).
   const ehEstorno = d.tipo === "saidas" && d.categoria === "Estorno";
   if (ehEstorno && !ehCredito) return { erro: new Error("Estorno exige um cartão de crédito") };

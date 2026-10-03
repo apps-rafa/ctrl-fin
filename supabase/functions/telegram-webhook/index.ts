@@ -61,6 +61,7 @@ import {
 } from "./comandos.ts";
 import {
   tratarUltimoEditar, tratarRascunhoEditar, tratarRascunhoConfirmarOuCancelar, tratarAtualizarConta, tratarPgtoPadrao,
+  tratarRecorrenciaRascunho,
 } from "./callbacks.ts";
 import {
   categoriaCadastradaNoTexto,
@@ -507,6 +508,18 @@ Deno.serve(async (req: Request) => {
 
       if (acao === "ultedit" && chatId) {
         await tratarUltimoEditar({ supabaseAdmin, token, cq, chatId, idStr, acao });
+        return json({ ok: true });
+      }
+
+      if (acao === "recrasc" && chatId) {
+        await tratarRecorrenciaRascunho({ supabaseAdmin, token, cq, chatId, idStr, acao });
+        return json({ ok: true });
+      }
+
+      // "Agora não" no lembrete de recorrência: só fecha a mensagem — a ocorrência continua "a confirmar" no app
+      if (acao === "recdepois" && chatId) {
+        await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Segue em a confirmar" });
+        await tg(token, "editMessageText", { chat_id: chatId, message_id: cq.message.message_id, text: `${cq.message.text}\n\n⏭️ Segue em "a confirmar" no app` });
         return json({ ok: true });
       }
 
