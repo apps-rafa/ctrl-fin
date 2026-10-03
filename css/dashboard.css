@@ -455,3 +455,6 @@
     .mini-box .mini-emoji { display: none; }
     .mini-box b { font-size: .5rem; }
 }
+
+/* Rótulos viraram emoji (🟢 / ⏭️): tamanho legível, independente da escala do card */
+.card-linhas-topo.rot-emoji .linha i[data-rot] { font-size: .7rem; font-style: normal; }
