@@ -171,7 +171,7 @@ function _recElementos() {
     const $ = id => document.getElementById(id);
     return {
         painel: $('recForm'), lista: $('recLista'), btnCriar: $('recBtnCriar'), aviso: $('recAviso'), tipo: $('recTipo'),
-        freq: $('recFrequencia'), diaGrupo: $('recDiaSemanaGrupo'), dia: $('recDiaSemana'), valor: $('recValor'),
+        inicio: $('recInicio'), freq: $('recFrequencia'), diaGrupo: $('recDiaSemanaGrupo'), dia: $('recDiaSemana'), valor: $('recValor'),
         duracao: $('recDuracao'), total: $('recTotal'), metodo: $('recMetodo'), categoria: $('recCategoria'),
         descricao: $('recDescricao'), erro: $('recErro'),
     };
@@ -194,25 +194,103 @@ function _recLarguraNecessaria(el, texto) {
  *  se "Semanal" não couber, mede os dois campos e dá à Recorrência as colunas que faltam, tirando só do Dia. */
 function _recDistribuirRecorrenciaEDia(linha) {
     const e = _recElementos();
-    const gFreq = linha.querySelector('.rec-c-freq'), gDia = linha.querySelector('.rec-c-dia'), gValor = linha.querySelector('.rec-c-valor');
+    const gFreq = linha.querySelector('.rec-c-freq'), gDia = linha.querySelector('.rec-c-dia');
     gFreq.style.gridColumn = ''; gDia.style.gridColumn = '';
     e.dia.classList.remove('compacto');
+    if (e.freq.value === 'mensal' && e.dia.options[0] && e.dia.options[0].value === 'hoje') e.dia.options[0].textContent = 'Hoje';
     if (!e.freq.clientWidth) return;
     const cs = getComputedStyle(linha), gap = parseFloat(cs.columnGap) || 0;
     const unidade = (linha.clientWidth - 11 * gap) / 12;
-    // colunas do Valor (lidas da largura real, pois o CSS muda por tela); Recorrência + Dia ficam com as outras
-    const spanValor = Math.round((gValor.getBoundingClientRect().width + gap) / (unidade + gap)) || 4;
-    const total = 12 - spanValor;
+    const cols = g => Math.round((g.getBoundingClientRect().width + gap) / (unidade + gap));
+    // Recorrência + Dia dividem as colunas que o CSS já reserva aos dois (Valor, Duração e Total não mudam)
+    const total = cols(gFreq) + cols(gDia);
     const larg = n => n * unidade + (n - 1) * gap;
-    // a Recorrência recebe só as colunas que o nome inteiro pede; o resto é do Dia
     const necFreq = _recLarguraNecessaria(e.freq, 'Semanal') + (e.freq.offsetWidth - e.freq.clientWidth);
     let fSpan = total - 1;
     for (let n = 1; n < total; n++) if (larg(n) >= necFreq) { fSpan = n; break; }
     gFreq.style.gridColumn = 'span ' + fSpan;
     gDia.style.gridColumn = 'span ' + (total - fSpan);
-    // Dia sem espaço pro texto + seta: fica compacto (sem a seta), mas o texto aparece inteiro
+    // Dia sem espaço pro texto + seta: compacto (sem a seta); em falta extrema, "Hoje" vira "HJ"
     const textoDia = e.freq.value === 'mensal' ? 'Hoje' : 'Var.';
-    if (larg(total - fSpan) < _recLarguraNecessaria(e.dia, textoDia)) e.dia.classList.add('compacto');
+    const sobra = larg(total - fSpan);
+    if (sobra < _recLarguraNecessaria(e.dia, textoDia)) {
+        e.dia.classList.add('compacto');
+        if (e.freq.value === 'mensal' && sobra < _recLarguraNecessaria(e.dia, 'Hoje') && e.dia.options[0] && e.dia.options[0].value === 'hoje') e.dia.options[0].textContent = 'HJ';
+    }
+}
+
+const _TRI_MESES = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+
+/** Início: só o mês, em tricode (12 meses: 3 antes e 8 depois do mês do cabeçalho); padrão = o mês selecionado no cabeçalho.
+ *  Ao editar fica travado no mês em que a recorrência começou. */
+function _recPreencherInicio(selecionado, travado) {
+    const e = _recElementos();
+    if (!e.inicio) return;
+    const base = (estadoApp.mesAtual instanceof Date) ? estadoApp.mesAtual : new Date();
+    const ym = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const valores = [];
+    if (travado && selecionado) valores.push(selecionado);
+    else for (let k = -3; k <= 8; k++) valores.push(ym(new Date(base.getFullYear(), base.getMonth() + k, 1)));
+    e.inicio.innerHTML = valores.map(v => `<option value="${v}" title="${_MESES_ABREV_REC[Number(v.slice(5, 7)) - 1]}/${v.slice(0, 4)}">${_TRI_MESES[Number(v.slice(5, 7)) - 1]}</option>`).join('');
+    e.inicio.value = selecionado || ym(base);
+    e.inicio.disabled = !!travado;
+}
+
+/** Datas (ISO) da recorrência de `inicio` até `ate` — mesma regra do servidor (supabase/functions/_shared/ocorrencias.ts):
+ *  mensal no dia escolhido (fim de semana/feriado vai para o próximo dia útil), semanal no dia da semana (ou de 7 em 7 dias). */
+function _recDatas(r, ate) {
+    const iso = d => formatarDataISO(d);
+    const ini = parseDataLocal(r.inicio);
+    const fim = r.meses && r.meses > 1 ? iso(_recSomarMeses(ini, r.meses)) : null;
+    const out = [];
+    if (r.frequencia === 'mensal') {
+        const dia = r.diaMes || ini.getDate();
+        for (let k = 0; k < 600; k++) {
+            const base = new Date(ini.getFullYear(), ini.getMonth() + k, 1);
+            base.setDate(Math.min(dia, new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate()));
+            const d = iso(base);
+            if (d < r.inicio) continue;
+            if (d > ate || (fim && d >= fim)) break;
+            out.push(typeof proximoDiaUtil === 'function' ? iso(proximoDiaUtil(base)) : d);
+        }
+        return out;
+    }
+    const d = new Date(ini);
+    if (r.diaSemana !== '' && r.diaSemana != null) while (d.getDay() !== Number(r.diaSemana)) d.setDate(d.getDate() + 1);
+    for (let k = 0; k < 3000; k++) {
+        const s = iso(d);
+        if (s > ate || (fim && s >= fim)) break;
+        out.push(s);
+        d.setDate(d.getDate() + 7);
+    }
+    return out;
+}
+
+/** Ocorrências que já ficaram para trás no início escolhido: pergunta se cria também as anteriores (sempre como rascunho). */
+function _recPerguntarRetroativas({ frequencia, passadas, proxima, mesCorrente, diaMes, hoje }) {
+    const fmt = d => d.slice(8, 10) + '/' + d.slice(5, 7);
+    const lista = passadas.length <= 6 ? passadas.map(fmt).join(', ') : `de ${fmt(passadas[0])} a ${fmt(passadas[passadas.length - 1])}`;
+    const n = passadas.length;
+    let texto, rotuloFrente;
+    if (mesCorrente && frequencia === 'mensal') {
+        texto = `Hoje é dia ${hoje.slice(8, 10)} e a recorrência é todo dia ${diaMes}. Criar também a ocorrência de ${lista} ou começar só no próximo mês?`;
+        rotuloFrente = 'Só no próximo mês';
+    } else if (mesCorrente) {
+        texto = `A próxima ocorrência é ${proxima ? fmt(proxima) : 'a seguinte'}. Criar também as anteriores deste mês (${lista})?`;
+        rotuloFrente = proxima ? `Só a partir de ${fmt(proxima)}` : 'Só daqui pra frente';
+    } else {
+        texto = `O início escolhido está no passado. Gerar as ${n} ocorrência${n === 1 ? '' : 's'} anterior${n === 1 ? '' : 'es'} até hoje (${lista})?`;
+        rotuloFrente = 'Só daqui pra frente';
+    }
+    return new Promise(resolve => mostrarDialogo({
+        titulo: 'Ocorrências anteriores',
+        texto: texto + '<br><br><strong>Todas as ocorrências criadas retroativamente entram como rascunho ("a confirmar"), para você revisar antes de confirmar.</strong>',
+        acoes: [
+            { label: 'Cancelar', onClick: () => resolve(null) },
+            { label: rotuloFrente, onClick: () => resolve('frente') },
+            { label: n === 1 ? 'Criar a anterior' : `Criar as ${n} anteriores`, primario: true, onClick: () => resolve('todas') },
+        ],
+    }));
 }
 
 /** Menu "Dia": mensal = dia do mês (1–31; cai em fim de semana/feriado, vai para o próximo dia útil); semanal = dia da semana ou Variável. */
@@ -295,6 +373,7 @@ function abrirFormRecorrencia(rec) {
     e.metodo.value = rec ? rec.metodo : '';
     e.categoria.value = rec ? rec.categoria : '';
     e.descricao.value = rec ? rec.descricao : '';
+    _recPreencherInicio(rec ? String(rec.inicio).slice(0, 7) : null, !!rec);
     atualizarFormRecorrencia();
     requestAnimationFrame(atualizarFormRecorrencia); // depois do layout, p/ medir as larguras reais
 }
@@ -332,7 +411,17 @@ async function salvarRecorrencia(ev) {
         if (_recEditandoId) await _recSalvarEdicao(_recEditandoId, campos);
         else {
             const hoje = hojeISO();
-            const { error } = await sb.from('recorrencias').insert({ ...campos, inicio: hoje });
+            const inicioMes = (e.inicio.value || hoje.slice(0, 7)) + '-01';
+            const ref = { frequencia: freq, diaSemana: campos.dia_semana, diaMes: campos.dia_mes, meses: campos.meses, inicio: inicioMes };
+            const passadas = _recDatas(ref, hoje).filter(d => d < hoje);
+            let inicio = inicioMes > hoje ? inicioMes : hoje;
+            if (passadas.length) {
+                const proxima = _recDatas(ref, formatarDataISO(new Date(new Date().getFullYear() + 1, 0, 1))).find(d => d >= hoje);
+                const escolha = await _recPerguntarRetroativas({ frequencia: freq, passadas, proxima, mesCorrente: inicioMes.slice(0, 7) === hoje.slice(0, 7), diaMes: campos.dia_mes, hoje });
+                if (escolha === null) { btn.disabled = false; return; } // cancelou: segue no formulário
+                if (escolha === 'todas') inicio = inicioMes;
+            }
+            const { error } = await sb.from('recorrencias').insert({ ...campos, inicio, ativa_desde: inicio });
             if (error) throw error;
         }
         fecharFormRecorrencia();
