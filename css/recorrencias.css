@@ -60,6 +60,9 @@
 .rec-chips-par { display: inline-flex; flex-wrap: nowrap; align-items: center; gap: .35rem; }
 
 /* Play/stop em SVG no lugar do selo (margem esquerda, centralizado na altura da linha) */
-body .rec-item { padding-left: 1.9rem !important; }
-.rec-toggle { position: absolute; left: .3rem; top: 50%; translate: 0 -50%; width: 1.5rem; height: 1.5rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: 50%; transition: none !important; }
-.rec-toggle:hover { color: var(--text); background: color-mix(in srgb, var(--surface-3) 70%, transparent); }
+body .rec-item { padding-left: 2.3rem !important; }
+.rec-toggle { position: absolute; left: .3rem; top: 50%; translate: 0 -50%; width: 1.5rem; height: 1.5rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; cursor: pointer; border-radius: 50%; transition: none !important; }
+.rec-toggle svg { display: block; }
+.rec-toggle--play { color: #22c55e; }
+.rec-toggle--stop { color: #ef4444; }
+.rec-toggle:hover { background: color-mix(in srgb, currentColor 16%, transparent); }

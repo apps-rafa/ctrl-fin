@@ -36,7 +36,7 @@
     t('saidas', '2026-11-10', 500.00, 'Casa', 'PIX', 'Reforma', { competencia: '2026-11-01' }),
     t('entradas', '2026-11-05', 2000.00, 'Freelance', '', 'Projeto Y', { competencia: '2026-11-01' }),
   ];
-  const R = (id, tipo, frequencia, dia_semana, valor, meses, metodo, categoria, descricao, inicio, status = 'ativa') => ({ id, user_id: U, tipo, frequencia, dia_semana, dia_mes: frequencia === 'mensal' ? Number(inicio.slice(8, 10)) : null, valor, meses, metodo, categoria, descricao, inicio, status, encerrada_em: status === 'encerrada' ? '2026-09-20' : null, gerado_ate: null });
+  const R = (id, tipo, frequencia, dia_semana, valor, meses, metodo, categoria, descricao, inicio, status = 'ativa') => ({ id, user_id: U, tipo, frequencia, dia_semana, dia_mes: frequencia === 'mensal' ? Number(inicio.slice(8, 10)) : null, valor, meses, metodo, categoria, descricao, inicio, status, encerrada_em: status === 'encerrada' ? '2026-09-20' : null, ativa_desde: inicio, gerado_ate: null });
   const recorrencias = [
     R(1, 'saidas', 'mensal', null, 190, null, 'PIX', 'Saúde', 'Terapia', '2026-08-05'),
     R(2, 'saidas', 'semanal', 2, 190, 6, 'PIX', 'Saúde', 'Personal', '2026-09-08'),

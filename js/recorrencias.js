@@ -15,6 +15,7 @@ function mapearRecorrencia(r) {
         id: r.id, tipo: r.tipo, frequencia: r.frequencia, diaSemana: r.dia_semana, diaMes: r.dia_mes, valor: Number(r.valor),
         meses: r.meses, metodo: r.metodo, categoria: r.categoria, descricao: r.descricao || '', inicio: String(r.inicio).slice(0, 10),
         criadoEm: String(r.inicio).slice(0, 7), status: r.status, encerradaEm: r.encerrada_em,
+        ativaDesde: String(r.ativa_desde || r.inicio).slice(0, 7), // início da ativação mais recente
     };
 }
 
@@ -55,6 +56,22 @@ async function garantirOcorrenciasDoDia() {
 async function confirmarOcorrenciaRecorrencia(id) {
     const { error } = await sb.from('transacoes').update({ a_confirmar: false }).eq('id', id);
     if (error) { console.error(error); mostrarNotificacao('Não consegui confirmar', 'erro'); return; }
+    await recarregarDados();
+    atualizarUI();
+}
+
+/** "Confirmar todas" do bloco A confirmar. */
+async function confirmarOcorrenciasRecorrencia(ids) {
+    const { error } = await sb.from('transacoes').update({ a_confirmar: false }).in('id', ids);
+    if (error) { console.error(error); mostrarNotificacao('Não consegui confirmar', 'erro'); return; }
+    await recarregarDados();
+    atualizarUI();
+}
+
+/** "Apagar todas" do bloco A confirmar: só estas ocorrências (as recorrências seguem ativas). */
+async function apagarOcorrenciasRecorrencia(ids) {
+    const { error } = await sb.from('transacoes').delete().in('id', ids);
+    if (error) { console.error(error); mostrarNotificacao('Erro ao excluir', 'erro'); return; }
     await recarregarDados();
     atualizarUI();
 }
@@ -302,7 +319,7 @@ async function encerrarRecorrencia(id) {
 /** Volta uma recorrência encerrada: reativa e gera de hoje em diante. */
 async function reativarRecorrencia(id) {
     const ontem = new Date(); ontem.setDate(ontem.getDate() - 1);
-    const { error } = await sb.from('recorrencias').update({ status: 'ativa', encerrada_em: null, gerado_ate: formatarDataISO(ontem) }).eq('id', id);
+    const { error } = await sb.from('recorrencias').update({ status: 'ativa', encerrada_em: null, ativa_desde: hojeISO(), gerado_ate: formatarDataISO(ontem) }).eq('id', id);
     if (error) throw error;
 }
 
@@ -339,8 +356,8 @@ function _recCardHTML(r) {
     return `
         <div class="despesa-item rec-item ${despesa ? 'saida' : 'entrada'}" data-id="${r.id}">
             ${r.status === 'encerrada'
-                ? '<button type="button" class="rec-toggle" data-rec-act="voltar" title="Voltar (reativar a recorrência)" aria-label="Reativar"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M7 4.5v15l12-7.5z"/></svg></button>'
-                : '<button type="button" class="rec-toggle" data-rec-act="encerrar" title="Encerrar a recorrência" aria-label="Encerrar"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg></button>'}
+                ? '<button type="button" class="rec-toggle rec-toggle--play" data-rec-act="voltar" title="Voltar (reativar a recorrência)" aria-label="Reativar"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.8"/><path fill="currentColor" d="M10 7.8v8.4l6.6-4.2z"/></svg></button>'
+                : '<button type="button" class="rec-toggle rec-toggle--stop" data-rec-act="encerrar" title="Encerrar a recorrência" aria-label="Encerrar"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="8.5" y="8.5" width="7" height="7" rx="1.2" fill="currentColor"/></svg></button>'}
             <div class="despesa-conteudo">
                 <span class="rec-nome">${r.descricao || r.categoria}</span>
                 <span class="despesa-valor">${despesa ? '-' : '+'} ${formatarMoeda(r.valor)}</span>
@@ -348,7 +365,7 @@ function _recCardHTML(r) {
                     <span class="chip chip--neutro">🔁 ${_recRotuloFrequencia(r)}</span>
                     <span class="rec-chips-par"><span class="chip" style="background:${corCat}">${r.categoria}</span><span class="chip" style="background:${corMet}">${r.metodo}</span></span>
                 </span>
-                <span class="despesa-desc">${r.meses ? `Total: ${_recTotalTexto(r)}` : 'Contínuo'} · Desde ${_recMesCriacaoTexto(r.criadoEm)}</span>
+                <span class="despesa-desc">${r.meses ? `Total: ${_recTotalTexto(r)}` : 'Contínuo'} · ${r.status === 'encerrada' && r.encerradaEm ? `${_recMesCriacaoTexto(r.ativaDesde)} – ${_recMesCriacaoTexto(String(r.encerradaEm).slice(0, 7))}` : `Desde ${_recMesCriacaoTexto(r.criadoEm)}`}</span>
             </div>
             <div class="despesa-actions">
                 ${r.status === 'encerrada' ? '' : '<button type="button" class="btn-icon" data-rec-act="editar" title="Editar">✏️</button>'}

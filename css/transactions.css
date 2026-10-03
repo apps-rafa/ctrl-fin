@@ -735,6 +735,7 @@
 /* Cabeçalho do grupo: título, chip com a contagem logo ao lado, depois o espaço
    e o total à direita (só a ordem visual — vale pra todo grupo/subgrupo). */
 .rec-grupo-nome, .subgrupo-nome { order: 1; }
+.rec-grupo > summary > .mini-btn { order: 1; } /* Aceitar/Apagar todas: logo depois do título */
 .rec-grupo-contagem, .subgrupo-contagem { order: 2; }
 .rec-grupo-espaco, .subgrupo-espaco { order: 3; }
 .rec-grupo-total, .subgrupo-total { order: 4; }
@@ -777,8 +778,8 @@
 /* 🏦 conciliado: fica na margem esquerda da linha (antes da data), sem empurrar as colunas */
 .despesa-item { position: relative; }
 /* margem esquerda um pouco maior em TODAS as linhas (as colunas seguem alinhadas) pro ícone não apertar */
-body .despesa-item { padding-left: 1.25rem !important; }
-@media (max-width: 480px) { body .despesa-item { padding-left: 1.25rem !important; } .despesa-item > .despesa-conteudo > .conc-selo { left: .3rem; } }
+body .despesa-item { padding-left: 1.55rem !important; }
+@media (max-width: 480px) { body .despesa-item { padding-left: 1.55rem !important; } .despesa-item > .despesa-conteudo > .conc-selo { left: .3rem; } }
 /* Centro do selo = centro da 1ª linha (data/valor): top = 1rem - metade da altura (line-height 1 = a própria fonte).
    Sem transform: com translate fracionário o emoji "pulava" meio pixel quando o hover (box-shadow) criava a camada da linha. */
 .despesa-item > .despesa-conteudo > .conc-selo { position: absolute; left: .25rem; top: .65rem; transition: none !important; animation: none !important; transform: none; } /* sem animação nenhuma (nem no hover da linha) */
@@ -850,3 +851,11 @@ body .despesa-item { padding-left: 1.25rem !important; }
 .despesa-item.com-2-selos { min-height: 3.1rem; }
 .despesa-item > .despesa-conteudo > .conc-selo.conc-selo--baixo { top: auto; bottom: .55rem; }
 @media (max-width: 480px) { .despesa-item > .despesa-conteudo > .conc-selo.conc-selo--baixo { top: auto; bottom: .5rem; } }
+
+/* Subgrupos nunca levam a borda lateral esquerda: ela fica só no grupo pai (sem borda dupla) */
+.subgrupo, .rec-grupo .rec-grupo { border-left: 0 !important; }
+/* Fila na Home: só aparece com nenhuma aba aberta (as abas Receita/Despesa têm a sua) */
+#filaHome:empty { display: none; }
+body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none; }
+#filaHome { margin: .6rem 0; }
+.rec-grupo[data-nome="__aconfirmar__"] > summary { flex-wrap: wrap; row-gap: .3rem; }

@@ -24,6 +24,8 @@ function atualizarUI() {
     // Atualizar listas
     atualizarEntradasLista();
     atualizarSaidasLista();
+    if (typeof renderFilaHome === 'function') renderFilaHome();
+    if (typeof ajustarNomesFatura === 'function') ajustarNomesFatura();
     // Busca em todos os meses aberta: não refaz (voltar pra janela recarrega os dados e apagaria o resultado)
     const boxUI = document.getElementById('resultadoBusca');
     if (boxUI?.dataset.recentes === '1') mostrarRecemLancados(Number(boxUI.dataset.recentesQtd) || 5);
