@@ -59,7 +59,7 @@ test("somarMesesNoDia atravessa o ano", () => assert.equal(somarMesesNoDia("2026
 
 // ---- dia útil (mensal cai em fim de semana/feriado -> próximo dia útil) ----
 import { criarEhFeriado, proximoDiaUtil, feriadosNacionaisDoAno } from "../supabase/functions/_shared/diautil.ts";
-import { competenciaDaOcorrencia } from "../supabase/functions/_shared/ocorrencias.ts";
+import { ocorrenciasDaRecorrencia, competenciaDaOcorrencia } from "../supabase/functions/_shared/ocorrencias.ts";
 
 test("feriados nacionais do ano (fixos + Páscoa)", () => {
   const f = feriadosNacionaisDoAno(2026);
@@ -114,4 +114,14 @@ test("competência: mesmo mês, anterior, virada de ano e cartão (fatura) + des
   assert.equal(competenciaDaOcorrencia("2026-01-10", null, -1), "2025-12-01");
   assert.equal(competenciaDaOcorrencia("2026-10-20", 10, 0), "2026-11-01"); // cartão fecha dia 10: fatura de novembro
   assert.equal(competenciaDaOcorrencia("2026-10-20", 10, 1), "2026-12-01");
+});
+
+test("dia útil não muda a competência: salário do dia 31/10 pago em 03/11 segue sendo de outubro", () => {
+  const ehF = criarEhFeriado([]);
+  const aj = (d) => proximoDiaUtil(d, ehF);
+  const r = { frequencia: "mensal", dia_semana: null, dia_mes: 31, inicio: "2026-10-03", meses: null };
+  const os = ocorrenciasDaRecorrencia(r, "2026-11-30", aj);
+  assert.deepEqual(os, [{ data: "2026-11-03", nominal: "2026-10-31" }, { data: "2026-11-30", nominal: "2026-11-30" }]);
+  assert.deepEqual(os.map((o) => competenciaDaOcorrencia(o.nominal, null, 0)), ["2026-10-01", "2026-11-01"]);
+  assert.deepEqual(os.map((o) => competenciaDaOcorrencia(o.nominal, null, -1)), ["2026-09-01", "2026-10-01"]);
 });

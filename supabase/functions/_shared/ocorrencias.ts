@@ -47,20 +47,24 @@ export function fimDaRecorrencia(r: Pick<RecorrenciaLinha, "inicio" | "meses" | 
 }
 
 /** Todas as datas da recorrência de `inicio` até `ate` (inclusive), respeitando a duração. */
-export function datasDaRecorrencia(
+export interface OcorrenciaData { data: string; nominal: string }
+
+/** Datas + a data NOMINAL de cada uma (o dia da regra, antes de ir para o próximo dia útil). A competência sai da nominal:
+ *  salário do dia 31/10 pago em 03/11 (dia útil) continua sendo de outubro. */
+export function ocorrenciasDaRecorrencia(
   r: Pick<RecorrenciaLinha, "frequencia" | "dia_semana" | "dia_mes" | "inicio" | "meses">, ate: string,
   ajustar: (d: string) => string = (d) => d,
-): string[] {
+): OcorrenciaData[] {
   const fim = fimDaRecorrencia(r);
   const dentro = (d: string) => d <= ate && (!fim || d < fim);
-  const saida: string[] = [];
+  const saida: OcorrenciaData[] = [];
   if (r.frequencia === "mensal") {
     const dia = r.dia_mes ?? paraData(r.inicio).getUTCDate();
     for (let k = 0; k < 600; k++) {
       const d = somarMesesNoDia(r.inicio, k, dia);
       if (d < r.inicio.slice(0, 10)) continue; // no mês do início o dia escolhido já tinha passado: começa no mês seguinte
       if (d > ate || (fim && d >= fim)) break;
-      saida.push(ajustar(d)); // mensal: fim de semana/feriado vai para o próximo dia útil
+      saida.push({ data: ajustar(d), nominal: d }); // mensal: fim de semana/feriado vai para o próximo dia útil
     }
     return saida;
   }
@@ -68,14 +72,27 @@ export function datasDaRecorrencia(
   if (r.dia_semana != null) {
     while (paraData(d).getUTCDay() !== r.dia_semana) d = somarDias(d, 1);
   }
-  for (let k = 0; k < 3000 && dentro(d); k++) { saida.push(d); d = somarDias(d, 7); }
+  for (let k = 0; k < 3000 && dentro(d); k++) { saida.push({ data: d, nominal: d }); d = somarDias(d, 7); }
   return saida;
+}
+
+export function datasDaRecorrencia(
+  r: Pick<RecorrenciaLinha, "frequencia" | "dia_semana" | "dia_mes" | "inicio" | "meses">, ate: string,
+  ajustar: (d: string) => string = (d) => d,
+): string[] {
+  return ocorrenciasDaRecorrencia(r, ate, ajustar).map((o) => o.data);
 }
 
 /** Até onde gerar hoje (mensal e semanal): até o FIM DO MÊS SEGUINTE — o rascunho do mês seguinte sempre já existe (em
  *  novembro já nasce o de dezembro). No semanal isso dá 4 ou 5 ocorrências por mês, conforme o mês e o dia da semana. */
 export function horizonteDeGeracao(_frequencia: "mensal" | "semanal", hoje: string): string {
   return somarDias(somarMesesNoDia(`${hoje.slice(0, 7)}-01`, 2, 1), -1);
+}
+
+/** Ocorrências (data + nominal) que ainda faltam materializar. */
+export function ocorrenciasParaGerar(r: RecorrenciaLinha, hoje: string, ajustar?: (d: string) => string): OcorrenciaData[] {
+  const todas = ocorrenciasDaRecorrencia(r, horizonteDeGeracao(r.frequencia, hoje), ajustar);
+  return r.gerado_ate ? todas.filter((o) => o.data > r.gerado_ate!) : todas;
 }
 
 /** Datas que ainda faltam materializar (depois de `gerado_ate`, até o horizonte). */
@@ -132,11 +149,12 @@ export async function gerarOcorrencias(
     // Cartão de crédito vale qualquer dia (fim de semana/feriado incluídos); as demais formas vão para o próximo dia útil
     const ajustar = met?.metodo_kind === "Crédito" ? (d: string) => d : (d: string) => proximoDiaUtil(d, ehFeriado);
     const valorRef = (ultimas && ultimas[0]) ? Number(ultimas[0].valor) : Number(r.valor); // último confirmado vira a referência
-    const datas = datasParaGerar(r, hoje, ajustar);
+    const novas = ocorrenciasParaGerar(r, hoje, ajustar);
+    const datas = novas.map((o) => o.data);
     if (datas.length) {
-      const linhas = datas.map((d) => ({
-        user_id: r.user_id, tipo: r.tipo, data: d, valor: valorRef, metodo: r.metodo, categoria: r.categoria,
-        descricao: r.descricao, forma_pagamento: "À vista", tipo_recorrencia: "Pontual", competencia: competenciaDaOcorrencia(d, fech, r.competencia_offset),
+      const linhas = novas.map((o) => ({
+        user_id: r.user_id, tipo: r.tipo, data: o.data, valor: valorRef, metodo: r.metodo, categoria: r.categoria,
+        descricao: r.descricao, forma_pagamento: "À vista", tipo_recorrencia: "Pontual", competencia: competenciaDaOcorrencia(o.nominal, fech, r.competencia_offset),
         status: "Ativa", recorrencia_id: r.id, a_confirmar: true,
         // semanal: o mesmo valor/forma/descrição várias vezes no mês é o normal, nunca duplicata
         duplicata_ok: r.frequencia === "semanal",
