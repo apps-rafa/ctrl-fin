@@ -103,19 +103,16 @@ async function enviarMensagemTelegram(token: string, chatId: number, texto: stri
   }
 }
 
-// Só avisa transação com data de até 2 dias atrás — sem isso, qualquer
-// sincronização com janela larga (primeira sync de uma conta nova etc.)
-// manda um aviso por lançamento do período inteiro de uma vez.
-const NOTIFICAR_ATE_DIAS_ATRAS = 2;
+// Só avisa transação do MÊS VIGENTE — a sincronização olha 45 dias atrás (e a 1ª sync de uma conta nova
+// traz tudo), mas lançamentos de meses anteriores entram só na fila do app, sem aviso no Telegram.
 
 async function notificarTelegramNovas(
   supabaseAdmin: ClienteSupabase,
   userId: string,
   itens: ItemNovoTelegram[],
-  diasAtras = NOTIFICAR_ATE_DIAS_ATRAS,
 ): Promise<void> {
-  const dataLimite = new Date(Date.now() - diasAtras * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  itens = itens.filter((i) => i.data >= dataLimite);
+  const mesVigente = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 7); // mês de hoje em Brasília
+  itens = itens.filter((i) => String(i.data).slice(0, 7) === mesVigente);
   if (!itens.length) return;
   const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
   if (!token) return;
@@ -614,7 +611,7 @@ Deno.serve(async (req: Request) => {
           const paraAvisar = pendentes.filter((i) => !conciliados.has(i.id));
           novasNoTotal += paraAvisar.length;
           // conta que já sincronizou antes: compra publicada com atraso (data antiga) também avisa; 1ª sync: só o recente
-          await notificarTelegramNovas(supabaseAdmin, conta.user_id, paraAvisar, conta.ultimo_sync ? DIAS_RETROATIVOS : NOTIFICAR_ATE_DIAS_ATRAS);
+          await notificarTelegramNovas(supabaseAdmin, conta.user_id, paraAvisar);
         }
 
         if (conta.tipo_conta === "CREDIT") await guardarFaturasBanco(supabaseAdmin, conta.user_id, conta.id, conta.account_id, apiKey);
