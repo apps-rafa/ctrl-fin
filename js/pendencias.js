@@ -46,7 +46,6 @@ function atualizarBarraPendencias() {
     barra.hidden = n <= 0;
     const txt = document.getElementById('barraPendenciasTxt');
     if (txt) txt.textContent = `${n} pendência${n === 1 ? '' : 's'} para resolver`;
-    barra.classList.toggle('active', !!document.getElementById('pendencias')?.classList.contains('active'));
 }
 
 /** Recalcula depois que a tela atualiza (junta várias atualizações seguidas numa consulta só). */

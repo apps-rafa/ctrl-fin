@@ -735,7 +735,7 @@
 /* Cabeçalho do grupo: título, chip com a contagem logo ao lado, depois o espaço
    e o total à direita (só a ordem visual — vale pra todo grupo/subgrupo). */
 .rec-grupo-nome, .subgrupo-nome { order: 1; }
-.rec-grupo > summary > .mini-btn { order: 1; } /* Aceitar/Apagar todas: logo depois do título */
+.rec-grupo > summary > .mini-btn { order: 3; } /* Aceitar/Apagar todas: logo depois do título */
 .rec-grupo-contagem, .subgrupo-contagem { order: 2; }
 .rec-grupo-espaco, .subgrupo-espaco { order: 3; }
 .rec-grupo-total, .subgrupo-total { order: 4; }
@@ -874,16 +874,21 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 .barra-pendencias { display: flex; align-items: center; gap: .5rem; width: 100%; box-sizing: border-box; margin: 0; padding: .4rem var(--pad-main, 1rem); border: 0; border-bottom: 1px solid color-mix(in srgb, var(--balanco-text, #f5b942) 55%, var(--border)); border-radius: 0; background: color-mix(in srgb, var(--balanco-text, #f5b942) 22%, var(--surface)); color: var(--text); font-size: .8rem; font-weight: 700; cursor: pointer; text-align: left; }
 .barra-pendencias[hidden] { display: none; }
 .barra-pendencias:hover { background: color-mix(in srgb, var(--balanco-text, #f5b942) 30%, var(--surface)); }
-.barra-pendencias.active { outline: 2px solid var(--balanco-text, #f5b942); outline-offset: -2px; }
+.barra-pendencias.active { outline: 2px solid var(--balanco-text, #f5b942); outline-offset: -2px; } /* "on": você está na página de Pendências */
 .barra-pendencias .bp-seta { margin-left: auto; font-size: 1.1rem; line-height: 1; }
 body.modo-anual .barra-pendencias, body.modo-docs .barra-pendencias { display: none; }
 /* Fila: só um título (não é grupo) + o texto de vazio em itálico */
 .fila-titulo { margin: .2rem 0 .4rem; font-size: .85rem; font-weight: 700; color: var(--text); }
+/* Selos alinhados à linha do texto (dentro da data / da descrição, no espaço da margem esquerda) */
+.despesa-data, .despesa-desc { position: relative; }
+.conc-selo--in { position: absolute; left: -1.4rem; top: 50%; translate: 0 -50%; font-size: .7rem; line-height: 1; transition: none !important; animation: none !important; }
+@media (max-width: 480px) { .conc-selo--in { font-size: .58rem; left: -1.3rem; } }
 .fila-vazia { margin: .4rem 0 .8rem; font-size: .8rem; font-style: italic; color: var(--text-muted); text-align: center; }
-.pendencias-titulo { margin: 0 0 .6rem; font-size: 1rem; font-weight: 700; color: var(--text); }
 /* Botões "todas" do cabeçalho do grupo: texto menor; o título nunca quebra (apertando, só o ✓ e a lixeira) */
 .rec-grupo[data-nome="__duplicatas__"] > summary, .rec-grupo[data-nome="__aconfirmar__"] > summary { flex-wrap: nowrap; }
 .rec-grupo[data-nome="__duplicatas__"] > summary > .rec-grupo-nome, .rec-grupo[data-nome="__aconfirmar__"] > summary > .rec-grupo-nome { white-space: nowrap; }
 .rec-grupo[data-nome="__duplicatas__"] > summary > .mini-btn, .rec-grupo[data-nome="__aconfirmar__"] > summary > .mini-btn { font-size: .66rem; padding: .12rem .4rem; white-space: nowrap; }
 .rec-grupo > summary > .mini-btn.so-ico .mb-txt { display: none; }
+.mini-btn .mb-txt { margin-left: .25rem; } /* espaço entre o ✓/lixeira e o texto */
+.barra-pendencias.active { background: color-mix(in srgb, var(--balanco-text, #f5b942) 40%, var(--surface)); box-shadow: inset 0 -3px 0 var(--balanco-text, #f5b942); }
 #filaHome { margin: .6rem 0; }
