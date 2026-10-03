@@ -329,15 +329,27 @@ function _ajustarDetalhe(el, variantes) {
     el._variantes = variantes;
     const aplicar = () => {
         const v = el._variantes;
-        if (!v) { el.textContent = '\u00a0'; return; }
+        if (!v) { el.textContent = '\u00a0'; el.style.fontSize = ''; return; }
         el.style.whiteSpace = 'nowrap';
         el.style.fontSize = '';
         const caixa = (el.closest('.linha') || el.parentElement).clientWidth;
-        for (let k = 0; k < v.length; k++) {
-            el.textContent = v[k];
-            if (!caixa || el.getBoundingClientRect().width <= caixa - 14) return;
+        if (!caixa) { el.textContent = v[0]; return; }
+        const util = caixa - 4; // até a largura da linha que separa do total (respiro mínimo)
+        // Cada variante, esticada até a largura da linha, dá um tamanho de fonte; vale a mais completa (completo -> emojis ->
+        // só números) cujo tamanho continua legível (>= 9px). Sobrou espaço = a fonte cresce (até 13px).
+        const f0 = parseFloat(getComputedStyle(el).fontSize);
+        let melhor = null;
+        for (const texto of v) {
+            el.textContent = texto;
+            const w = el.getBoundingClientRect().width;
+            if (!(w > 0) || !(f0 > 0)) continue;
+            const f = f0 * util / w;
+            if (!melhor || f > melhor.f && melhor.f < 9) melhor = { texto, f };
+            if (f >= 9) { melhor = { texto, f }; break; }
         }
-        el.style.fontSize = '.54rem'; // caso extremo: só os valores, um pouco menores, ainda com respiro
+        if (!melhor) { el.textContent = v[0]; return; }
+        el.textContent = melhor.texto;
+        el.style.fontSize = Math.max(7, Math.min(melhor.f, 13)) + 'px';
     };
     el._reajustar = aplicar;
     aplicar();

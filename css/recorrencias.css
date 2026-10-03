@@ -29,7 +29,7 @@
 .rec-par--b { grid-template-columns: minmax(3.2rem, 1fr) minmax(0, 3fr); }
 .rec-par--c { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 @container (max-width: 649px) { .rec-par--a, .rec-par--b { grid-column: span 6; } .rec-par--c { grid-column: span 12; } }
-@container (max-width: 349px) { .rec-par { grid-column: span 12; } }
+@container (max-width: 349px) { .rec-par { grid-column: span 12; } .rec-par--b { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } } /* extremo: Início e Duração meio a meio */
 .rec-c-dia[hidden] { display: none; }
 .rec-c-dia select { padding-left: .35rem; padding-right: 1.1rem; }
 .rec-c-inicio select { padding-left: .35rem; padding-right: .35rem; }
@@ -77,3 +77,8 @@ body .rec-item { padding-left: 2.3rem !important; }
 .rec-toggle:hover { background: color-mix(in srgb, currentColor 16%, transparent); }
 /* Dia/Início sem espaço pra seta: some a seta e o texto fica centralizado, inteiro */
 .rec-linha--1 select.compacto { appearance: none; -webkit-appearance: none; background-image: none; padding-left: .2rem; padding-right: .2rem; text-align: center; text-align-last: center; }
+/* Tela extrema (linhas de 2 colunas): Salvar e Cancelar meio a meio */
+@media (max-width: 380px) {
+    .rec-btn-salvar { grid-column: span 6; }
+    .rec-btn-cancelar { grid-column: span 6; }
+}
