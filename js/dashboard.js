@@ -213,7 +213,7 @@ function atualizarResumo() {
         pagoLinha.classList.toggle('vazio', !temQuebraPago);
         const fmtP = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
         const detP = document.getElementById('saidasPagoDetalhe');
-        if (detP) { const px = fmtP(pix), cr = fmtP(cred); _ajustarDetalhe(detP, temQuebraPago ? [`pix ${px} + crédito ${cr}`, `pix ${px} + 💳 ${cr}`, `${px} + 💳 ${cr}`, `${px} + ${cr}`].map(mask) : null); }
+        if (detP) { const px = fmtP(pix), cr = fmtP(cred); _ajustarDetalhe(detP, temQuebraPago ? [`pix ${px} + crédito ${cr}`, `⚡ ${px} + 💳 ${cr}`, `${px} + ${cr}`].map(mask) : null); }
     }
     const detLinha = document.getElementById('saidasDetalheLinha');
     if (detLinha) {
