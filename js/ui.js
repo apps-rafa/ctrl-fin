@@ -960,9 +960,10 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     }
     const seloRec = trans.recorrenciaId ? '<span class="conc-selo conc-selo--in" title="Lançamento de uma recorrência">🔁</span>' : '';
     const recNaDesc = !!(seloRec && trans.descricao);
-    let seloLinha = ''; // só quando não há descrição E já existe ⏰/🏦: o 🔁 desce na margem
+    let seloLinha = ''; // (reservado)
+    let doisSelos = false; // sem descrição E com ⏰/🏦: os dois ficam empilhados, centralizados na altura da linha
     if (seloRec && !recNaDesc) {
-        if (seloNaData) seloLinha = '<span class="conc-selo conc-selo--baixo" title="Lançamento de uma recorrência">🔁</span>';
+        if (seloNaData) { doisSelos = true; seloNaData = '<span class="conc-selos-col">' + seloNaData.replace(' conc-selo--in', '') + seloRec.replace(' conc-selo--in', '') + '</span>'; }
         else seloNaData = seloRec;
     }
 
@@ -1013,7 +1014,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
         }
     }
 
-    const classes = `despesa-item ${tipo}` + (trans.quitada ? ' quitada' : '') + (seloLinha.includes('conc-selo--baixo') ? ' com-2-selos' : '');
+    const classes = `despesa-item ${tipo}` + (trans.quitada ? ' quitada' : '') + (doisSelos ? ' com-2-selos' : '');
 
     // .despesa-conteudo (dia/valor/tags/descrição) e .despesa-actions são
     // colunas separadas de um flex externo — o conteúdo nunca invade a
