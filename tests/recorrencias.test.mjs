@@ -51,3 +51,10 @@ test("duração limita as datas", () => {
   const r = { frequencia: "mensal", diaMes: 5, meses: 2, inicio: "2026-10-01" };
   assert.deepEqual(datas(r, "2026-12-31"), ["2026-10-05", "2026-11-05"]);
 });
+
+test("total do mês (contínua): sextas de outubro/2026 = 5; novembro/2026 = 4; mensal = 1", () => {
+  const sext = (ini, ate) => datas({ frequencia: "semanal", diaSemana: 5, meses: null, inicio: ini }, ate).length;
+  assert.equal(sext("2026-10-01", "2026-10-31"), 5);
+  assert.equal(sext("2026-11-01", "2026-11-30"), 4);
+  assert.equal(datas({ frequencia: "mensal", diaMes: 5, meses: null, inicio: "2026-10-01", semDiaUtil: true }, "2026-10-31").length, 1);
+});

@@ -324,9 +324,16 @@ function atualizarFormRecorrencia() {
     const valor = valorCampoParaNumero(e.valor);
     const meses = _recMesesDe(n);
     if (!meses) {
-        const porMes = semanal ? valor * 52 / 12 : valor;
-        e.total.value = '-';
-        e.total.title = valor ? `≈ ${formatarMoeda(porMes)} por mês, enquanto durar` : 'Informe o valor para estimar o gasto mensal';
+        // Contínua: o total é o do MÊS de início (semanal: 4 ou 5 ocorrências, conforme o mês e o dia da semana)
+        if (!valor) { e.total.value = '-'; e.total.title = 'Informe o valor para ver o total do mês'; return; }
+        const hojeMes = hojeISO().slice(0, 7);
+        const ym = e.inicio.value || hojeMes;
+        const [ano, mes] = ym.split('-').map(Number);
+        const ini = ym + '-01', fim = ym + '-' + String(new Date(ano, mes, 0).getDate()).padStart(2, '0');
+        const ref = { frequencia: e.freq.value, diaSemana: semanal ? e.dia.value : '', diaMes: semanal ? null : (Number(e.dia.value) || Number(hojeISO().slice(8, 10))), meses: null, inicio: ini, semDiaUtil: true };
+        const n1 = Math.max(1, _recDatas(ref, fim).length);
+        e.total.value = formatarMoeda(valor * n1);
+        e.total.title = `${n1} ocorrência${n1 === 1 ? '' : 's'} × ${formatarMoeda(valor)} em ${_MESES_ABREV_REC[mes - 1]}/${ano} (contínua: esse é o total do mês)`;
         return;
     }
     const ocorr = calcularOcorrenciasRecorrencia({ frequencia: e.freq.value, diaSemana: semanal ? e.dia.value : '', meses });
@@ -619,7 +626,7 @@ async function iniciarRecorrencias() {
         document.getElementById('recCancelar').addEventListener('click', fecharFormRecorrencia);
         e.painel.addEventListener('submit', salvarRecorrencia);
         e.painel.querySelectorAll('.tipo-btn').forEach(b => b.addEventListener('click', () => _recDefinirTipo(b.dataset.tipo)));
-        [e.freq, e.dia].forEach(el => el.addEventListener('change', atualizarFormRecorrencia));
+        [e.freq, e.dia, e.inicio].forEach(el => el && el.addEventListener('change', atualizarFormRecorrencia));
         e.valor.addEventListener('input', () => { mascaraValorMoeda(e.valor); atualizarFormRecorrencia(); });
         // Duração (como as parcelas): ao focar vira número cru p/ digitar; as setinhas ▲▼ (events.js) e o blur formatam
         e.duracao.addEventListener('focus', () => { const n = _recDuracaoAtual(); e.duracao.value = n > 1 ? String(n) : ''; });
