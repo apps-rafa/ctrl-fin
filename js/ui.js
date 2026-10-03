@@ -128,7 +128,7 @@ function _detectarDuplicatas(transacoes) {
  *  sozinho conforme o usuário for resolvendo (editando, apagando ou
  *  aprovando) — não precisa "arquivar". Grupo vazio nunca abre (nem é
  *  clicável: não é um <details>, é uma linha estática). */
-function _renderGrupoDuplicatas(transacoes, tipoUI, aberto, duplicatasPre) {
+function _renderGrupoDuplicatas(transacoes, tipoUI, aberto, duplicatasPre, onde = 'home') {
     const duplicatas = duplicatasPre || _detectarDuplicatas(transacoes);
     const tipoDe = typeof tipoUI === 'function' ? tipoUI : () => tipoUI;
     // Sem duplicata nenhuma: nada pra mostrar — some o grupo inteiro em vez
@@ -147,13 +147,37 @@ function _renderGrupoDuplicatas(transacoes, tipoUI, aberto, duplicatasPre) {
         <span class="rec-grupo-total">${formatarMoeda(total)}</span>
       </summary>
       <div class="rec-grupo-itens">
-        ${duplicatas.map(t => gerarHTMLTransacao(t, tipoDe(t), { comAprovarDuplicata: true })).join('')}
+        ${_subgruposDespesaReceita(duplicatas, tipoDe, t => gerarHTMLTransacao(t, tipoDe(t), { comAprovarDuplicata: true }), '__duplicatas__', onde)}
       </div>
     </details>`;
 }
 
+/** Itens de um grupo (Duplicatas / A confirmar) divididos em subgrupos Despesa e Receita. Com um subgrupo só, ele abre junto
+ *  com o grupo pai; com os dois, nascem fechados (vale o que o usuário abrir/fechar). */
+function _subgruposDespesaReceita(itens, tipoDe, htmlItem, pai, onde) {
+    const por = { saidas: [], entradas: [] };
+    itens.forEach(t => (tipoDe(t) === 'entrada' ? por.entradas : por.saidas).push(t));
+    const defs = [['saidas', 'Despesa', 'var(--despesa-text)'], ['entradas', 'Receita', 'var(--receita-text)']].filter(([k]) => por[k].length);
+    const unico = defs.length === 1;
+    return defs.map(([k, nome, cor]) => {
+        const lista = por[k];
+        const chave = `${pai}:${k}`;
+        const aberto = _filaManual[onde + ':' + chave] ?? unico;
+        const total = lista.reduce((acc, t) => acc + ((t.valorMes != null ? t.valorMes : t.valor) || 0), 0);
+        return `
+        <details class="subgrupo" data-nome="${chave}" style="--cor-rec:${cor}" ${aberto ? 'open' : ''}>
+          <summary class="subgrupo-cab">
+            <span class="subgrupo-nome">${nome}</span><span class="subgrupo-espaco"></span>
+            <span class="subgrupo-contagem">${lista.length}</span>
+            <span class="subgrupo-total">${formatarMoeda(total)}</span>
+          </summary>
+          ${lista.map(htmlItem).join('')}
+        </details>`;
+    }).join('');
+}
+
 /** Grupo "A confirmar": ocorrências de recorrência que aguardam decisão (✓ confirma, ✗ pergunta se pula o mês ou encerra). */
-function _renderGrupoAConfirmar(itens, tipoUI, aberto) {
+function _renderGrupoAConfirmar(itens, tipoUI, aberto, onde = 'home') {
     if (!itens.length) return '';
     const tipoDe = typeof tipoUI === 'function' ? tipoUI : () => tipoUI;
     const total = itens.reduce((s, t) => s + ((t.valorMes != null ? t.valorMes : t.valor) || 0), 0);
@@ -162,13 +186,13 @@ function _renderGrupoAConfirmar(itens, tipoUI, aberto) {
       <summary>
         <span class="rec-grupo-nome">🔁 A confirmar</span>
         <span role="button" tabindex="0" class="mini-btn" data-ac-confirmar-todas title="Confirmar todas as ocorrências listadas aqui"><span class="mb-ico">✓</span><span class="mb-txt"> Confirmar todas</span></span>
-        <span role="button" tabindex="0" class="mini-btn armed" data-ac-apagar-todas title="Apagar todas: apaga só estas ocorrências (as recorrências continuam ativas)"><span class="mb-ico">🗑</span><span class="mb-txt"> Apagar todas</span></span>
+        <span role="button" tabindex="0" class="mini-btn armed" data-ac-apagar-todas title="Apagar todas: apaga só estas ocorrências (as recorrências continuam ativas)"><span class="mb-ico">${ICONE_LIXEIRA}</span><span class="mb-txt"> Apagar todas</span></span>
         <span class="rec-grupo-espaco"></span>
         <span class="rec-grupo-contagem">${itens.length}</span>
         <span class="rec-grupo-total">${formatarMoeda(total)}</span>
       </summary>
       <div class="rec-grupo-itens">
-        ${itens.slice().sort(_porDataDesc).map(t => gerarHTMLTransacao(t, tipoDe(t), { comConfirmarOcorrencia: true })).join('')}
+        ${_subgruposDespesaReceita(itens.slice().sort(_porDataDesc), tipoDe, t => gerarHTMLTransacao(t, tipoDe(t), { comConfirmarOcorrencia: true }), '__aconfirmar__', onde)}
       </div>
     </details>`;
 }
@@ -212,8 +236,8 @@ function renderFilaHome() {
     const aberto = nome => _filaManual['home:' + nome]; // só o que VOCÊ abriu/fechou; sem escolha, vale o padrão
     const tipoDe = t => (ent.includes(t) ? 'entrada' : 'saida');
     const soAC = aConf.length > 0 && !dups.length, soDup = dups.length > 0 && !aConf.length; // nasce aberto só se for o único grupo
-    const htmlAC = _renderGrupoAConfirmar(aConf, tipoDe, aberto('__aconfirmar__') ?? soAC);
-    const htmlDup = dups.length ? _renderGrupoDuplicatas(null, tipoDe, aberto('__duplicatas__') ?? soDup, dups) : '';
+    const htmlAC = _renderGrupoAConfirmar(aConf, tipoDe, aberto('__aconfirmar__') ?? soAC, 'home');
+    const htmlDup = dups.length ? _renderGrupoDuplicatas(null, tipoDe, aberto('__duplicatas__') ?? soDup, dups, 'home') : '';
     box.innerHTML = htmlAC + htmlDup;
     box.onclick = onListaTransacaoClick;
     ajustarBotoesTodas();
@@ -236,8 +260,12 @@ function _ehEstornoCartao(t) {
 function renderListaPorModo(container, transacoes, tipoUI, modo, msgVazia) {
     if (!container) return;
     if (tipoUI === 'entrada' && transacoes) transacoes = transacoes.filter(t => !_ehEstornoCartao(t));
+    const aConfirmar = (transacoes || []).filter(t => t.aConfirmar); // ficam no grupo "A confirmar", fora da lista
+    if (transacoes) transacoes = transacoes.filter(t => !t.aConfirmar);
     const dupContainer = document.getElementById(tipoUI === 'entrada' ? 'duplicatasEntradas' : 'duplicatasSaidas');
-    let abertoDuplicatas = dupContainer?.querySelector('details.rec-grupo[data-nome="__duplicatas__"]')?.open;
+    if (dupContainer) _ligarFilaManual(dupContainer, tipoUI);
+    let abertoDuplicatas = _filaManual[tipoUI + ':__duplicatas__'];
+    const abertoAConfirmar = _filaManual[tipoUI + ':__aconfirmar__'];
     if (_forcarAbrirDuplicatas[tipoUI]) {
         abertoDuplicatas = true;
         _forcarAbrirDuplicatas[tipoUI] = false;
@@ -299,9 +327,10 @@ function renderListaPorModo(container, transacoes, tipoUI, modo, msgVazia) {
     }
 
     if (dupContainer) {
-        // (ocorrência "a confirmar" não entra na conta de duplicatas)
-        const base = (transacoes || []).filter(t => !t.aConfirmar);
-        dupContainer.innerHTML = base.length ? _renderGrupoDuplicatas(base, tipoUI, abertoDuplicatas) : '';
+        const nDup = (transacoes && transacoes.length) ? _detectarDuplicatas(transacoes).length : 0;
+        const htmlAC = _renderGrupoAConfirmar(aConfirmar, tipoUI, abertoAConfirmar ?? (aConfirmar.length > 0 && !nDup), tipoUI);
+        const htmlDup = nDup ? _renderGrupoDuplicatas(transacoes, tipoUI, abertoDuplicatas ?? !aConfirmar.length, null, tipoUI) : '';
+        dupContainer.innerHTML = htmlAC + htmlDup;
         ajustarBotoesTodas();
         dupContainer.onclick = onListaTransacaoClick;
     }
@@ -998,7 +1027,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
                 <span class="despesa-valor">${sinal} ${valorFormatado}</span>
                 ${parcelaTag}
                 ${quitarCheckbox}
-                ${(metaChip || catChip || quandoTag || quitadoTag || trans.aConfirmar) ? `<span class="despesa-badges">${metaChip}${catChip}${quandoTag}${quitadoTag}${trans.aConfirmar ? '<span class="chip chip--neutro" title="Rascunho de uma recorrência: confirme com o ✓">a confirmar</span>' : ''}</span>` : ''}
+                ${(metaChip || catChip || quandoTag || quitadoTag) ? `<span class="despesa-badges">${metaChip}${catChip}${quandoTag}${quitadoTag}</span>` : ''}
                 ${descTxt}
             </div>
             <div class="despesa-actions">${acoes}</div>
