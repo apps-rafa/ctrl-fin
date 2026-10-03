@@ -24,7 +24,6 @@ function atualizarUI() {
     // Atualizar listas
     atualizarEntradasLista();
     atualizarSaidasLista();
-    if (typeof renderFilaHome === 'function') renderFilaHome();
     if (typeof agendarPendencias === 'function') agendarPendencias();
     if (typeof ajustarNomesFatura === 'function') ajustarNomesFatura();
     // Busca em todos os meses aberta: não refaz (voltar pra janela recarrega os dados e apagaria o resultado)

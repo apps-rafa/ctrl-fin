@@ -54,7 +54,7 @@ import {
 } from "./lancamentos.ts";
 import { executarBackup } from "./backup.ts";
 import { executarLembretes } from "./lembretes.ts";
-import { responderFila, abrirDuplicata, aprovarDuplicata } from "./fila.ts";
+import { responderPendencias, abrirDuplicata, aprovarDuplicata } from "./pendencias.ts";
 import { gerarOcorrencias } from "../_shared/ocorrencias.ts";
 import {
   idRascunhoDaResposta, tratarRespostaRascunho,
@@ -469,9 +469,9 @@ Deno.serve(async (req: Request) => {
         return json({ ok: true });
       }
 
-      // /fila: duplicatas e recorrências a confirmar, com um botão numerado por item
-      if (/^\/fila(?:@\w+)?(?:\s|$)/i.test(texto)) {
-        await responderFila(supabaseAdmin, token, chatId);
+      // /pendencias: duplicatas e recorrências a confirmar, com um botão numerado por item
+      if (/^\/pendencias(?:@\w+)?(?:\s|$)/i.test(texto)) {
+        await responderPendencias(supabaseAdmin, token, chatId);
         return json({ ok: true });
       }
 
@@ -518,7 +518,7 @@ Deno.serve(async (req: Request) => {
         return json({ ok: true });
       }
 
-      if (acao === "filadup" && chatId) {
+      if (acao === "penddup" && chatId) {
         await abrirDuplicata(supabaseAdmin, token, cq, chatId, Number(idStr));
         return json({ ok: true });
       }
