@@ -5,7 +5,7 @@
 //  - Mensal: um por mês, no dia `dia_mes` (limitado ao último dia do mês). Semanal: no dia da semana escolhido
 //    ou, em "Variável" (dia_semana nulo), de 7 em 7 dias a partir do início.
 //  - Duração em meses (`meses`): vale até `inicio + meses` (exclusive); sem duração = contínua.
-//  - Antecedência: 1 mês à frente no mensal, 5 semanas à frente no semanal. `gerado_ate` guarda até onde já foi
+//  - Antecedência: mensal = até o fim do mês seguinte, semanal = 5 semanas à frente. `gerado_ate` guarda até onde já foi
 //    gerado: nunca recria uma data (se você apagou uma ocorrência, ela não volta).
 //  - Valor de cada nova ocorrência: o da última ocorrência confirmada (conta de luz: o último valor vira a
 //    referência do mês seguinte); sem nenhuma confirmada, o valor cadastrado na recorrência.
@@ -70,9 +70,11 @@ export function datasDaRecorrencia(
   return saida;
 }
 
-/** Até onde gerar hoje: 1 mês à frente (mensal) ou 5 semanas (semanal). */
+/** Até onde gerar hoje: mensal = até o FIM DO MÊS SEGUINTE (o rascunho do mês seguinte sempre já existe; em novembro já
+ *  nasce o de dezembro); semanal = 5 semanas. */
 export function horizonteDeGeracao(frequencia: "mensal" | "semanal", hoje: string): string {
-  return frequencia === "mensal" ? somarMesesNoDia(hoje, 1, paraData(hoje).getUTCDate()) : somarDias(hoje, 35);
+  if (frequencia === "semanal") return somarDias(hoje, 35);
+  return somarDias(somarMesesNoDia(`${hoje.slice(0, 7)}-01`, 2, 1), -1);
 }
 
 /** Datas que ainda faltam materializar (depois de `gerado_ate`, até o horizonte). */

@@ -78,7 +78,7 @@ async function renderDados() {
         <input type="file" id="importBackupArquivo" accept=".json,application/json" hidden>
         <button type="button" class="dados-btn" id="btnImportarBackup">📁 Importar Backup</button>
         <button type="button" class="dados-btn" id="btnBaixarBackup">⬇️ Baixar Backup</button>
-        <button type="button" class="dados-btn dados-btn-perigo" id="btnApagarDados">🗑 Apagar</button>
+        <button type="button" class="dados-btn dados-btn-perigo" id="btnApagarDados">${ICONE_LIXEIRA} Apagar</button>
     </div>
     <div id="secImportarBackup"></div>
     <div id="dadosStatus" class="revisao-progresso" hidden></div>

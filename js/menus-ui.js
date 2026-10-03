@@ -290,7 +290,7 @@ function renderFeriados() {
         <div class="item-info"><div class="item-nome">${_ferDataBR(f.data)} · ${f.nome}</div></div>
         <div class="item-actions">
           <button type="button" class="import-x" data-fer-toggle="1" data-fer-id="${f.id || ''}" data-fer-iso="${f.data}" data-fer-cat="${cat}" data-fer-ativo="${f.ativo ? 1 : 0}" title="${f.ativo ? 'Desativar' : 'Reativar'}" aria-label="${f.ativo ? 'Desativar' : 'Reativar'}">${f.ativo ? '×' : '↺'}</button>
-          ${f.oficial ? '' : `<button type="button" class="btn-icon btn-danger" data-fer-del="${f.id}" title="Apagar" aria-label="Apagar">🗑️</button>`}
+          ${f.oficial ? '' : `<button type="button" class="btn-icon btn-danger" data-fer-del="${f.id}" title="Apagar" aria-label="Apagar">${ICONE_LIXEIRA}</button>`}
         </div>
       </div>`).join('') : `<p class="empty-text">Nenhum feriado ${CATEGORIA_FERIADO_ROTULO[cat].toLowerCase()} em ${feriadosAnoView}</p>`;
   });
@@ -506,7 +506,7 @@ function renderizarItemsMenu(tipo, containerId, itens, grupo) {
     const acoes = `
       <div class="item-actions">
         ${semEdicao ? '' : `<button class="btn-icon" data-act="editar" data-tipo="${tipo}" data-id="${item.linha}" title="Editar">✏️</button>`}
-        ${semRemocao ? '' : `<button class="btn-icon btn-danger" data-act="remover" data-id="${item.linha}" title="Remover">🗑️</button>`}
+        ${semRemocao ? '' : `<button class="btn-icon btn-danger" data-act="remover" data-id="${item.linha}" title="Remover" aria-label="Remover">${ICONE_LIXEIRA}</button>`}
         ${ehEstornoDespesa ? '' : `<button class="btn-icon ${item.status === 'Ativo' ? 'btn-warning' : 'btn-success'}"
                 data-act="${item.status === 'Ativo' ? 'desativar' : 'ativar'}" data-id="${item.linha}"
                 title="${item.status === 'Ativo' ? 'Desativar' : 'Ativar'}">${item.status === 'Ativo' ? '⊘' : '↻'}</button>`}

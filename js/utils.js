@@ -301,6 +301,9 @@ function mostrarDialogo({ titulo, texto, corpoHTML, acoes }) {
     return ov;
 }
 
+/** Ícone de lixeira (SVG, herda a cor do texto) — usado no lugar do emoji em todos os botões de apagar. */
+const ICONE_LIXEIRA = '<svg class="ico-lixeira" viewBox="0 0 24 24" width="1.1em" height="1.1em" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>';
+
 /** Máscara mm/aaaa */
 function mascaraCompetencia(input) {
     let v = input.value.replace(/\D/g, '').slice(0, 6);

@@ -319,7 +319,7 @@ async function _renderBuscaDoMes(termo, box, abertos) {
         box.innerHTML = linkAmpla + html + `
         <details class="rec-grupo" data-nome="__busca_lixeira__" style="--cor-rec:var(--text-muted)" ${abertos.__busca_lixeira__ !== false ? 'open' : ''}>
           <summary>
-            <span class="rec-grupo-nome">🗑️ Lixeira</span>
+            <span class="rec-grupo-nome">${ICONE_LIXEIRA} Lixeira</span>
             <span class="rec-grupo-contagem">${lix.length}</span>
             <span class="rec-grupo-total">${formatarMoeda(total)}</span>
           </summary>

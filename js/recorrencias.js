@@ -494,7 +494,7 @@ function _recCardHTML(r) {
             </div>
             <div class="despesa-actions">
                 ${r.status === 'encerrada' ? '' : '<button type="button" class="btn-icon" data-rec-act="editar" title="Editar">✏️</button>'}
-                <button type="button" class="btn-icon btn-danger" data-rec-act="excluir" title="Excluir">🗑️</button>
+                <button type="button" class="btn-icon btn-danger" data-rec-act="excluir" title="Excluir" aria-label="Excluir">${ICONE_LIXEIRA}</button>
             </div>
         </div>`;
 }
