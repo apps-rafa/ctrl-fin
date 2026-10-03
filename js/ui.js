@@ -109,6 +109,7 @@ function _detectarDuplicatas(transacoes) {
     const aprovadas = _duplicatasAprovadasSet();
     const mapa = new Map();
     (transacoes || []).forEach(t => {
+        if (t.recorrenciaId) return; // ocorrência de recorrência (ex.: semanal): repetir valor/forma/descrição é o normal
         const chave = [t.valor, t.metodo || '', _normalizarChave(t.descricao || '')].join('|');
         if (!mapa.has(chave)) mapa.set(chave, []);
         mapa.get(chave).push(t);

@@ -130,6 +130,8 @@ export async function gerarOcorrencias(
         user_id: r.user_id, tipo: r.tipo, data: d, valor: valorRef, metodo: r.metodo, categoria: r.categoria,
         descricao: r.descricao, forma_pagamento: "À vista", tipo_recorrencia: "Pontual", competencia: competenciaDoLancamento(d, fech),
         status: "Ativa", recorrencia_id: r.id, a_confirmar: true,
+        // semanal: o mesmo valor/forma/descrição várias vezes no mês é o normal, nunca duplicata
+        duplicata_ok: r.frequencia === "semanal",
       }));
       const { error } = await admin.from("transacoes").upsert(linhas, { onConflict: "recorrencia_id,data", ignoreDuplicates: true });
       if (error) { console.error("Ocorrências não geradas:", error); continue; }
