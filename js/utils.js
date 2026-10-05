@@ -183,6 +183,8 @@ function aplicarDataPadrao(force) {
     // Campo travado (readOnly) nunca foi digitado pelo usuário — o valor ali é
     // sempre calculado (vencimento do cartão, próximo dia útil etc.), então
     // sempre pode ser recalculado pro mês novo, mesmo sem force=true.
+    if (!force && el.dataset.vazio === '1') return; // o usuário apagou a data de propósito (lançamento sem data)
+    if (force) delete el.dataset.vazio;
     if (!force && !el.readOnly && el.value && el.value !== el.dataset.padrao) return;
     const nova = dataPadraoDiaMes();
     el.value = nova;
@@ -488,7 +490,8 @@ function obterDadosFormulario() {
     const mesExib = (typeof estadoApp !== 'undefined' && estadoApp.mesAtual)
         ? formatarDataISO(estadoApp.mesAtual) : hojeISO();
 
-    const dataISO = dataCampoParaISO(document.querySelector(SELECTORS.data).value);
+    const dataTxt = document.querySelector(SELECTORS.data).value.trim();
+    let dataISO = dataCampoParaISO(dataTxt);
     const parcelas = parseInt(document.getElementById('parcelas')?.value, 10) || 1;
 
     const _met = typeof metodoSelecionado === 'function' ? metodoSelecionado() : null;
@@ -503,9 +506,17 @@ function obterDadosFormulario() {
     let compISO = competenciaDeMes(mesSelecionado); // todo lançamento tem o campo "Mês"
     if (!compISO) compISO = mesExib.slice(0, 8) + '01';
 
+    // Data em branco = lançamento sem data (só o mês de referência): fica no último dia do mês, marcado como indefinido ("--/mês")
+    const dataIndefinida = !dataTxt && tipoRecorrencia !== 'Parcelada' && !!compISO;
+    if (dataIndefinida) {
+        const [ca, cm] = compISO.split('-').map(Number);
+        dataISO = formatarDataISO(new Date(ca, cm, 0));
+    }
+
     return {
         tipo: ehEstorno ? 'entradas' : document.querySelector(SELECTORS.tipoTransacao).value,
         data: dataISO,
+        dataIndefinida,
         valor: valorCampoParaNumero(document.querySelector(SELECTORS.valor)),
         metodo: document.querySelector(SELECTORS.metodo).value,
         categoria: document.querySelector(SELECTORS.categoria).value,

@@ -258,6 +258,7 @@ function configurarEventListeners() {
         ligarCampoData(dataInput);
         dataInput.addEventListener('input', () => {
             mascaraDataBR(dataInput);
+            dataInput.dataset.vazio = dataInput.value.trim() ? '' : '1'; // apagou de propósito: lançamento sem data (só o mês)
             // Guarda a data digitada pelo usuário (para restaurar ao desmarcar
             // "pagar no vencimento" ou sair de uma recorrência que calcula a data)
             if (!dataInput.readOnly) dataInput.dataset.userVal = dataInput.value;
