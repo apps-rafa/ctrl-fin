@@ -170,9 +170,19 @@ function ajustarFontesDashboard() {
     ['totalEntradas', 'totalSaidas'].forEach(id => {
         const b = document.getElementById(id);
         const rot = b && b.parentElement.querySelector('.rot-total');
-        if (rot) rot.hidden = false;
-        ajustarFonteParaCaber(b);
-        if (rot && b.clientWidth && b.scrollWidth > b.clientWidth + 1) { rot.hidden = true; ajustarFonteParaCaber(b); } // sem espaço: some o rótulo
+        if (!rot) { ajustarFonteParaCaber(b); return; }
+        // "total" -> ∑ -> sem rótulo: troca assim que o valor ganha tamanho (>= 8%) com o rótulo mais curto
+        const tentar = (texto, oculto) => {
+            rot.hidden = oculto; rot.textContent = texto;
+            ajustarFonteParaCaber(b);
+            return parseFloat(getComputedStyle(b).fontSize);
+        };
+        const f1 = tentar('total', false);
+        const f2 = tentar('∑', false);
+        const f3 = tentar('∑', true);
+        if (f3 > f2 * 1.08) return tentar('∑', true);   // sem rótulo
+        if (f2 > f1 * 1.08) return tentar('∑', false);  // ∑
+        tentar('total', false);                         // cabe com "total"
     });
     // Balanço e Gasto diário (3ª coluna, estreita): o CSS (cqw) já faz caber; aqui só encolhe se ainda estourar.
     const par = ['balanco', 'gastoDiario'].map(id => document.getElementById(id)).filter(Boolean);
@@ -334,7 +344,11 @@ function diasRestantesMesVigente() {
 function _unificarDetalhes() {
     const els = [...document.querySelectorAll('.linha-detalhe i')].filter(x => x._f);
     if (!els.length) return;
-    const menor = Math.min(...els.map(x => x._f));
+    let menor = Math.min(...els.map(x => x._f));
+    // sempre um pouco menores que os rótulos (recebido, pago, a receber, a pagar) e que o "total"
+    const ref = document.querySelector('.card-linhas .linha.total .rot-total');
+    const refPx = ref ? parseFloat(getComputedStyle(ref).fontSize) : 0;
+    if (refPx > 0) menor = Math.min(menor, refPx * 0.88);
     els.forEach(x => { x.style.fontSize = menor + 'px'; });
 }
 
