@@ -345,6 +345,35 @@ async function processarTextoLivre(
 
   await limparRascunhosAntigos(supabaseAdmin); // melhor esforço: não deixa a fila crescer sem fim
 
+  // Assinatura/conta recorrente no cartão: se já existe a ocorrência "a confirmar" dela (mesmo nome no texto, ou mesmo valor),
+  // o rascunho passa a ATUALIZAR essa ocorrência em vez de criar um lançamento repetido.
+  let recCasada: string | null = null;
+  if (tipo === "saidas") {
+    try {
+      const hojeI = hojeBrasiliaISO();
+      const { data: ocs } = await supabaseAdmin.from("transacoes").select("id, descricao, categoria, valor, data")
+        .eq("user_id", tgUser.user_id).eq("tipo", "saidas").eq("a_confirmar", true).not("recorrencia_id", "is", null)
+        .gte("data", somarDiasISO(rascunho.data || hojeI, -12)).lte("data", somarDiasISO(rascunho.data || hojeI, 40)).order("data", { ascending: true });
+      const alvo = normalizarTexto(texto);
+      const diasDe = (d: string) => Math.abs(Date.parse(`${d.slice(0, 10)}T00:00:00Z`) - Date.parse(`${rascunho.data || hojeI}T00:00:00Z`));
+      const pontua = (o: { descricao: string | null; valor: number }) => {
+        const palavras = normalizarTexto(String(o.descricao ?? "")).split(/[^a-z0-9]+/).filter((p) => p.length >= 4);
+        const nome = palavras.length > 0 && palavras.every((p) => alvo.includes(p)) ? 2 : palavras.some((p) => alvo.includes(p)) ? 1 : 0;
+        const mesmoValor = Math.abs(Number(o.valor) - valor) < 0.5 ? 1 : 0;
+        return nome >= 2 || (nome >= 1 && mesmoValor) ? nome + mesmoValor : 0;
+      };
+      const melhor = ((ocs ?? []) as { id: number; descricao: string | null; categoria: string; valor: number; data: string }[])
+        .map((o) => ({ o, p: pontua(o) })).filter((x) => x.p > 0)
+        .sort((a, b) => b.p - a.p || diasDe(a.o.data) - diasDe(b.o.data))[0];
+      if (melhor) {
+        rascunho.ocorrenciaId = melhor.o.id;
+        rascunho.categoria = melhor.o.categoria || rascunho.categoria;
+        if (melhor.o.descricao) rascunho.descricao = melhor.o.descricao;
+        recCasada = melhor.o.descricao || melhor.o.categoria;
+      }
+    } catch (e) { console.error("casar SMS com recorrência:", e); }
+  }
+
   // Cada texto/SMS vira um rascunho independente — vários pendentes ao mesmo
   // tempo é o ponto (SMS chegando em sequência numa noite de compras, por
   // exemplo), cada um com seu próprio botão.
@@ -358,6 +387,7 @@ async function processarTextoLivre(
     return;
   }
 
+  if (recCasada) await tg(token, "sendMessage", { chat_id: chatId, text: `🔁 Isto bate com a recorrência "${recCasada}" que estava a confirmar. Ao confirmar, ela é atualizada (não cria um lançamento repetido).` });
   await enviarRascunho(token, chatId, novoRascunho.id, rascunho, supabaseAdmin, tgUser.user_id);
 }
 

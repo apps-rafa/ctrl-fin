@@ -680,7 +680,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
         else atuais.push(t);
     });
     const soma = l => l.reduce((acc, t) => acc + valorDe(t), 0);
-    const nomeAtual = tipoUI === 'saida' ? 'Pago' : 'Atual';
+    const nomeAtual = tipoUI === 'saida' ? 'Pago' : 'Recebido';
     const grupos = [];
     // A pagar = subgrupo da fatura de cada cartão em aberto + (fora dele) o que ainda não aconteceu
     const pagasFat = faturas.filter(f => f.paga);
