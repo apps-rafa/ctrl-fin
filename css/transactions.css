@@ -897,3 +897,7 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 .despesa-linha2 > .despesa-desc { flex: 0 1 auto; min-width: 0; }
 .despesa-linha2 .chip .cat-full { display: inline; }
 .despesa-linha2 .chip .cat-curto { display: none; }
+/* descrição em branco: a linha continua existindo (altura de 1 linha) e o chip da categoria encosta no início */
+.despesa-linha2 { min-height: calc(1.15 * .78rem); }
+.despesa-linha2 > .despesa-desc--vazia { flex: 0 0 0; width: 0; margin-right: -.35rem; }
+.despesa-linha2 > .despesa-desc--vazia:last-child { margin-right: 0; }
