@@ -749,23 +749,11 @@
 /* Chip de método (Crédito Bradesco, PIX Mercado Pago...): encolhe em telas
    estreitas em vez de estourar/cortar a linha do lançamento. */
 .chip .met-tier-media, .chip .met-tier-curto { display: none; }
-@media (max-width: 700px) {
-    .chip .met-tier-full { display: none; }
-    .chip .met-tier-media { display: inline; }
-}
-@media (max-width: 420px) {
-    .chip .met-tier-media { display: none; }
-    .chip .met-tier-curto { display: inline; }
-}
-/* Exceção: os chips (ver .despesa-badges) já quebraram pra linha própria —
-   sozinhos ali, sobra espaço de sobra, então não faz sentido abreviar (a
-   regra acima é só pra quando o chip ainda está espremido ao lado do
-   dia/valor/ações). Especificidade mais alta que as regras de @media acima,
-   então vale nas duas larguras. Classe setada por JS (ver
-   _ajustarBadgesQuebrados em ui.js). */
-.despesa-item.badges-quebrou .chip .met-tier-full { display: inline; }
-.despesa-item.badges-quebrou .chip .met-tier-media,
-.despesa-item.badges-quebrou .chip .met-tier-curto { display: none; }
+/* Qual versão do nome aparece é decidido por item em _ajustarBadgesQuebrados (data-met-tier): a mais completa que não quebra a linha. */
+.despesa-item[data-met-tier="media"] .chip .met-tier-full,
+.despesa-item[data-met-tier="curto"] .chip .met-tier-full { display: none; }
+.despesa-item[data-met-tier="media"] .chip .met-tier-media,
+.despesa-item[data-met-tier="curto"] .chip .met-tier-curto { display: inline; }
 
 /* Conferência da fatura do cartão com a do banco (Open Finance) */
 .fatura-confere { font-size: .7rem; font-weight: 700; flex: none; }
@@ -900,8 +888,5 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 .despesa-desc--reserva { min-height: calc(2 * 1.15 * .78rem); }
 /* grupo semanal: contorno contínuo (sem o tracejado do cabeçalho) */
 .subgrupo[data-nome^="Semanal"] > .subgrupo-cab { border-bottom-style: solid; }
-.subgrupo[data-nome^="Semanal"] { margin: .5rem 0 .6rem; } /* respiro em cima/embaixo para o contorno aparecer */
 /* semanal: cola na fatura, mas com folga antes dos próximos lançamentos; fechado, o contorno fecha sozinho (sem linha extra na base) */
-.subgrupo[data-nome^="Semanal"] { margin: .35rem 0 1rem; border-radius: var(--radius-sm); }
 .subgrupo[data-nome^="Semanal"]:not([open]) > .subgrupo-cab { border-bottom: 0; }
-.subgrupo[data-nome^="Semanal"] + .subgrupo, .subgrupo[data-nome^="Semanal"] + .rec-item, .subgrupo[data-nome^="Semanal"] + .transacao-item { margin-top: .6rem; }

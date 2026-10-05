@@ -137,6 +137,8 @@ export interface RascunhoLancamento {
   metodoOrigem?: "texto" | "padrao" | null;
   /** Rascunho de uma OCORRÊNCIA de recorrência (transacoes.id, a_confirmar): confirmar ATUALIZA essa linha em vez de inserir outra. */
   ocorrenciaId?: number | null;
+  /** Lançamentos parecidos achados antes de montar o rascunho (ids): o aviso pergunta se é o mesmo. */
+  similares?: number[];
 }
 
 export type MetodoMenu = { nome: string; metodo_kind: string | null; banco: string | null; dia_fechamento: number | null };

@@ -55,7 +55,7 @@ import {
 import { executarBackup } from "./backup.ts";
 import { executarLembretes } from "./lembretes.ts";
 import { responderPendencias, abrirDuplicata, aprovarDuplicata } from "./pendencias.ts";
-import { processarEmailConta, tratarDecisaoEmail } from "./email.ts";
+import { processarEmailConta, tratarDecisaoEmail, tratarDecisaoSms } from "./email.ts";
 import { gerarOcorrencias } from "../_shared/ocorrencias.ts";
 import {
   idRascunhoDaResposta, tratarRespostaRascunho,
@@ -382,7 +382,8 @@ async function processarTextoLivre(
           const fmt = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
           similaresTxt = "⚠️ Já existe algo parecido neste mês:\n"
             + achados.map((t) => `• ${t.descricao || t.categoria} — ${fmt(Number(t.valor))} em ${t.data.slice(8, 10)}/${t.data.slice(5, 7)}${t.a_confirmar ? " (a confirmar)" : ""}${t.metodo ? ` · ${t.metodo}` : ""}`).join("\n")
-            + "\nSe for o mesmo, toque em ❌ Cancelar neste rascunho; se for outro, ✅ Confirmar.";
+            + "\n\nÉ o mesmo?";
+          rascunho.similares = achados.map((t) => t.id);
         }
       }
     } catch (e) { console.error("procurar parecidos/recorrência:", e); }
@@ -401,7 +402,18 @@ async function processarTextoLivre(
     return;
   }
 
-  if (similaresTxt) await tg(token, "sendMessage", { chat_id: chatId, text: similaresTxt });
+  if (similaresTxt) {
+    await tg(token, "sendMessage", {
+      chat_id: chatId,
+      text: `💸 ${formatarMoedaBR(rascunho.valor)}${rascunho.descricao ? ` · ${rascunho.descricao}` : ""}\n${similaresTxt}`,
+      reply_markup: { inline_keyboard: [
+        [{ text: "✅ É o mesmo (ignorar)", callback_data: `smig:${novoRascunho.id}` }],
+        [{ text: "🔄 É o mesmo, atualizar valor/data", callback_data: `smat:${novoRascunho.id}` }],
+        [{ text: "➕ Não, é outro lançamento", callback_data: `smou:${novoRascunho.id}` }],
+      ] },
+    });
+    return;
+  }
   if (recCasada) await tg(token, "sendMessage", { chat_id: chatId, text: `🔁 Isto bate com a recorrência "${recCasada}" que estava a confirmar. Ao confirmar, ela é atualizada (não cria um lançamento repetido).` });
   await enviarRascunho(token, chatId, novoRascunho.id, rascunho, supabaseAdmin, tgUser.user_id);
 }
@@ -598,6 +610,11 @@ Deno.serve(async (req: Request) => {
 
       if ((acao === "emig" || acao === "emat" || acao === "emou") && chatId) {
         await tratarDecisaoEmail(supabaseAdmin, token, cq, chatId, acao, Number(idStr));
+        return json({ ok: true });
+      }
+
+      if ((acao === "smig" || acao === "smat" || acao === "smou") && chatId) {
+        await tratarDecisaoSms(supabaseAdmin, token, cq, chatId, acao, Number(idStr));
         return json({ ok: true });
       }
 
