@@ -373,6 +373,28 @@ async function processarTextoLivre(
       }
     } catch (e) { console.error("casar SMS com recorrência:", e); }
   }
+  // Antes de lançar, olha TODAS as despesas do mês (a pagar, pagas...) e avisa se já existe algo parecido.
+  let similaresTxt = "";
+  if (tipo === "saidas" && !recCasada) {
+    try {
+      const dataR = rascunho.data || hojeBrasiliaISO();
+      const mes = dataR.slice(0, 7);
+      const { data: doMes } = await supabaseAdmin.from("transacoes").select("descricao, categoria, valor, data, metodo, a_confirmar")
+        .eq("user_id", tgUser.user_id).eq("tipo", "saidas").gte("data", `${mes}-01`).lte("data", `${mes}-31`);
+      const alvoN = normalizarTexto(`${texto} ${rascunho.descricao}`);
+      const dias = (d: string) => Math.abs(Date.parse(`${d.slice(0, 10)}T00:00:00Z`) - Date.parse(`${dataR}T00:00:00Z`)) / 86400000;
+      const achados = ((doMes ?? []) as { descricao: string | null; categoria: string; valor: number; data: string; metodo: string | null; a_confirmar: boolean }[]).filter((t) => {
+        const palavras = normalizarTexto(String(t.descricao ?? "")).split(/[^a-z0-9]+/).filter((q) => q.length >= 4);
+        const nome = palavras.length > 0 && palavras.some((q) => alvoN.includes(q));
+        const mesmoValor = Math.abs(Number(t.valor) - valor) < 0.5;
+        return (nome && mesmoValor) || (mesmoValor && dias(t.data) <= 3) || (nome && dias(t.data) <= 3);
+      }).slice(0, 3);
+      if (achados.length) {
+        const fmt = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+        similaresTxt = "⚠️ Já existe algo parecido neste mês:\n" + achados.map((t) => `• ${t.descricao || t.categoria} — ${fmt(Number(t.valor))} em ${t.data.slice(8, 10)}/${t.data.slice(5, 7)}${t.a_confirmar ? " (a confirmar)" : ""}${t.metodo ? ` · ${t.metodo}` : ""}`).join("\n")          + "\nSe for o mesmo, toque em ❌ Cancelar neste rascunho; se for outro, ✅ Confirmar.";
+      }
+    } catch (e) { console.error("procurar parecidos:", e); }
+  }
 
   // Cada texto/SMS vira um rascunho independente — vários pendentes ao mesmo
   // tempo é o ponto (SMS chegando em sequência numa noite de compras, por
@@ -387,6 +409,7 @@ async function processarTextoLivre(
     return;
   }
 
+  if (similaresTxt) await tg(token, "sendMessage", { chat_id: chatId, text: similaresTxt });
   if (recCasada) await tg(token, "sendMessage", { chat_id: chatId, text: `🔁 Isto bate com a recorrência "${recCasada}" que estava a confirmar. Ao confirmar, ela é atualizada (não cria um lançamento repetido).` });
   await enviarRascunho(token, chatId, novoRascunho.id, rascunho, supabaseAdmin, tgUser.user_id);
 }
