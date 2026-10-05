@@ -130,3 +130,17 @@
 /* Olho (mostrar/esconder valores) na visão anual */
 .anual-olho { margin-left: auto; display: inline-flex; align-items: center; justify-content: center; height: 2rem; padding: 0 .7rem; }
 @media (max-width: 600px) { .anual-olho { margin-left: 0; } }
+
+/* Gráfico horizontal (mês em foco / comparação de 2 meses): barras empilhadas, largura toda */
+.anual-grafico-h { display: grid; gap: .45rem; padding: .6rem .7rem; }
+.gh-linha { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .5rem; }
+.gh-rot { font-size: .72rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; min-width: 5.2rem; }
+.gh-rot b { color: var(--text); }
+.gh-trilho { height: 1.6rem; min-width: 0; }
+.gh-barra { height: 100%; display: flex; border-radius: 4px; overflow: hidden; border-left: 3px solid var(--cap, var(--text-muted)); }
+.gh-linha.rec { --cap: var(--receita-text); }
+.gh-linha.desp { --cap: var(--despesa-text); }
+.gh-barra .seg { display: flex; align-items: center; justify-content: center; min-width: 1px; font-size: .62rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-shadow: 0 0 2px rgba(0,0,0,.6); }
+.gh-total { font-size: .74rem; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.gh-linha.rec .gh-total { color: var(--receita-text); }
+.gh-linha.desp .gh-total { color: var(--despesa-text); }
