@@ -137,14 +137,10 @@
 /* Item = 2 colunas: conteúdo (cresce, quebra internamente) + ações (largura
    fixa, nunca invadida pelo conteúdo — é outro flex item, não faz parte do
    mesmo wrap). */
+/* Layout base do lançamento; espaçamento, fundo e borda saem de "body .despesa-item" (theme.css) */
 .despesa-item {
     display: flex;
     align-items: center;
-    gap: .5rem;
-    padding: .55rem var(--spacing-md);
-    background: var(--light);
-    border-left: 4px solid var(--secondary);
-    border-radius: var(--radius-sm);
     transition: box-shadow var(--transition-normal);
 }
 
@@ -536,10 +532,6 @@
     }
 }
 
-.despesa-item {
-    animation: slideInLeft 0.3s ease;
-}
-
 /* Efeito ao hover com ícone de ação */
 .despesa-item.interativo:hover {
     cursor: pointer;
@@ -549,11 +541,6 @@
 
 /* Breakpoints */
 @media (max-width: 768px) {
-    .despesa-item {
-        flex-direction: row;
-        align-items: center;
-        gap: var(--spacing-sm);
-    }
 
     .despesa-valor {
         width: auto;
@@ -562,10 +549,6 @@
 }
 
 @media (max-width: 480px) {
-    .despesa-item {
-        padding: var(--spacing-md);
-        border-left-width: 3px;
-    }
 }
 
 /* Ações por transação (editar / excluir): coluna própria, largura fixa,

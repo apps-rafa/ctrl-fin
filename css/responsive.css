@@ -43,11 +43,6 @@
     }
 
     /* Transações: dia+valor / método / descrição, ações à direita */
-    .despesa-item {
-        flex-direction: row;
-        align-items: center;
-        gap: var(--spacing-sm);
-    }
 
     .despesa-valor {
         width: auto;
@@ -125,10 +120,6 @@
     }
 
     /* Transações */
-    .despesa-item {
-        padding: var(--spacing-md);
-        border-left-width: 3px;
-    }
 
     /* Gráficos */
 
@@ -174,10 +165,6 @@
     .tab-btn {
         padding: 0.35rem 0.15rem;
         font-size: 0.68rem;
-    }
-
-    .despesa-item {
-        padding: var(--spacing-sm);
     }
 
     .form-group input,
@@ -246,9 +233,6 @@
     }
 
     /* Bordas mais finas em telas de alta DPI */
-    .despesa-item {
-        border-left-width: 2px;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -267,10 +251,6 @@
 @media (prefers-contrast: more) {
     .summary-card {
         border-width: 3px;
-    }
-
-    .despesa-item {
-        border-left-width: 5px;
     }
 
     button {
