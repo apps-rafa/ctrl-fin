@@ -1,7 +1,7 @@
 // E-mail de conta -> recorrência: valor/vencimento do texto, vínculo pelo remetente e escolha da ocorrência.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { extrairDadosConta, recorrenciaDoEmail, escolherOcorrencia } from "../supabase/functions/telegram-webhook/email.ts";
+import { extrairDadosConta, recorrenciaDoEmail, recorrenciaPorPalavras, escolherOcorrencia } from "../supabase/functions/telegram-webhook/email.ts";
 
 const HOJE = "2026-10-04";
 
@@ -51,4 +51,13 @@ test("sem vencimento: a primeira de hoje (ou até 10 dias atrás) em diante", ()
   const ocs = [oc(1, "2026-09-01"), oc(2, "2026-09-28"), oc(3, "2026-10-05"), oc(4, "2026-11-05")];
   assert.equal(escolherOcorrencia(ocs, null, HOJE).id, 2); // 28/09 está dentro dos 10 dias
   assert.equal(escolherOcorrencia([oc(1, "2026-08-01")], null, HOJE), null);
+});
+
+test("sem remetente cadastrado: acha a recorrência pelas palavras da descrição", () => {
+  const semRem = recs.map((r) => ({ ...r, remetentes: "" }));
+  assert.equal(recorrenciaPorPalavras(semRem, "Condomínio Central <avisos@x.com>", "Lembrete: vencimento do condomínio", "").id, 3);
+  assert.equal(recorrenciaPorPalavras(semRem, "faturadigital@lightvirtual.com.br", "Sua fatura", "Light Serviços de Eletricidade").id, 12);
+  assert.equal(recorrenciaPorPalavras(semRem, "promo@loja.com", "Oferta imperdível", ""), null);
+  // palavra só no corpo (1 ponto) não basta
+  assert.equal(recorrenciaPorPalavras(semRem, "x@y.com", "Aviso", "condominio"), null);
 });
