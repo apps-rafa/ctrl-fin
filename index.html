@@ -10,11 +10,8 @@
     <meta name="theme-color" content="#0F1420">
     
     <!-- CSS - Modular (carregado em ordem de dependência) -->
-    <!-- "?v=" nos CSS/JS locais é cache-busting manual (site estático, sem
-         build) — sem isso, navegador/CDN podiam continuar servindo a versão
-         anterior por um tempo depois do deploy, e um ajuste visual "não
-         pegava" até um refresh forçado. Muda algum arquivo em css/ ou js/?
-         Sobe esse número (data de hoje, ou +1 se já usou a data). -->
+    <!-- "?v=" nos CSS/JS locais é cache-busting (site estático, sem build): o GitHub Action "Carimbar versão" troca esse número
+         sozinho a cada publicação (ver .github/workflows/carimbar-versao.yml e scripts/carimbar-versao.mjs). Não precisa mexer à mão. -->
     <link rel="stylesheet" href="css/variables.css?v=202610052250">
     <link rel="stylesheet" href="css/base.css?v=202610052250">
     <link rel="stylesheet" href="css/animations.css?v=202610052250">
