@@ -46,11 +46,11 @@ function renderProximasAgrupado(abertos = {}, futurasMeses = []) {
         const totD = soma(desps) + fats.reduce((acc, f) => acc + f.total, 0);
         const faturaUnica = fats.length === 1 && desps.length === 0;
         const r = recs.length
-            ? grupo('Receitas', `${comp}:receita`, 'var(--receita-text)', recs.length, soma(recs), recs.map(t => gerarHTMLTransacao(t, 'entrada', { semRelogio: true })).join(''), unico)
+            ? grupo('Receitas', `${comp}:receita`, 'var(--receita-text)', recs.length, soma(recs), _htmlListaComSemanal(recs, t => gerarHTMLTransacao(t, 'entrada', { semRelogio: true }), 'var(--receita-text)', 'entrada'), unico)
             : '';
         const d = temD
             ? grupo('Despesas', `${comp}:despesa`, 'var(--despesa-text)', desps.length + fats.length, totD,
-                fats.map(f => _htmlSubgrupoFatura(f, itensDe(f), totD, 'saida', abertosSub, estornos, faturaUnica)).join('') + desps.map(t => gerarHTMLTransacao(t, 'saida', { semRelogio: true })).join(''), unico)
+                fats.map(f => _htmlSubgrupoFatura(f, itensDe(f), totD, 'saida', abertosSub, estornos, faturaUnica)).join('') + _htmlListaComSemanal(desps, t => gerarHTMLTransacao(t, 'saida', { semRelogio: true }), 'var(--despesa-text)', 'saida'), unico)
             : '';
         return { html: r + d, qtd: recs.length + desps.length + fats.length };
     };
@@ -208,7 +208,7 @@ function renderFaturasCartao(container, termo = '', soNaoRealizadas = false) {
         const subAtual = _subModoGrupoDe(TIPO_UI_FATURA, 'metodo', rot);
         let itensHTML;
         if (subAtual === 'cronologica') {
-            itensHTML = todos.map(t => gerarHTMLTransacao(t, tipoUiDe(t), { semMetodoChip: true })).join('');
+            itensHTML = _htmlListaComSemanal(todos, t => gerarHTMLTransacao(t, tipoUiDe(t), { semMetodoChip: true }), 'var(--despesa-text)', 'saida');
         } else {
             const cfg = _dimensaoSubmodo(subAtual, true);
             const mapa = new Map();
@@ -233,7 +233,7 @@ function renderFaturasCartao(container, termo = '', soNaoRealizadas = false) {
                     <span class="subgrupo-contagem">${its.length}</span>
                     <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(totalSub)}</span>${total ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pctSub)}%</span>` : ''}</span>
                   </summary>
-                  ${its.map(t => gerarHTMLTransacao(t, tipoUiDe(t), { semMetodoChip: true })).join('')}
+                  ${_htmlListaComSemanal(its, t => gerarHTMLTransacao(t, tipoUiDe(t), { semMetodoChip: true }), corSub, 'saida')}
                 </details>`;
             }).join('');
         }
