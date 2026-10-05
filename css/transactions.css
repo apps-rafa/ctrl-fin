@@ -890,3 +890,9 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 .subgrupo[data-nome^="Semanal"] > .subgrupo-cab { border-bottom-style: solid; }
 /* semanal: cola na fatura, mas com folga antes dos próximos lançamentos; fechado, o contorno fecha sozinho (sem linha extra na base) */
 .subgrupo[data-nome^="Semanal"]:not([open]) > .subgrupo-cab { border-bottom: 0; }
+/* Regra de UI: forma de pagamento (chip) sempre na 1ª linha, ao lado do valor; categoria (chip) sempre na 2ª linha, ao lado da descrição. */
+.despesa-linha2 { flex: 1 0 100%; display: flex; align-items: flex-start; gap: .35rem; min-width: 0; }
+.despesa-linha2 > .chip { flex: none; margin-top: .05rem; }
+.despesa-linha2 > .despesa-desc { flex: 1 1 0; min-width: 0; }
+.despesa-linha2 .chip .cat-full { display: inline; }
+.despesa-linha2 .chip .cat-curto { display: none; }
