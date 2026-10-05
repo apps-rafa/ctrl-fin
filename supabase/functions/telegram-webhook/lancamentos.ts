@@ -2,7 +2,7 @@
 
 import type { createClient } from "npm:@supabase/supabase-js@2";
 import { rotuloMetodo, tg, formatarMoedaBR } from "./util.ts";
-import { competenciaDe, addMeses, type RascunhoLancamento } from "./parser.ts";
+import { competenciaDe, addMeses, hojeBrasiliaISO, type RascunhoLancamento } from "./parser.ts";
 
 /** Grava de vez um rascunho (ver RascunhoLancamento) como lançamento de
  *  verdade em `transacoes` — chamado tanto pelo botão inline "✅ Confirmar"
@@ -20,7 +20,7 @@ export async function confirmarRascunhoNoBanco(
   if (d.ocorrenciaId) {
     const { data: atualizadas, error: erroOc } = await supabaseAdmin.from("transacoes").update({
       tipo: d.tipo, data: d.data, valor: d.valor, metodo: d.metodo, categoria: d.categoria, descricao: d.descricao,
-      competencia, a_confirmar: false,
+      competencia, a_confirmar: false, ...(d.data > hojeBrasiliaISO() ? { agendado: true } : {}),
     }).eq("id", d.ocorrenciaId).eq("user_id", userId).eq("a_confirmar", true).select("id");
     if (erroOc) return { erro: erroOc };
     if (!atualizadas || !atualizadas.length) return { erro: new Error("Essa ocorrência já foi confirmada ou apagada no app") };
@@ -72,6 +72,7 @@ export async function confirmarRascunhoNoBanco(
     competencia,
     status: "Ativa",
     user_id: userId,
+    agendado: d.data > hojeBrasiliaISO(), // data futura = programado (o "Pago"/"Recebido" aparece quando a data chega)
   });
   return { erro: error };
 }
