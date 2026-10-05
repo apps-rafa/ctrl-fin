@@ -901,3 +901,7 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 /* grupo semanal: contorno contínuo (sem o tracejado do cabeçalho) */
 .subgrupo[data-nome^="Semanal"] > .subgrupo-cab { border-bottom-style: solid; }
 .subgrupo[data-nome^="Semanal"] { margin: .5rem 0 .6rem; } /* respiro em cima/embaixo para o contorno aparecer */
+/* semanal: cola na fatura, mas com folga antes dos próximos lançamentos; fechado, o contorno fecha sozinho (sem linha extra na base) */
+.subgrupo[data-nome^="Semanal"] { margin: .35rem 0 1rem; border-radius: var(--radius-sm); }
+.subgrupo[data-nome^="Semanal"]:not([open]) > .subgrupo-cab { border-bottom: 0; }
+.subgrupo[data-nome^="Semanal"] + .subgrupo, .subgrupo[data-nome^="Semanal"] + .rec-item, .subgrupo[data-nome^="Semanal"] + .transacao-item { margin-top: .6rem; }
