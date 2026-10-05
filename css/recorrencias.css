@@ -90,3 +90,33 @@ body .rec-item { padding-left: 2.3rem !important; }
 .rec-linha--3 > .form-group { grid-column: span 12; }
 /* card da recorrência em 3 linhas: nome/valor/forma de pgto.; frequência/categoria; duração/início */
 .rec-item .despesa-linha2 > .despesa-desc { flex: 0 1 auto; }
+
+/* ===== Formulário em 3 linhas =====
+   L1: Recorrência | Dia | Início | Mês de referência | Duração
+   L2: Valor | Total | Forma de pagamento
+   L3: Categoria | Descrição | E-mail da conta */
+.rec-linha--1 { container-type: inline-size; }
+.rec-linha > .form-group { grid-column: auto; }
+.rec-linha--1 > .rec-c-freq { grid-column: span 2; min-width: 6.2rem; }
+.rec-linha--1 > .rec-c-dia { grid-column: span 2; }
+.rec-linha--1 > .rec-c-inicio { grid-column: span 2; }
+.rec-linha--1 > .rec-c-comp { grid-column: span 3; }
+.rec-linha--1 > .rec-c-dur { grid-column: span 3; }
+.rec-linha--2 > .rec-c-valor { grid-column: span 3; }
+.rec-linha--2 > .rec-c-total { grid-column: span 3; }
+.rec-linha--2 > .rec-c-metodo { grid-column: span 6; }
+.rec-linha--3 > .rec-c-cat { grid-column: span 3; }
+.rec-linha--3 > .rec-c-desc { grid-column: span 4; }
+.rec-linha--3 > .rec-c-email { grid-column: span 5; }
+@container (max-width: 649px) {
+    .rec-linha--1 > .rec-c-freq, .rec-linha--1 > .rec-c-dia { grid-column: span 6; }
+    .rec-linha--1 > .rec-c-inicio, .rec-linha--1 > .rec-c-comp, .rec-linha--1 > .rec-c-dur { grid-column: span 4; }
+}
+@container (max-width: 349px) {
+    .rec-linha--1 > .form-group { grid-column: span 6; }
+}
+@media (max-width: 560px) {
+    .rec-linha--2 > .rec-c-valor, .rec-linha--2 > .rec-c-total { grid-column: span 6; }
+    .rec-linha--2 > .rec-c-metodo { grid-column: span 12; }
+    .rec-linha--3 > .form-group { grid-column: span 12; }
+}
