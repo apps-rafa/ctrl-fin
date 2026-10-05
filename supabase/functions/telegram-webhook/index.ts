@@ -55,6 +55,7 @@ import {
 import { executarBackup } from "./backup.ts";
 import { executarLembretes } from "./lembretes.ts";
 import { responderPendencias, abrirDuplicata, aprovarDuplicata } from "./pendencias.ts";
+import { processarEmailConta } from "./email.ts";
 import { gerarOcorrencias } from "../_shared/ocorrencias.ts";
 import {
   idRascunhoDaResposta, tratarRespostaRascunho,
@@ -413,6 +414,28 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     } catch (e) {
       console.error("Erro no encaminhamento de SMS:", e);
+      return json({ error: String(e) }, 500);
+    }
+  }
+
+  // E-mail de conta (Google Apps Script do Gmail): vincula à recorrência e manda o rascunho pelo bot
+  const segredoEmail = req.headers.get("x-email-secret");
+  if (segredoEmail) {
+    const { data: seg } = await supabaseAdmin.from("app_cron_segredo").select("valor").eq("nome", "email_conta").maybeSingle();
+    if (!seg || segredoEmail !== seg.valor) return json({ error: "Não autorizado" }, 401);
+    const corpo = await req.json().catch(() => ({}));
+    if (!corpo.messageId || !corpo.from) return json({ error: "messageId/from ausente" }, 400);
+    const { data: usuarios } = await supabaseAdmin.from("telegram_users").select("user_id, chat_id");
+    const lista = (usuarios ?? []) as { user_id: string; chat_id: number }[];
+    const alvo = corpo.chat_id ? lista.find((u) => u.chat_id === Number(corpo.chat_id)) : (lista.length === 1 ? lista[0] : undefined);
+    if (!alvo) return json({ error: "Telegram não vinculado (ou vários usuários: informe chat_id)" }, 400);
+    try {
+      const r = await processarEmailConta(supabaseAdmin, token, alvo.user_id, alvo.chat_id, {
+        messageId: String(corpo.messageId).slice(0, 300), from: String(corpo.from), subject: String(corpo.subject ?? ""), body: String(corpo.body ?? "").slice(0, 60000),
+      });
+      return json(r);
+    } catch (e) {
+      console.error("Erro no e-mail de conta:", e);
       return json({ error: String(e) }, 500);
     }
   }

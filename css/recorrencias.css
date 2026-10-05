@@ -87,3 +87,4 @@ body .rec-item { padding-left: 2.3rem !important; }
 .rec-linha--2 > .form-group:nth-child(1), .rec-linha--2 > .form-group:nth-child(2) { grid-column: span 3; }
 .rec-linha--2 > .form-group:nth-child(3) { grid-column: span 2; }
 .rec-linha--2 > .form-group:nth-child(4) { grid-column: span 4; }
+.rec-linha--3 > .form-group { grid-column: span 12; }
