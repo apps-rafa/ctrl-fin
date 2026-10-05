@@ -1425,3 +1425,5 @@ function iniciarAjusteBadgesQuebrados() {
     obs.observe(document.body, { childList: true, subtree: true });
 }
 window.addEventListener('load', iniciarAjusteBadgesQuebrados);
+window.addEventListener('resize', () => _ajustarBadgesQuebrados());
+document.addEventListener('toggle', e => { if (e.target && e.target.open && e.target.querySelector) _ajustarBadgesQuebrados(e.target); }, true);
