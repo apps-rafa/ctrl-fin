@@ -89,7 +89,9 @@ body .rec-item { padding-left: 2.3rem !important; }
 .rec-grade .rec-c-freq, .rec-grade .rec-c-dia, .rec-grade .rec-c-inicio { grid-column: span 4; }
 .rec-grade .rec-c-comp, .rec-grade .rec-c-dur, .rec-grade .rec-c-valor, .rec-grade .rec-c-cat, .rec-grade .rec-c-desc, .rec-grade .rec-c-metodo { grid-column: span 6; }
 .rec-grade .rec-c-total { grid-column: span 6; }
-.rec-grade:has(.rec-c-total:not([hidden])) .rec-c-metodo { grid-column: span 12; }
+.rec-grade:has(.rec-c-total:not([hidden])) .rec-c-valor, .rec-grade:has(.rec-c-total:not([hidden])) .rec-c-total { grid-column: span 3; }
+.rec-grade:has(.rec-c-total:not([hidden])) .rec-c-metodo { grid-column: span 6; }
+.rec-grade .rec-meia { display: contents; }
 .rec-grade .rec-c-email { grid-column: span 12; }
 .rec-grade .lbl-ref-curto { display: none; }
 .rec-grade select, .rec-grade input { text-overflow: clip; }
@@ -97,38 +99,33 @@ body .rec-item { padding-left: 2.3rem !important; }
     .rec-grade .rec-c-freq, .rec-grade .rec-c-dia { grid-column: span 6; }
     .rec-grade .rec-c-inicio { grid-column: span 12; }
 }
-/* sem Total cabe a partir de 38rem; com Total, a partir de 43rem */
+/* Tela larga, 2 metades iguais: Recorrência | Dia | Início ocupam a largura de Forma de pgto. + Categoria; o resto (Mês ref. | Duração | Valor | Total)
+   ocupa a de Descrição + E-mail. Sem Total cabe a partir de 38rem; com Total, a partir de 47rem. */
 @container (min-width: 38rem) {
-    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha { display: flex; flex-wrap: nowrap; gap: .5rem; grid-column: 1 / -1; }
-    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--1 > .form-group { flex: 1 1 0; }
-    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--1 > .rec-c-freq { flex: 1 1 6.4rem; min-width: 6.4rem; }
-    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--1 > .rec-c-dia { flex: 1 1 5.4rem; min-width: 5.4rem; }
-    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--1 > .rec-c-inicio { flex: 1 1 5rem; min-width: 5rem; }
-    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--1 > .rec-c-comp { flex: 1 1 5.8rem; min-width: 5.8rem; }
-    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--1 > .rec-c-dur { flex: 1 1 6.4rem; min-width: 6.4rem; }
-    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--1 > .rec-c-valor { flex: 2 1 5.4rem; min-width: 5.4rem; }
-    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--1 > .rec-c-total { flex: 1 1 5.6rem; min-width: 5.6rem; }
-    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--2 > .rec-c-metodo { flex: 3 1 0; }
-    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--2 > .rec-c-cat { flex: 2.5 1 0; }
-    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--2 > .rec-c-desc { flex: 3 1 0; }
-    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--2 > .rec-c-email { flex: 3.5 1 0; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .5rem; grid-column: 1 / -1; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-meia { display: flex; flex-wrap: nowrap; gap: .5rem; min-width: 0; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-meia > .form-group { flex: 1 1 0; min-width: 0; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-c-freq { flex: 1.2 1 6.4rem; min-width: 6.4rem; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-c-dia { flex: 1 1 5.4rem; min-width: 5.4rem; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-c-inicio { flex: 1 1 5rem; min-width: 5rem; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-c-comp { flex: 1 1 5.8rem; min-width: 5.8rem; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-c-dur { flex: 1.1 1 6.4rem; min-width: 6.4rem; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-c-valor { flex: 1.4 1 4.6rem; min-width: 4.6rem; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-c-total { flex: 1 1 4.6rem; min-width: 4.6rem; }
     .rec-grade:not(:has(.rec-c-total:not([hidden]))) .lbl-ref-longo { display: none; }
     .rec-grade:not(:has(.rec-c-total:not([hidden]))) .lbl-ref-curto { display: inline; }
 }
-@container (min-width: 43rem) {
-    .rec-grade .rec-linha { display: flex; flex-wrap: nowrap; gap: .5rem; grid-column: 1 / -1; }
-    .rec-grade .rec-linha--1 > .form-group { flex: 1 1 0; }
-    .rec-grade .rec-linha--1 > .rec-c-freq { flex: 1 1 6.4rem; min-width: 6.4rem; }
-    .rec-grade .rec-linha--1 > .rec-c-dia { flex: 1 1 5.4rem; min-width: 5.4rem; }
-    .rec-grade .rec-linha--1 > .rec-c-inicio { flex: 1 1 5rem; min-width: 5rem; }
-    .rec-grade .rec-linha--1 > .rec-c-comp { flex: 1 1 5.8rem; min-width: 5.8rem; }
-    .rec-grade .rec-linha--1 > .rec-c-dur { flex: 1 1 6.4rem; min-width: 6.4rem; }
-    .rec-grade .rec-linha--1 > .rec-c-valor { flex: 2 1 5.4rem; min-width: 5.4rem; }
-    .rec-grade .rec-linha--1 > .rec-c-total { flex: 1 1 5.6rem; min-width: 5.6rem; }
-    .rec-grade .rec-linha--2 > .rec-c-metodo { flex: 3 1 0; }
-    .rec-grade .rec-linha--2 > .rec-c-cat { flex: 2.5 1 0; }
-    .rec-grade .rec-linha--2 > .rec-c-desc { flex: 3 1 0; }
-    .rec-grade .rec-linha--2 > .rec-c-email { flex: 3.5 1 0; }
+@container (min-width: 47rem) {
+    .rec-grade .rec-linha { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .5rem; grid-column: 1 / -1; }
+    .rec-grade .rec-meia { display: flex; flex-wrap: nowrap; gap: .5rem; min-width: 0; }
+    .rec-grade .rec-meia > .form-group { flex: 1 1 0; min-width: 0; }
+    .rec-grade .rec-c-freq { flex: 1.2 1 6.4rem; min-width: 6.4rem; }
+    .rec-grade .rec-c-dia { flex: 1 1 5.4rem; min-width: 5.4rem; }
+    .rec-grade .rec-c-inicio { flex: 1 1 5rem; min-width: 5rem; }
+    .rec-grade .rec-c-comp { flex: 1 1 5.8rem; min-width: 5.8rem; }
+    .rec-grade .rec-c-dur { flex: 1.1 1 6.4rem; min-width: 6.4rem; }
+    .rec-grade .rec-c-valor { flex: 1.4 1 4.6rem; min-width: 4.6rem; }
+    .rec-grade .rec-c-total { flex: 1 1 4.6rem; min-width: 4.6rem; }
     .rec-grade .lbl-ref-longo { display: none; }
     .rec-grade .lbl-ref-curto { display: inline; }
 }
