@@ -114,3 +114,10 @@ function sugerirMelhorDiaCompra(diaFechamento) {
   const alvo = new Date(hoje.getFullYear(), hoje.getMonth(), f + 1);
   return ajustarDiaUtil(alvo).getDate();
 }
+
+/** Regra ÚNICA do checkbox "Pago"/"Recebido": só em lançamento programado (campo agendado), a partir do dia programado
+ *  (data variável: sempre) e até ser marcado. Fora: rascunhos "a confirmar", parcelas, cartão de crédito e estornos. */
+function deveMostrarPagoRecebido(t, hoje, { credito = false, estorno = false, parcela = false } = {}) {
+  if (!t || !t.agendado || t.aConfirmar || parcela || credito || estorno || !t.data) return false;
+  return !!t.dataIndefinida || String(t.data).slice(0, 10) <= hoje;
+}

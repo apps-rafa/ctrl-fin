@@ -1029,7 +1029,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     // Fora: cartão de crédito, parcelas, estornos e rascunhos "a confirmar".
     const _metTrans = ((estadoApp.menus && estadoApp.menus.metodos) || []).find(m => rotuloMetodo(m) === trans.metodo);
     const _rotPago = tipo === 'entrada' ? 'Recebido' : 'Pago';
-    const pagoCheck = (!opts.semAcoes && trans.agendado && !trans.aConfirmar && !ehParcela && trans.data && (trans.dataIndefinida || String(trans.data).slice(0, 10) <= hojeISO()) && !(_metTrans && _metTrans.metodoKind === 'Crédito') && !_ehEstornoCartao(trans))
+    const pagoCheck = (!opts.semAcoes && deveMostrarPagoRecebido(trans, hojeISO(), { credito: !!(_metTrans && _metTrans.metodoKind === 'Crédito'), estorno: _ehEstornoCartao(trans), parcela: ehParcela }))
         ? `<label class="pago-check" title="Marcar como ${_rotPago.toLowerCase()}${trans.dataIndefinida ? ' (a data passa a ser hoje)' : ''}"><input type="checkbox" name="marcar-pago" data-act="marcar-pago" data-id="${trans.id}"> ${_rotPago}</label>`
         : '';
     const quitadoTag = ehParcela && trans.quitadoEm
