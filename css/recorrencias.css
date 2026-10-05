@@ -40,17 +40,9 @@
 .rec-btn-cancelar { grid-column: span 2; min-width: 0; padding-left: 0; padding-right: 0; }
 .rec-cancel-x { display: none; }
 .rec-linha select { text-overflow: ellipsis; }
-/* Tela estreita: Forma de pagamento | Categoria; Descrição (a linha 1 se reorganiza sozinha pelos pares, ver acima) */
 @media (max-width: 560px) {
-    .rec-linha--2 > .form-group:nth-child(1), .rec-linha--2 > .form-group:nth-child(2) { grid-column: span 6; }
-    .rec-linha--2 > .form-group:nth-child(3) { grid-column: span 5; }
-    .rec-linha--2 > .form-group:nth-child(4) { grid-column: span 7; }
     .rec-btn-salvar { grid-column: span 8; }
     .rec-btn-cancelar { grid-column: span 4; }
-}
-/* só em tela extrema forma de pagamento e categoria ficam uma por linha */
-@media (max-width: 340px) {
-    .rec-linha--2 > .form-group:nth-child(1), .rec-linha--2 > .form-group:nth-child(2), .rec-linha--2 > .form-group:nth-child(3), .rec-linha--2 > .form-group:nth-child(4) { grid-column: span 12; }
 }
 
 /* Campo "Total" (somente leitura): fundo escuro como o resto (forms.css traz um fundo claro) */
@@ -83,40 +75,60 @@ body .rec-item { padding-left: 2.3rem !important; }
     .rec-btn-salvar { grid-column: span 6; }
     .rec-btn-cancelar { grid-column: span 6; }
 }
-/* Linha 2 no desktop: Forma de pagamento 3 | Categoria 3 | Competência 2 | Descrição 4 */
-.rec-linha--2 > .form-group:nth-child(1), .rec-linha--2 > .form-group:nth-child(2) { grid-column: span 3; }
-.rec-linha--2 > .form-group:nth-child(3) { grid-column: span 2; }
-.rec-linha--2 > .form-group:nth-child(4) { grid-column: span 4; }
-.rec-linha--3 > .form-group { grid-column: span 12; }
 /* card da recorrência em 3 linhas: nome/valor/forma de pgto.; frequência/categoria; duração/início */
 .rec-item .despesa-linha2 > .despesa-desc { flex: 0 1 auto; }
 
-/* ===== Formulário em 3 linhas =====
-   L1: Recorrência | Dia | Início | Mês de referência | Duração
-   L2: Valor | Total | Forma de pagamento
-   L3: Categoria | Descrição | E-mail da conta */
-.rec-linha--1 { container-type: inline-size; }
-.rec-linha > .form-group { grid-column: auto; }
-.rec-linha--1 > .rec-c-freq { grid-column: span 2; min-width: 6.2rem; }
-.rec-linha--1 > .rec-c-dia { grid-column: span 2; }
-.rec-linha--1 > .rec-c-inicio { grid-column: span 2; }
-.rec-linha--1 > .rec-c-comp { grid-column: span 3; }
-.rec-linha--1 > .rec-c-dur { grid-column: span 3; }
-.rec-linha--2 > .rec-c-valor { grid-column: span 3; }
-.rec-linha--2 > .rec-c-total { grid-column: span 3; }
-.rec-linha--2 > .rec-c-metodo { grid-column: span 6; }
-.rec-linha--3 > .rec-c-cat { grid-column: span 3; }
-.rec-linha--3 > .rec-c-desc { grid-column: span 4; }
-.rec-linha--3 > .rec-c-email { grid-column: span 5; }
-@container (max-width: 649px) {
-    .rec-linha--1 > .rec-c-freq, .rec-linha--1 > .rec-c-dia { grid-column: span 6; }
-    .rec-linha--1 > .rec-c-inicio, .rec-linha--1 > .rec-c-comp, .rec-linha--1 > .rec-c-dur { grid-column: span 4; }
+/* ===== Formulário de recorrência =====
+   Tela larga (≥ 44rem): L1 Recorrência | Dia | Início | Mês ref. | Duração | Valor | (Total, só com duração); L2 Forma de pgto. | Categoria | Descrição | E-mail.
+   Cada campo tem a largura mínima de que precisa para mostrar tudo sem "..."; sobra espaço vai crescendo (Valor primeiro).
+   Celular: [Recorrência | Dia | Início] [Mês de referência | Duração] [Valor | Forma de pgto.] [Categoria | Descrição] [E-mail]. */
+.rec-grade { container-type: inline-size; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: .6rem; margin-bottom: .6rem; }
+.rec-grade .rec-linha { display: contents; }
+.rec-grade .form-group { margin: 0; min-width: 0; }
+.rec-c-total[hidden] { display: none; }
+.rec-grade .rec-c-freq, .rec-grade .rec-c-dia, .rec-grade .rec-c-inicio { grid-column: span 4; }
+.rec-grade .rec-c-comp, .rec-grade .rec-c-dur, .rec-grade .rec-c-valor, .rec-grade .rec-c-cat, .rec-grade .rec-c-desc, .rec-grade .rec-c-metodo { grid-column: span 6; }
+.rec-grade .rec-c-total { grid-column: span 6; }
+.rec-grade:has(.rec-c-total:not([hidden])) .rec-c-metodo { grid-column: span 12; }
+.rec-grade .rec-c-email { grid-column: span 12; }
+.rec-grade .lbl-ref-curto { display: none; }
+.rec-grade select, .rec-grade input { text-overflow: clip; }
+@container (max-width: 21rem) {
+    .rec-grade .rec-c-freq, .rec-grade .rec-c-dia { grid-column: span 6; }
+    .rec-grade .rec-c-inicio { grid-column: span 12; }
 }
-@container (max-width: 349px) {
-    .rec-linha--1 > .form-group { grid-column: span 6; }
+/* sem Total cabe a partir de 38rem; com Total, a partir de 43rem */
+@container (min-width: 38rem) {
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha { display: flex; flex-wrap: nowrap; gap: .5rem; grid-column: 1 / -1; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--1 > .form-group { flex: 1 1 0; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--1 > .rec-c-freq { flex: 1 1 6.4rem; min-width: 6.4rem; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--1 > .rec-c-dia { flex: 1 1 5.4rem; min-width: 5.4rem; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--1 > .rec-c-inicio { flex: 1 1 5rem; min-width: 5rem; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--1 > .rec-c-comp { flex: 1 1 5.8rem; min-width: 5.8rem; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--1 > .rec-c-dur { flex: 1 1 6.4rem; min-width: 6.4rem; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--1 > .rec-c-valor { flex: 2 1 5.4rem; min-width: 5.4rem; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--1 > .rec-c-total { flex: 1 1 5.6rem; min-width: 5.6rem; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--2 > .rec-c-metodo { flex: 3 1 0; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--2 > .rec-c-cat { flex: 2.5 1 0; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--2 > .rec-c-desc { flex: 3 1 0; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--2 > .rec-c-email { flex: 3.5 1 0; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .lbl-ref-longo { display: none; }
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .lbl-ref-curto { display: inline; }
 }
-@media (max-width: 560px) {
-    .rec-linha--2 > .rec-c-valor, .rec-linha--2 > .rec-c-total { grid-column: span 6; }
-    .rec-linha--2 > .rec-c-metodo { grid-column: span 12; }
-    .rec-linha--3 > .form-group { grid-column: span 12; }
+@container (min-width: 43rem) {
+    .rec-grade .rec-linha { display: flex; flex-wrap: nowrap; gap: .5rem; grid-column: 1 / -1; }
+    .rec-grade .rec-linha--1 > .form-group { flex: 1 1 0; }
+    .rec-grade .rec-linha--1 > .rec-c-freq { flex: 1 1 6.4rem; min-width: 6.4rem; }
+    .rec-grade .rec-linha--1 > .rec-c-dia { flex: 1 1 5.4rem; min-width: 5.4rem; }
+    .rec-grade .rec-linha--1 > .rec-c-inicio { flex: 1 1 5rem; min-width: 5rem; }
+    .rec-grade .rec-linha--1 > .rec-c-comp { flex: 1 1 5.8rem; min-width: 5.8rem; }
+    .rec-grade .rec-linha--1 > .rec-c-dur { flex: 1 1 6.4rem; min-width: 6.4rem; }
+    .rec-grade .rec-linha--1 > .rec-c-valor { flex: 2 1 5.4rem; min-width: 5.4rem; }
+    .rec-grade .rec-linha--1 > .rec-c-total { flex: 1 1 5.6rem; min-width: 5.6rem; }
+    .rec-grade .rec-linha--2 > .rec-c-metodo { flex: 3 1 0; }
+    .rec-grade .rec-linha--2 > .rec-c-cat { flex: 2.5 1 0; }
+    .rec-grade .rec-linha--2 > .rec-c-desc { flex: 3 1 0; }
+    .rec-grade .rec-linha--2 > .rec-c-email { flex: 3.5 1 0; }
+    .rec-grade .lbl-ref-longo { display: none; }
+    .rec-grade .lbl-ref-curto { display: inline; }
 }

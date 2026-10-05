@@ -325,19 +325,10 @@ function atualizarFormRecorrencia() {
     _recAjustarDia();
     const valor = valorCampoParaNumero(e.valor);
     const meses = _recMesesDe(n);
-    if (!meses) {
-        // Contínua: o total é o do MÊS de início (semanal: 4 ou 5 ocorrências, conforme o mês e o dia da semana)
-        if (!valor) { e.total.value = '-'; e.total.title = 'Informe o valor para ver o total do mês'; return; }
-        const hojeMes = hojeISO().slice(0, 7);
-        const ym = e.inicio.value || hojeMes;
-        const [ano, mes] = ym.split('-').map(Number);
-        const ini = ym + '-01', fim = ym + '-' + String(new Date(ano, mes, 0).getDate()).padStart(2, '0');
-        const ref = { frequencia: e.freq.value, diaSemana: semanal ? e.dia.value : '', diaMes: semanal ? null : (Number(e.dia.value) || Number(hojeISO().slice(8, 10))), meses: null, inicio: ini, semDiaUtil: true };
-        const n1 = Math.max(1, _recDatas(ref, fim).length);
-        e.total.value = formatarMoeda(valor * n1);
-        e.total.title = `${n1} ocorrência${n1 === 1 ? '' : 's'} × ${formatarMoeda(valor)} em ${_MESES_ABREV_REC[mes - 1]}/${ano} (contínua: esse é o total do mês)`;
-        return;
-    }
+    // O Total só existe com duração definida (como o parcelamento); contínua = campo escondido
+    const grupoTotal = e.total.closest('.form-group');
+    if (grupoTotal) grupoTotal.hidden = !meses;
+    if (!meses) { e.total.value = '-'; return; }
     const ocorr = calcularOcorrenciasRecorrencia({ frequencia: e.freq.value, diaSemana: semanal ? e.dia.value : '', meses });
     e.total.value = formatarMoeda(valor * ocorr);
     e.total.title = `${ocorr} ocorrência${ocorr === 1 ? '' : 's'} × ${formatarMoeda(valor)} em ${meses} meses`;
