@@ -256,7 +256,7 @@ function atualizarResumo() {
     // Saldo real das contas bancárias conectadas (só aparece com conta conectada)
     const scEl = document.getElementById('saldoContas');
     if (scEl) {
-        scEl.hidden = estadoApp.saldoContas == null;
+        scEl.hidden = estadoApp.saldoContas == null || !saldoContasLigado();
         const scVal = document.getElementById('saldoContasValor');
         if (scVal && estadoApp.saldoContas != null) scVal.textContent = mask(formatarMoeda(estadoApp.saldoContas));
         // A faixa é um toggle que descortina o saldo de cada conta (empurrando o
@@ -269,7 +269,7 @@ function atualizarResumo() {
         scEl.setAttribute('aria-expanded', String(varias && !!estadoApp.saldoContasAberto));
         const detalhe = document.getElementById('saldoContasLista');
         if (detalhe) {
-            const aberto = varias && !!estadoApp.saldoContasAberto && estadoApp.saldoContas != null;
+            const aberto = varias && !!estadoApp.saldoContasAberto && estadoApp.saldoContas != null && saldoContasLigado();
             detalhe.hidden = !aberto;
             detalhe.innerHTML = aberto
                 ? lista.map(c => `<div class="sc-linha"><span>${c.nome}</span><b>${mask(formatarMoeda(c.saldo))}</b></div>`).join('')
@@ -383,4 +383,9 @@ function _ajustarDetalhe(el, variantes) {
     el._reajustar = aplicar;
     aplicar();
     requestAnimationFrame(aplicar);
+}
+
+/** Preferência (neste aparelho) de mostrar o "Saldo em contas" no dashboard; ligado por padrão. */
+function saldoContasLigado() {
+    try { return localStorage.getItem('ctrlfin_saldo_contas') !== '0'; } catch (_) { return true; }
 }

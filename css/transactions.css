@@ -900,3 +900,4 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 .despesa-desc--reserva { min-height: calc(2 * 1.15 * .78rem); }
 /* grupo semanal: contorno contínuo (sem o tracejado do cabeçalho) */
 .subgrupo[data-nome^="Semanal"] > .subgrupo-cab { border-bottom-style: solid; }
+.subgrupo[data-nome^="Semanal"] { margin: .5rem 0 .6rem; } /* respiro em cima/embaixo para o contorno aparecer */

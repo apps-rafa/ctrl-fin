@@ -585,6 +585,21 @@ function iniciarPluggy() {
     if (typeof iniciarPluggyCredenciais === 'function') iniciarPluggyCredenciais();
     if (typeof carregarPluggyCredStatus === 'function') carregarPluggyCredStatus();
     document.getElementById('btnConectarPluggy')?.addEventListener('click', conectarContaPluggy);
+    const btnSaldo = document.getElementById('btnSaldoContas');
+    if (btnSaldo) {
+        const pintar = () => {
+            const on = saldoContasLigado();
+            btnSaldo.classList.toggle('active', on);
+            btnSaldo.setAttribute('aria-checked', String(on));
+            btnSaldo.textContent = '💰 Saldo em contas: ' + (on ? 'ligado' : 'desligado');
+        };
+        pintar();
+        btnSaldo.addEventListener('click', () => {
+            try { localStorage.setItem('ctrlfin_saldo_contas', saldoContasLigado() ? '0' : '1'); } catch (_) {}
+            pintar();
+            if (typeof atualizarResumo === 'function') atualizarResumo();
+        });
+    }
     document.getElementById('btnSincronizarPluggy')?.addEventListener('click', sincronizarPluggyAgora);
     const btnLimpar = document.getElementById('btnLimparRevisaoPluggy');
     if (btnLimpar) btnLimpar.addEventListener('click', onClickLimparRevisaoPluggy);

@@ -199,6 +199,7 @@ async function carregarAbaMenus() {
               e possíveis duplicatas ficam avisadas à parte.
             </p>
             <div class="menu-acoes-linha">
+              <button type="button" class="pluggy-toggle-opt" id="btnSaldoContas" role="switch" title="Mostrar ou esconder o saldo das contas no dashboard"></button>
               <button type="button" class="h3-add" id="btnConectarPluggy" title="Conectar nova conta">+</button>
             </div>
           </div>

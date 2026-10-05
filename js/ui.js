@@ -636,6 +636,20 @@ function _htmlSubgrupoSemanal(id, lista, cor, tipoUI, semRelogio, abertos, htmlI
         </details>`;
 }
 
+/** Lista de itens com as recorrências SEMANAIS sempre agrupadas (subgrupo "<nome> · semanal"), em qualquer visão; só agrupa
+ *  quando há 2 ou mais da mesma recorrência na lista (uma sozinha fica solta). htmlItem(t) gera o HTML de cada lançamento. */
+function _htmlListaComSemanal(itens, htmlItem, cor, tipoUI) {
+    const porRec = new Map();
+    itens.forEach(t => { if (t.recorrenciaSemanalId) porRec.set(t.recorrenciaSemanalId, [...(porRec.get(t.recorrenciaSemanalId) || []), t]); });
+    const grupos = [...porRec.entries()].filter(([, l]) => l.length > 1);
+    if (!grupos.length) return itens.map(htmlItem).join('');
+    const ids = new Set(grupos.map(([id]) => id));
+    const ab = {};
+    document.querySelectorAll('details.subgrupo[data-nome^="Semanal "]').forEach(d => { ab[d.dataset.nome] = d.open; });
+    return grupos.map(([id, l]) => _htmlSubgrupoSemanal(id, l, cor, tipoUI, false, ab, htmlItem)).join('')
+        + itens.filter(t => !ids.has(t.recorrenciaSemanalId)).map(htmlItem).join('');
+}
+
 function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     if (!container) return;
     if (!transacoes || !transacoes.length) {
@@ -901,7 +915,7 @@ function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, 
             <span class="subgrupo-contagem">${its.length}</span>
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalGeral ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
           </summary>
-          ${its.map(t => gerarHTMLTransacao(t, tipoUI, { ...baseOpts, ..._optsSemChipRedundante(its, dimCfg.campoChip, nome) })).join('')}
+          ${_htmlListaComSemanal(its, t => gerarHTMLTransacao(t, tipoUI, { ...baseOpts, ..._optsSemChipRedundante(its, dimCfg.campoChip, nome) }), cor, tipoUI)}
         </details>`;
     }).join('');
 }
@@ -961,7 +975,7 @@ function _renderOrganizadorInline(tipoUI, modo, grupoChave, ehDespesa, itens) {
 function _corpoGrupoComSubmodo(itens, tipoUI, modo, grupoChave, ehDespesa, abertosSub, gerarOpts) {
     const subAtual = _subModoGrupoDe(tipoUI, modo, grupoChave);
     if (subAtual === 'cronologica' || !_SUBMODOS_POR_MODO[modo]) {
-        return itens.map(t => gerarHTMLTransacao(t, tipoUI, gerarOpts)).join('');
+        return _htmlListaComSemanal(itens, t => gerarHTMLTransacao(t, tipoUI, gerarOpts), 'var(--text-muted)', tipoUI);
     }
     // gerarOpts leva junto os chips já escondidos pelo filtro de fora (filtro dentro de filtro: nenhum chip repetido)
     return _renderItensSubagrupados(itens, tipoUI, _dimensaoSubmodo(subAtual, ehDespesa), abertosSub, `${tipoUI}:${modo}:${grupoChave}`, undefined, gerarOpts || {});
