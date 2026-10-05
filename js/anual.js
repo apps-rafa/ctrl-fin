@@ -199,6 +199,30 @@ function _linhaGrafico(linhasR, linhasD, meses, mesAtual, dim = () => '') {
     return `<tr class="grafico-linha"><th class="anual-nome grafico-rot"></th>${cels}<td class="grafico-cel"></td></tr>`;
 }
 
+/** Gráfico HORIZONTAL (mês em foco ou comparação de 2 meses): uma barra por mês e tipo (receita / despesa), na mesma escala, ocupando a largura toda;
+ *  cada barra é empilhada por categoria/forma (maior primeiro), com o % escrito nos trechos largos. */
+function _graficoHorizontal(vR, vD, mesesSel) {
+    const positivos = (v, i) => v.linhas.filter(l => !l.nome.startsWith('(−)') && l.meses[i] > 0.004).sort((a, b) => b.meses[i] - a.meses[i]);
+    const barras = [];
+    mesesSel.forEach(i => {
+        barras.push({ i, tipo: 'entradas', classe: 'rec', rot: 'Receita', linhas: positivos(vR, i) });
+        barras.push({ i, tipo: 'saidas', classe: 'desp', rot: 'Despesa', linhas: positivos(vD, i) });
+    });
+    barras.forEach(b => { b.total = b.linhas.reduce((a, l) => a + l.meses[b.i], 0); });
+    const max = Math.max(...barras.map(b => b.total), 1);
+    const varios = mesesSel.length > 1;
+    const html = barras.map(b => {
+        const segs = b.linhas.map(l => {
+            const pct = b.total ? l.meses[b.i] / b.total * 100 : 0;
+            const txt = pct >= 22 ? `${_esc(typeof abreviarCategoria === 'function' ? abreviarCategoria(l.nome) : l.nome)} ${Math.round(pct)}%` : (pct >= 9 ? `${Math.round(pct)}%` : '');
+            return `<span class="seg" style="flex:${l.meses[b.i]};background:${_corDoNomeAnual(l.nome, b.tipo)}" title="${b.rot} · ${_esc(l.nome)} · ${MESES_ANUAL_LONGO[b.i]}: ${_fmtMoeda(l.meses[b.i])} (${Math.round(pct)}%)">${txt}</span>`;
+        }).join('');
+        const larg = b.total > 0 ? Math.max(2, b.total / max * 100) : 0;
+        return `<div class="gh-linha ${b.classe}"><span class="gh-rot">${varios ? `<b>${MESES_ANUAL[b.i]}</b> ` : ''}${b.rot}</span><div class="gh-trilho"><div class="gh-barra" style="width:${larg.toFixed(1)}%">${segs}</div></div><span class="gh-total">${_fmtMoeda(b.total)}</span></div>`;
+    }).join('');
+    return `<div class="anual-bloco anual-grafico-h" role="img" aria-label="Gráfico de receitas e despesas">${html}</div>`;
+}
+
 /** Nome de categoria/forma: inteiro no desktop, abreviado no celular (nunca termina em "…"). */
 function _nomeCurto(nome) {
     const curto = typeof abreviarCategoria === 'function' ? abreviarCategoria(nome) : nome;
@@ -278,6 +302,7 @@ function _renderComparacaoMeses(vD, vR, ref) {
             <select id="anualCmpB" aria-label="Mês B">${opcoes(c.b)}</select>
             <button type="button" class="anual-toggle" data-anual-cmp-inverter title="Trocar A e B">⇅</button>
         </div>
+        ${_graficoHorizontal(vR, vD, [c.a, c.b])}
         ${corpo ? `<div class="anual-tabela-wrap"><table class="anual-tabela anual-tabela-cmp">
             <thead><tr><th class="anual-nome">${estadoAnual.agrupar === 'categoria' ? 'Categoria' : 'Forma de pagamento'}</th><th>${MESES_ANUAL[c.a]}</th><th>${MESES_ANUAL[c.b]}</th><th>Diferença</th><th>%</th></tr></thead>
             <tbody>${corpo}</tbody>
@@ -344,11 +369,12 @@ function _renderVisaoAnual() {
         </div>
         <div class="anual-cards">${cartoes}</div>
         ${_renderComparacaoMeses(vD, vR, ref)}
+        ${temDados && foco !== null && !estadoAnual.cmp.ativo ? _graficoHorizontal(vR, vD, [foco]) : ''}
         ${temDados ? `
         <div class="anual-tabela-wrap anual-bloco">
             <table class="anual-tabela">
                 <thead>
-                    ${_linhaGrafico(vR.linhas, vD.linhas, meses, mesAtual, dim)}
+                    ${foco === null && !estadoAnual.cmp.ativo ? _linhaGrafico(vR.linhas, vD.linhas, meses, mesAtual, dim) : ''}
                     <tr><th class="anual-nome">${agrupar === 'categoria' ? 'Categoria' : 'Forma de pagamento'}</th>
                     ${meses.map(i => `<th class="mes${i === mesAtual ? ' atual' : ''}${dim(i)}"><button type="button" data-foco-mes="${i}" title="Focar em ${MESES_ANUAL_LONGO[i]}">${MESES_ANUAL[i]}</button></th>`).join('')}
                     <th class="total">Total</th></tr>
