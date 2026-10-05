@@ -323,6 +323,8 @@ async function processarTextoLivre(
       metodoObj = lista.find((m) => m.metodo_kind === "Crédito") || metodoObj;
     }
   }
+  // Receita também tem forma de pagamento, sempre PIX
+  if (tipo === "entradas") metodoObj = ((metodosApp ?? []) as MetodoMenu[]).find((m) => m.metodo_kind === "PIX" || m.metodo_kind === "PIX/Débito") ?? null;
   // Estorno abate a fatura de um cartão: só aceita crédito e nunca é parcelado.
   const ehEstornoTxt = tipo === "saidas" && categoria === "Estorno";
   if (ehEstornoTxt && metodoObj?.metodo_kind !== "Crédito") {
@@ -669,6 +671,9 @@ Deno.serve(async (req: Request) => {
       if (item.metodo_sugerido) {
         const { data: m } = await supabaseAdmin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("id", item.metodo_sugerido).maybeSingle();
         metodoObj = m ?? null;
+      } else if (item.tipo === "entradas") { // receita sem forma sugerida: PIX
+        const { data: pix } = await supabaseAdmin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("user_id", tgUser.user_id).eq("tipo", "Método").eq("status", "Ativo").in("metodo_kind", ["PIX", "PIX/Débito"]).limit(1).maybeSingle();
+        metodoObj = pix ?? null;
       }
       const competencia = competenciaDe(item.data, metodoObj?.metodo_kind === "Crédito" ? metodoObj.dia_fechamento : null);
 
