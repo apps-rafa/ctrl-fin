@@ -13,7 +13,6 @@
    lançamentos daquele cartão dentro; fechado por padrão (mesmo padrão
    visual/interativo do .rec-grupo). */
 .faturas-cartao { display: flex; flex-direction: column; gap: .4rem; margin-bottom: var(--spacing-md); }
-.faturas-titulo { font-size: .8rem; font-weight: 700; color: var(--text-muted); margin: 0 0 .1rem; }
 .fatura-item {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -59,7 +58,6 @@
 
 /* Busca em tempo real (descrição/categoria/forma de pagamento) — mesma
    largura da lista, logo acima do filtro de modo. */
-.busca-lista-linha { margin: 0 0 var(--spacing-sm); }
 .busca-lista {
     width: 100%;
     padding: .5rem .7rem;
@@ -568,15 +566,6 @@
         padding: var(--spacing-md);
         border-left-width: 3px;
     }
-
-    .despesa-categoria {
-        font-size: var(--font-size-sm);
-    }
-
-    .recorrencia-badge {
-        font-size: 0.7rem;
-        padding: 0.15rem 0.4rem;
-    }
 }
 
 /* Ações por transação (editar / excluir): coluna própria, largura fixa,
@@ -613,16 +602,6 @@
   border: 1px solid #C7B8F5;
   border-radius: var(--radius);
   padding: 1px 5px;
-}
-.btn-ok {
-  border: 0;
-  border-radius: var(--radius);
-  background: #7C3AED;
-  color: #fff;
-  font-weight: 700;
-  font-size: .8rem;
-  padding: .25rem .7rem;
-  cursor: pointer;
 }
 
 /* Parcela quitada (zerada) */
@@ -681,15 +660,6 @@
   padding-bottom: .3rem;
 }
 .grupo-cab:first-child { margin-top: 0; }
-.grupo-sub {
-  display: flex;
-  justify-content: space-between;
-  margin: .6rem 0 .3rem;
-  font-weight: 600;
-  font-size: .82rem;
-  color: var(--gray);
-  padding-left: .25rem;
-}
 
 /* Busca universal: com termo, o resultado agrupado ocupa o lugar do conteúdo
    de qualquer aba (inclusive Configurações) */
