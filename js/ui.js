@@ -1075,8 +1075,8 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     const catChip = (!opts.semCategoriaChip && trans.categoria)
         ? chip(corDaCategoria(trans.categoria, (tipo === 'entrada' && !_ehEstornoCartao(trans)) ? 'entradas' : 'saidas'), _htmlNomeCategoriaChip(trans.categoria)) : '';
     // descReservada (Recém-lançados): a descrição sempre ocupa 2 linhas, mesmo vazia, pra todas as linhas terem a mesma altura
-    const descTxt = (trans.descricao || opts.descReservada)
-        ? `<span class="despesa-desc${opts.descReservada ? ' despesa-desc--reserva' : ''}">${recNaDesc ? seloRec : ''}${trans.descricao || '&nbsp;'}</span>` : '';
+    // A linha da descrição existe sempre (a 2ª linha do lançamento), mesmo em branco: assim todos os lançamentos têm a mesma estrutura/altura
+    const descTxt = `<span class="despesa-desc${opts.descReservada ? ' despesa-desc--reserva' : ''}${trans.descricao ? '' : ' despesa-desc--vazia'}">${recNaDesc ? seloRec : ''}${trans.descricao || '&nbsp;'}</span>`;
 
     // Ações
     let acoes = '';
@@ -1110,7 +1110,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
                 ${parcelaTag}
                 ${quitarCheckbox}
                 ${(metaChip || quandoTag || quitadoTag) ? `<span class="despesa-badges">${metaChip}${quandoTag}${quitadoTag}</span>` : ''}
-                ${(catChip || descTxt) ? `<span class="despesa-linha2">${descTxt}${catChip}</span>` : ''}
+                <span class="despesa-linha2">${descTxt}${catChip}</span>
             </div>
             <div class="despesa-actions">${acoes}</div>
         </div>`;
