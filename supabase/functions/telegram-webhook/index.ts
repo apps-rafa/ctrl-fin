@@ -55,7 +55,7 @@ import {
 import { executarBackup } from "./backup.ts";
 import { executarLembretes } from "./lembretes.ts";
 import { responderPendencias, abrirDuplicata, aprovarDuplicata } from "./pendencias.ts";
-import { processarEmailConta } from "./email.ts";
+import { processarEmailConta, tratarDecisaoEmail } from "./email.ts";
 import { gerarOcorrencias } from "../_shared/ocorrencias.ts";
 import {
   idRascunhoDaResposta, tratarRespostaRascunho,
@@ -548,6 +548,11 @@ Deno.serve(async (req: Request) => {
 
       if (acao === "dupok" && chatId) {
         await aprovarDuplicata(supabaseAdmin, token, cq, chatId, Number(idStr));
+        return json({ ok: true });
+      }
+
+      if ((acao === "emig" || acao === "emat" || acao === "emou") && chatId) {
+        await tratarDecisaoEmail(supabaseAdmin, token, cq, chatId, acao, Number(idStr));
         return json({ ok: true });
       }
 

@@ -91,12 +91,42 @@ export function escolherOcorrencia(ocs: OcorrenciaEmail[], vencimento: string | 
 
 const nomeCurto = (from: string) => (from.match(/<([^>]+)>/)?.[1] ?? from).replace(/^.*@/, "@").slice(0, 40);
 
+type Admin = ReturnType<typeof createClient>;
+export interface DadosConta { valor: number | null; vencimento: string | null }
+type Marcar = (status: string, extra?: Record<string, unknown>) => unknown;
+
+const CAMPOS = "id, data, valor, tipo, metodo, categoria, descricao, competencia";
+const fmtData = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
+
+/** Palavras da descrição da recorrência ("Internet Predial" -> internet, predial), para comparar com a descrição de um lançamento. */
+function palavrasDe(s: string): string[] {
+  return [...new Set(normalizarTexto(s).split(/[^a-z0-9]+/).filter((p) => p.length >= 4 && !PALAVRAS_COMUNS.has(p)))];
+}
+
+/** Lançamentos JÁ existentes (confirmados) que parecem ser esta conta: da própria recorrência, com a mesma descrição, ou com o
+ *  mesmo valor na mesma data (±3 dias). Janela: vencimento ±25 dias (sem vencimento: de 10 dias atrás a 45 dias à frente). */
+export async function buscarSimilares(admin: Admin, userId: string, rec: RecorrenciaEmail, dados: DadosConta, hoje: string): Promise<Record<string, unknown>[]> {
+  const base = dados.vencimento ?? hoje;
+  const ini = somarDiasISO(base, dados.vencimento ? -25 : -10), fim = somarDiasISO(base, dados.vencimento ? 25 : 45);
+  const { data } = await admin.from("transacoes").select(`${CAMPOS}, recorrencia_id`)
+    .eq("user_id", userId).eq("tipo", "saidas").eq("a_confirmar", false).gte("data", ini).lte("data", fim).order("data", { ascending: true });
+  const palavras = palavrasDe(`${rec.descricao}`);
+  const dias = (a: string, b: string) => Math.abs((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86400000);
+  return ((data ?? []) as Record<string, unknown>[]).filter((t) => {
+    const mesmaRec = t.recorrencia_id === rec.id;
+    const desc = normalizarTexto(String(t.descricao ?? ""));
+    const mesmaDesc = palavras.length > 0 && palavras.some((p) => desc.includes(p));
+    const mesmoValorEData = dados.valor !== null && Math.abs(Number(t.valor) - dados.valor) < 0.5 && dias(String(t.data).slice(0, 10), base) <= 3;
+    return mesmaRec || mesmaDesc || mesmoValorEData;
+  });
+}
+
 export async function processarEmailConta(
-  admin: ReturnType<typeof createClient>, token: string, userId: string, chatId: number, e: EmailConta,
+  admin: Admin, token: string, userId: string, chatId: number, e: EmailConta,
 ): Promise<{ ok: boolean; status: string }> {
   const { error: jaTem } = await admin.from("emails_processados").insert({ user_id: userId, message_id: e.messageId, remetente: e.from.slice(0, 200), assunto: e.subject.slice(0, 200), status: "recebido" });
   if (jaTem) return { ok: true, status: "duplicado" }; // mesmo e-mail nunca é processado duas vezes
-  const marcar = (status: string, extra: Record<string, unknown> = {}) =>
+  const marcar: Marcar = (status, extra = {}) =>
     admin.from("emails_processados").update({ status, ...extra }).eq("user_id", userId).eq("message_id", e.messageId);
 
   const { data: recs } = await admin.from("recorrencias").select("id, descricao, categoria, remetentes, tipo")
@@ -111,9 +141,55 @@ export async function processarEmailConta(
 
   const hoje = hojeBrasiliaISO();
   const dados = extrairDadosConta(`${e.subject}\n${e.body}`, hoje);
-  const { data: ocs } = await admin.from("transacoes").select("id, data, valor, tipo, metodo, categoria, descricao, competencia")
+  const nome = rec.descricao || rec.categoria;
+
+  // O que já aconteceu com essa conta (mesma recorrência) nos últimos 60 dias: lembrete repetido não avisa de novo, e uma
+  // decisão sua ("é o mesmo" / "é outro") vale para os e-mails seguintes.
+  const desde = new Date(Date.now() - 60 * 86400000).toISOString();
+  const { data: anteriores } = await admin.from("emails_processados").select("transacao_id, status")
+    .eq("user_id", userId).eq("recorrencia_id", rec.id).in("status", ["rascunho", "atualizado", "repetido", "sem_ocorrencia", "aguardando", "ignorado", "outro"]).gte("criado_em", desde);
+  const jaTratada = (anteriores ?? []) as { transacao_id: number | null; status: string }[];
+  if (jaTratada.some((x) => x.status === "ignorado" || x.status === "aguardando")) { // já perguntei / você já disse que é o mesmo
+    await marcar("repetido", { recorrencia_id: rec.id });
+    return { ok: true, status: "repetido" };
+  }
+
+  // Já existe um lançamento parecido? Pergunta se é o mesmo (não decidiu "é outro" antes).
+  if (!jaTratada.some((x) => x.status === "outro")) {
+    const similares = await buscarSimilares(admin, userId, rec, dados, hoje);
+    if (similares.length) {
+      const { data: linhaEmail } = await admin.from("emails_processados")
+        .update({ status: "aguardando", recorrencia_id: rec.id, pendente: { valor: dados.valor, vencimento: dados.vencimento, similares: similares.map((s) => s.id) } })
+        .eq("user_id", userId).eq("message_id", e.messageId).select("seq").single();
+      const seq = (linhaEmail as { seq: number } | null)?.seq;
+      if (seq) {
+        const lista = similares.slice(0, 3).map((s) => `• ${fmtData(String(s.data))} · ${formatarMoedaBR(Number(s.valor))} · ${s.descricao || s.categoria}`).join("\n");
+        await tg(token, "sendMessage", {
+          chat_id: chatId,
+          text: `📧 ${nome}: chegou um e-mail${dados.valor !== null ? ` (${formatarMoedaBR(dados.valor)})` : ""}${dados.vencimento ? ` · vence ${fmtData(dados.vencimento)}` : ""}.\nJá existe lançamento parecido:\n${lista}\n\nÉ o mesmo?`,
+          reply_markup: { inline_keyboard: [
+            [{ text: "✅ É o mesmo (ignorar)", callback_data: `emig:${seq}` }],
+            ...(dados.valor !== null || dados.vencimento ? [[{ text: "🔄 É o mesmo, atualizar valor/vencimento", callback_data: `emat:${seq}` }]] : []),
+            [{ text: "➕ Não, é outra conta", callback_data: `emou:${seq}` }],
+          ] },
+        });
+        return { ok: true, status: "aguardando" };
+      }
+    }
+  }
+  return await executarConta(admin, token, userId, chatId, rec, dados, marcar, jaTratada);
+}
+
+/** Atualiza a ocorrência/lançamento da conta e manda o rascunho (ou o aviso de "a pagar" atualizado). */
+export async function executarConta(
+  admin: Admin, token: string, userId: string, chatId: number, rec: RecorrenciaEmail, dados: DadosConta, marcar: Marcar,
+  jaTratada: { transacao_id: number | null; status: string }[],
+): Promise<{ ok: boolean; status: string }> {
+  const hoje = hojeBrasiliaISO();
+  const nome = rec.descricao || rec.categoria;
+  const { data: ocs } = await admin.from("transacoes").select(CAMPOS)
     .eq("user_id", userId).eq("recorrencia_id", rec.id).eq("a_confirmar", true).order("data", { ascending: true });
-  const campos = "id, data, valor, tipo, metodo, categoria, descricao, competencia";
+  const campos = CAMPOS;
   // Candidatas da MESMA recorrência: as "a confirmar" (viram rascunho) e as já confirmadas ainda "a pagar". A escolha vale para o
   // conjunto todo — a conta que acabou de chegar é a mais próxima de vencer, esteja ela confirmada ou não (a de outubro já
   // confirmada vence antes da de novembro a confirmar).
@@ -133,12 +209,6 @@ export async function processarEmailConta(
     ocorrencia = escolherOcorrencia(candidatas as unknown as OcorrenciaEmail[], dados.vencimento, hoje);
     rascunhoDeOcorrencia = false;
   }
-  const nome = rec.descricao || rec.categoria;
-  // Já tratei essa conta (mesma recorrência) nos últimos 60 dias? Então é lembrete repetido: não avisa de novo
-  const desde = new Date(Date.now() - 60 * 86400000).toISOString();
-  const { data: anteriores } = await admin.from("emails_processados").select("transacao_id, status")
-    .eq("user_id", userId).eq("recorrencia_id", rec.id).in("status", ["rascunho", "atualizado", "repetido", "sem_ocorrencia"]).gte("criado_em", desde);
-  const jaTratada = (anteriores ?? []) as { transacao_id: number | null; status: string }[];
   if (!ocorrencia) {
     if (jaTratada.length) { await marcar("repetido", { recorrencia_id: rec.id }); return { ok: true, status: "repetido" }; } // ex.: já confirmada
     await marcar("sem_ocorrencia", { recorrencia_id: rec.id });
@@ -207,4 +277,51 @@ export async function processarEmailConta(
   await marcar(jaAvisada ? "atualizado" : "rascunho", { recorrencia_id: rec.id, transacao_id: ocorrencia.id });
   await enviarRascunho(token, chatId, rascunhoId, rascunho, admin, userId, `📧 ${nome}${jaAvisada ? " (atualizado por novo e-mail)" : ""} — ${origemValor}${dados.vencimento ? ` · vence ${dados.vencimento.split("-").reverse().join("/")}` : ""}${alerta}`);
   return { ok: true, status: "rascunho" };
+}
+
+/** Resposta aos botões do aviso "já existe lançamento parecido": emig (é o mesmo: ignora), emat (é o mesmo: atualiza valor/vencimento)
+ *  e emou (é outra conta: segue o fluxo normal de rascunho). */
+export async function tratarDecisaoEmail(
+  admin: Admin, token: string, cq: { id: string; message: { message_id: number; text?: string } }, chatId: number, acao: string, seq: number,
+): Promise<void> {
+  const { data: tgUser } = await admin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+  const { data: linha } = tgUser
+    ? await admin.from("emails_processados").select("message_id, recorrencia_id, status, pendente").eq("seq", seq).eq("user_id", tgUser.user_id).maybeSingle()
+    : { data: null };
+  if (!tgUser || !linha || linha.status !== "aguardando") {
+    await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Esse aviso já foi resolvido" });
+    return;
+  }
+  const userId = tgUser.user_id as string;
+  const pend = (linha.pendente ?? {}) as { valor: number | null; vencimento: string | null; similares: number[] };
+  const marcar: Marcar = (status, extra = {}) => admin.from("emails_processados").update({ status, ...extra }).eq("seq", seq);
+  const editar = (texto: string) => tg(token, "editMessageText", { chat_id: chatId, message_id: cq.message.message_id, text: `${cq.message.text ?? ""}\n\n${texto}` });
+
+  if (acao === "emig") {
+    await marcar("ignorado");
+    await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Ignorado" });
+    await editar("✅ Ignorado — é o mesmo lançamento");
+    return;
+  }
+  if (acao === "emat") {
+    const alvoId = (pend.similares ?? [])[0];
+    const mudancas: Record<string, unknown> = {};
+    if (pend.valor !== null && pend.valor !== undefined) mudancas.valor = pend.valor;
+    if (pend.vencimento) mudancas.data = pend.vencimento;
+    let erro: unknown = null;
+    if (alvoId && Object.keys(mudancas).length) {
+      ({ error: erro } = await admin.from("transacoes").update(mudancas).eq("id", alvoId).eq("user_id", userId));
+      if (erro && mudancas.data) { delete mudancas.data; if (Object.keys(mudancas).length) ({ error: erro } = await admin.from("transacoes").update(mudancas).eq("id", alvoId).eq("user_id", userId)); }
+    }
+    await marcar("atualizado", { transacao_id: alvoId ?? null });
+    await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: erro ? "Não consegui atualizar" : "Atualizado" });
+    await editar(erro ? "⚠️ Não consegui atualizar — edite pelo app" : "🔄 Lançamento atualizado com o valor/vencimento do e-mail");
+    return;
+  }
+  // emou: é outra conta -> segue o fluxo normal
+  await marcar("outro");
+  await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Ok, outra conta" });
+  await editar("➕ Ok, tratando como outra conta");
+  const { data: rec } = await admin.from("recorrencias").select("id, descricao, categoria, remetentes").eq("id", linha.recorrencia_id).maybeSingle();
+  if (rec) await executarConta(admin, token, userId, chatId, rec as RecorrenciaEmail, { valor: pend.valor ?? null, vencimento: pend.vencimento ?? null }, marcar, []);
 }

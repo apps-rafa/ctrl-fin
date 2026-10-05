@@ -586,6 +586,24 @@ function _htmlSubgrupoFatura(f, its, totalRef, tipoUI, abertosSub, estornos, for
         </details>`;
 }
 
+/** Subgrupo "<nome> · semanal": as ocorrências de uma recorrência semanal num grupo só, com a quantidade e o total. */
+function _htmlSubgrupoSemanal(id, lista, cor, tipoUI, semRelogio, abertos) {
+    const nome = lista[0].descricao || lista[0].categoria || 'Recorrência';
+    const chave = `Semanal ${id}`;
+    const total = lista.reduce((acc, t) => acc + ((t.valorMes != null ? t.valorMes : t.valor) || 0), 0);
+    const ordenadas = lista.slice().sort((a, b) => String(a.data).localeCompare(String(b.data)));
+    return `
+        <details class="subgrupo" data-nome="${chave}" style="--cor-rec:${cor}" ${abertos[chave] ? 'open' : ''}>
+          <summary class="subgrupo-cab">
+            <span class="subgrupo-nome">${nome} <small>· semanal</small></span>
+            <span class="subgrupo-espaco"></span>
+            <span class="subgrupo-contagem">${lista.length}</span>
+            <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(total)}</span></span>
+          </summary>
+          ${ordenadas.map(t => gerarHTMLTransacao(t, tipoUI, { semMetodoChip: true, semRelogio })).join('')}
+        </details>`;
+}
+
 function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     if (!container) return;
     if (!transacoes || !transacoes.length) {
@@ -645,6 +663,17 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
         extraContagem: abertasFat.length,
     });
     grupos.forEach(g => _ordenarPorGrupo(g.itens, `${tipoUI}:cronologica:${g.nome}`));
+    // Ocorrências de recorrência SEMANAL saem da lista solta e viram um subgrupo por recorrência (nome, quantidade e total),
+    // como a fatura do cartão. Os totais dos grupos já foram somados acima, com elas dentro.
+    grupos.forEach(g => {
+        const semanais = g.itens.filter(t => t.recorrenciaSemanalId);
+        if (!semanais.length) return;
+        const porRec = new Map();
+        semanais.forEach(t => porRec.set(t.recorrenciaSemanalId, [...(porRec.get(t.recorrenciaSemanalId) || []), t]));
+        g.itens = g.itens.filter(t => !t.recorrenciaSemanalId);
+        g.extraHTML = (g.extraHTML || '') + [...porRec.entries()].map(([id, lista]) => _htmlSubgrupoSemanal(id, lista, g.cor, tipoUI, g.nome === rotuloPendente, _lerAbertosSubgrupo(container))).join('');
+        g.extraContagem = (g.extraContagem || 0) + porRec.size;
+    });
 
     const totalGeral = grupos.reduce((acc, g) => acc + g.total, 0);
     const pctDe = g => (totalGeral ? (g.total / totalGeral) * 100 : 0);
