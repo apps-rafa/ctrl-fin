@@ -438,7 +438,8 @@ function _restaurarMemoriaDespesa(tipo) {
     const mem = estadoApp.memoriaDespesa;
     if (tipo !== 'saidas' || !mem) return;
     const sel = document.querySelector(SELECTORS.metodo);
-    if (sel && !sel.value && mem.metodo && [...sel.options].some(o => o.value === mem.metodo)) {
+    if (sel && (!sel.value || sel.value === estadoApp.metodoAutoReceita) && mem.metodo && [...sel.options].some(o => o.value === mem.metodo)) {
+        estadoApp.metodoAutoReceita = null;
         sel.value = mem.metodo;
         if (typeof atualizarCampoCredito === 'function') atualizarCampoCredito();
         const p = document.getElementById('parcelas');

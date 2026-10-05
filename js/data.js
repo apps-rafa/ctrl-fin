@@ -180,12 +180,15 @@ function preencherDropdownMetodos() {
     const sel = document.querySelector(SELECTORS.metodo);
     if (!sel) return;
     const atual = sel.value;
+    const receita = document.querySelector(SELECTORS.tipoTransacao)?.value === 'entradas';
     sel.innerHTML = '<option value="">Selecione...</option>';
     (estadoApp.menus.metodos || []).forEach(m => {
         const label = rotuloMetodo(m);
         const o = document.createElement('option');
         o.value = label;
         o.textContent = label;
+        // Receita entra por PIX: os cartões de crédito aparecem, mas desabilitados
+        if (receita && m.metodoKind === 'Crédito') { o.disabled = true; o.title = 'Receita não entra no cartão de crédito'; }
         sel.appendChild(o);
     });
     sel.value = atual;

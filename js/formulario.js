@@ -355,9 +355,19 @@ function atualizarCampoMetodoReceita() {
     const blocoMetodo = document.getElementById('metodoBloco');
     const metodoSel = document.querySelector(SELECTORS.metodo);
     if (ehReceita) {
-        // Receita não tem forma de pagamento (Reembolso é receita comum; Estorno mora em Despesas)
-        if (blocoMetodo) blocoMetodo.hidden = true;
-        if (metodoSel) { metodoSel.required = false; metodoSel.value = ''; }
+        // Receita tem a mesma forma de pagamento da despesa, mas só PIX (cartões de crédito aparecem desabilitados)
+        if (blocoMetodo) blocoMetodo.hidden = false;
+        if (metodoSel) {
+            metodoSel.required = false;
+            if (typeof preencherDropdownMetodos === 'function') preencherDropdownMetodos();
+            const op = [...metodoSel.options].find(o => o.value === metodoSel.value);
+            if (op && op.disabled) metodoSel.value = '';
+            // novo lançamento: já vem com o primeiro PIX (não mexe em quem está editando)
+            if (!metodoSel.value && document.getElementById('excluirEdicao')?.hidden !== false) {
+                const pix = (estadoApp.menus.metodos || []).find(m => m.metodoKind === 'PIX/Débito' || m.metodoKind === 'PIX');
+                if (pix) { metodoSel.value = rotuloMetodo(pix); estadoApp.metodoAutoReceita = metodoSel.value; }
+            }
+        }
         posicionarCompetencia(true);
         const parceleGrp = document.getElementById('parceleGroup');
         if (parceleGrp) parceleGrp.hidden = true;

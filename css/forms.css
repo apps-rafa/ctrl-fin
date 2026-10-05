@@ -187,11 +187,17 @@
 /* Largura calculada pro tricode mais largo ("Ago", medido) + padding do
    select (inclui a seta) — só o suficiente, sobra tudo pra "Forma de pgto.". */
 #dataValorBloco > #competenciaGroup { flex: 0 0 3.9rem; min-width: 0; margin: 0; }
-#competenciaGroup .lbl-comp-longo { display: none; }
-@container (min-width: 30rem) {
-    #dataValorBloco > #competenciaGroup { flex: 0 0 8.2rem; }
-    #competenciaGroup .lbl-comp-longo { display: inline; }
+#competenciaGroup .lbl-comp-longo, #competenciaGroup .lbl-comp-medio { display: none; }
+/* O Valor tem prioridade: Data e Mês ref. só crescem se sobrar bastante espaço */
+@container (min-width: 28rem) {
+    #dataValorBloco > #competenciaGroup { flex: 0 0 5.4rem; }
+    #competenciaGroup .lbl-comp-medio { display: inline; }
     #competenciaGroup .lbl-comp-curto { display: none; }
+}
+@container (min-width: 44rem) {
+    #dataValorBloco > #competenciaGroup { flex: 0 0 8.2rem; }
+    #competenciaGroup .lbl-comp-medio { display: none; }
+    #competenciaGroup .lbl-comp-longo { display: inline; }
 }
 #metodoBloco > #parceleGroup { flex: 0 0 4.9rem; }
 
@@ -665,3 +671,14 @@ button:has(> .ico-lixeira:only-child):hover { color: var(--danger, #DC2626); bac
 button:has(> .ico-lapis:only-child) { color: var(--text-muted); }
 button:has(> .ico-lapis:only-child):hover { color: var(--primary); }
 .ico-lapis { display: inline-block; vertical-align: -.15em; }
+
+/* Largura máxima: 2 colunas iguais — Data + Mês ref. + Valor ocupam a largura da Categoria; a Forma de pagamento, a da Descrição. */
+@media (min-width: 561px) {
+    #linhaPrincipal { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .75rem; }
+    #linhaPrincipal > #dataValorBloco, #linhaPrincipal > #metodoBloco { flex: none; min-width: 0; }
+    #linhaCampos > .form-group { flex: 1 1 0; }
+}
+/* Mobile: o Mês ref. vem antes da Data */
+@media (max-width: 560px) {
+    #dataValorBloco > #competenciaGroup { order: -1; }
+}
