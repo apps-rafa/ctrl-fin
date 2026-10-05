@@ -6,6 +6,7 @@
 import type { createClient } from "npm:@supabase/supabase-js@2";
 import { tg, formatarMoedaBR, rotuloMetodo } from "./util.ts";
 import { enviarRascunho, carregarListasUsuario } from "./lancamentos.ts";
+import { textoParecidos, tecladoParecidos } from "../_shared/parecidos.ts";
 import { hojeBrasiliaISO, somarDiasISO, normalizarTexto, type RascunhoLancamento } from "./parser.ts";
 
 export interface EmailConta { messageId: string; from: string; subject: string; body: string }
@@ -163,15 +164,10 @@ export async function processarEmailConta(
         .eq("user_id", userId).eq("message_id", e.messageId).select("seq").single();
       const seq = (linhaEmail as { seq: number } | null)?.seq;
       if (seq) {
-        const lista = similares.slice(0, 3).map((s) => `• ${fmtData(String(s.data))} · ${formatarMoedaBR(Number(s.valor))} · ${s.descricao || s.categoria}`).join("\n");
         await tg(token, "sendMessage", {
           chat_id: chatId,
-          text: `📧 ${nome}: chegou um e-mail${dados.valor !== null ? ` (${formatarMoedaBR(dados.valor)})` : ""}${dados.vencimento ? ` · vence ${fmtData(dados.vencimento)}` : ""}.\nJá existe lançamento parecido:\n${lista}\n\nÉ o mesmo?`,
-          reply_markup: { inline_keyboard: [
-            [{ text: "✅ É o mesmo (ignorar)", callback_data: `emig:${seq}` }],
-            ...(dados.valor !== null || dados.vencimento ? [[{ text: "🔄 É o mesmo, atualizar valor/vencimento", callback_data: `emat:${seq}` }]] : []),
-            [{ text: "➕ Não, é outra conta", callback_data: `emou:${seq}` }],
-          ] },
+          text: textoParecidos({ origem: "email", titulo: nome, valor: dados.valor, data: dados.vencimento, detalhe: dados.vencimento ? "vencimento" : undefined, parecidos: similares }),
+          reply_markup: tecladoParecidos("email", seq, dados.valor !== null || !!dados.vencimento),
         });
         return { ok: true, status: "aguardando" };
       }
