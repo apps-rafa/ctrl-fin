@@ -219,32 +219,10 @@ function atualizarResumo() {
     setTxt('saidasAtual', estadoApp.resumo.saidasAtual);
     setTxt('saidasAPagar', estadoApp.resumo.saidasAPagar);
     // Quebra do "a pagar": lançamentos por vir x fatura em aberto (só aparece quando há fatura)
-    // Quebra do "pago": PIX/dinheiro x faturas de cartão já pagas ou vencidas
-    const pagoLinha = document.getElementById('saidasPagoDetalheLinha');
-    if (pagoLinha) {
-        const cred = estadoApp.resumo.saidasPagoCredito || 0;
-        const pix = estadoApp.resumo.saidasPagoPix || 0;
-        // Antes só aparecia com fatura paga no mês (cred > 0) — um mês só com PIX/dinheiro
-        // (sem fatura paga) tem o que mostrar (o próprio pix) e ficava sem quebra nenhuma.
-        const temQuebraPago = pix > 0.004 || cred > 0.004;
-        pagoLinha.classList.toggle('vazio', !temQuebraPago);
-        const fmtP = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
-        const detP = document.getElementById('saidasPagoDetalhe');
-        if (detP) { const px = fmtP(pix), cr = fmtP(cred); _ajustarDetalhe(detP, temQuebraPago ? [`pix ${px} + crédito ${cr}`, `⚡ ${px} + 💳 ${cr}`, `${px} + ${cr}`].map(mask) : null); }
-    }
-    const detLinha = document.getElementById('saidasDetalheLinha');
-    if (detLinha) {
-        const fat = estadoApp.resumo.saidasFatura || 0;
-        const avulsos = estadoApp.resumo.saidasAvulsos || 0;
-        // Antes só aparecia com fatura em aberto (fat > 0) — num mês futuro com parcela de
-        // cartão, a compra ainda não bateu em nenhuma fatura (fat fica 0), mas já é "pendente"
-        // (avulsos > 0) e ficava sem quebra nenhuma, mesmo tendo o que mostrar.
-        const temQuebra = avulsos > 0.004 || fat > 0.004;
-        detLinha.classList.toggle('vazio', !temQuebra); // mantém a altura pra alinhar com Receita
-        const fmt = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
-        const det = document.getElementById('saidasDetalhe');
-        if (det) { const av = fmt(avulsos), fa = fmt(fat); _ajustarDetalhe(det, temQuebra ? [`pendentes ${av} + crédito ${fa}`, `⏳ ${av} + 💳 ${fa}`, `${av} + ${fa}`].map(mask) : null); }
-    }
+    // Quebra do "pago" (PIX/dinheiro x faturas já pagas ou vencidas) e do "a pagar" (pendentes x faturas em aberto). Antes só aparecia com fatura
+    // (cartão); agora também com só PIX/dinheiro, ou com parcela de cartão ainda sem fatura, que já é "pendente".
+    _detalheCard('saidasPagoDetalheLinha', 'saidasPagoDetalhe', estadoApp.resumo.saidasPagoPix || 0, estadoApp.resumo.saidasPagoCredito || 0, ['pix', '⚡'], ['crédito', '💳'], mask);
+    _detalheCard('saidasDetalheLinha', 'saidasDetalhe', estadoApp.resumo.saidasAvulsos || 0, estadoApp.resumo.saidasFatura || 0, ['pendentes', '⏳'], ['crédito', '💳'], mask);
 
     if (balancoEl) {
         balancoEl.textContent = mask(resumo.balanco);
@@ -360,6 +338,20 @@ function _unificarDetalhes() {
         menor *= 0.96;
         els.forEach(x => { x.style.fontSize = menor + 'px'; });
     }
+}
+
+/** Linha de detalhe de um card ("pix 190 + crédito 0"): vazia (mas ocupando a altura, para alinhar com Receita) quando não há nada a mostrar;
+ *  senão 3 versões do texto — completo, com emojis e só números — das quais _ajustarDetalhe escolhe a que cabe. */
+function _detalheCard(linhaId, detId, a, b, [rotA, emoA], [rotB, emoB], mask) {
+    const linha = document.getElementById(linhaId);
+    if (!linha) return;
+    const tem = a > 0.004 || b > 0.004;
+    linha.classList.toggle('vazio', !tem);
+    const det = document.getElementById(detId);
+    if (!det) return;
+    const fmt = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
+    const fa = fmt(a), fb = fmt(b);
+    _ajustarDetalhe(det, tem ? [`${rotA} ${fa} + ${rotB} ${fb}`, `${emoA} ${fa} + ${emoB} ${fb}`, `${fa} + ${fb}`].map(mask) : null);
 }
 
 /** Texto de detalhe do dashboard (ex.: "pendentes 10 + crédito 20"): usa a 1ª versão que cabe com respiro; senão a mais curta. */
