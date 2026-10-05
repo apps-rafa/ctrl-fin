@@ -113,7 +113,25 @@ export async function processarEmailConta(
   const dados = extrairDadosConta(`${e.subject}\n${e.body}`, hoje);
   const { data: ocs } = await admin.from("transacoes").select("id, data, valor, tipo, metodo, categoria, descricao, competencia")
     .eq("user_id", userId).eq("recorrencia_id", rec.id).eq("a_confirmar", true).order("data", { ascending: true });
-  const ocorrencia = escolherOcorrencia((ocs ?? []) as OcorrenciaEmail[], dados.vencimento, hoje);
+  const campos = "id, data, valor, tipo, metodo, categoria, descricao, competencia";
+  let ocorrencia = escolherOcorrencia((ocs ?? []) as OcorrenciaEmail[], dados.vencimento, hoje);
+  let candidatas = (ocs ?? []) as Record<string, unknown>[];
+  let rascunhoDeOcorrencia = !!ocorrencia; // true: ocorrência "a confirmar" (vira rascunho); false: lançamento "a pagar" que já existe
+  const piso = somarDiasISO(hoje, -10);
+  if (!ocorrencia) {
+    // 2) lançamento "a pagar": já confirmado, ainda não venceu, da mesma recorrência
+    const { data: apagar } = await admin.from("transacoes").select(campos)
+      .eq("user_id", userId).eq("recorrencia_id", rec.id).eq("a_confirmar", false).gte("data", piso).order("data", { ascending: true });
+    candidatas = (apagar ?? []) as Record<string, unknown>[];
+    ocorrencia = escolherOcorrencia(candidatas as unknown as OcorrenciaEmail[], dados.vencimento, hoje);
+  }
+  if (!ocorrencia && (rec.descricao || "").trim().length >= 4) {
+    // 3) lançamento avulso "a pagar" com a mesma descrição (não veio da recorrência)
+    const { data: avulsos } = await admin.from("transacoes").select(campos)
+      .eq("user_id", userId).eq("tipo", "saidas").eq("a_confirmar", false).ilike("descricao", `%${rec.descricao.trim()}%`).gte("data", piso).order("data", { ascending: true });
+    candidatas = (avulsos ?? []) as Record<string, unknown>[];
+    ocorrencia = escolherOcorrencia(candidatas as unknown as OcorrenciaEmail[], dados.vencimento, hoje);
+  }
   const nome = rec.descricao || rec.categoria;
   // Já tratei essa conta (mesma recorrência) nos últimos 60 dias? Então é lembrete repetido: não avisa de novo
   const desde = new Date(Date.now() - 60 * 86400000).toISOString();
@@ -123,21 +141,25 @@ export async function processarEmailConta(
   if (!ocorrencia) {
     if (jaTratada.length) { await marcar("repetido", { recorrencia_id: rec.id }); return { ok: true, status: "repetido" }; } // ex.: já confirmada
     await marcar("sem_ocorrencia", { recorrencia_id: rec.id });
-    await tg(token, "sendMessage", { chat_id: chatId, text: `📧 ${nome}: chegou o e-mail${dados.valor ? ` (${formatarMoedaBR(dados.valor)})` : ""}, mas não achei uma ocorrência "a confirmar" dessa recorrência para atualizar.` });
+    await tg(token, "sendMessage", { chat_id: chatId, text: `📧 ${nome}: chegou o e-mail${dados.valor ? ` (${formatarMoedaBR(dados.valor)})` : ""}, mas não achei nenhum lançamento "a confirmar" nem "a pagar" dessa conta para atualizar.` });
     return { ok: true, status: "sem_ocorrencia" };
   }
 
-  const linha = (ocs ?? []).find((o: { id: number }) => o.id === ocorrencia.id) as Record<string, unknown>;
+  const linha = candidatas.find((o) => o.id === ocorrencia!.id) as Record<string, unknown>;
   const valorAnterior = Number(linha.valor);
   const mudancas: Record<string, unknown> = {};
   if (dados.valor !== null) mudancas.valor = dados.valor;
   const dataAtual = String(linha.data).slice(0, 10);
   if (dados.vencimento && dados.vencimento !== dataAtual) mudancas.data = dados.vencimento;
   if (Object.keys(mudancas).length) {
-    let { error } = await admin.from("transacoes").update(mudancas).eq("id", ocorrencia.id).eq("user_id", userId).eq("a_confirmar", true);
+    const atualizar = (m: Record<string, unknown>) => {
+      const q = admin.from("transacoes").update(m).eq("id", ocorrencia!.id).eq("user_id", userId);
+      return rascunhoDeOcorrencia ? q.eq("a_confirmar", true) : q;
+    };
+    let { error } = await atualizar(mudancas);
     if (error && mudancas.data) { // data já ocupada por outra ocorrência (índice único): atualiza só o valor
       delete mudancas.data;
-      if (Object.keys(mudancas).length) ({ error } = await admin.from("transacoes").update(mudancas).eq("id", ocorrencia.id).eq("user_id", userId).eq("a_confirmar", true));
+      if (Object.keys(mudancas).length) ({ error } = await atualizar(mudancas));
     }
     if (error) console.error("Ocorrência não atualizada pelo e-mail:", error);
   }
@@ -147,6 +169,17 @@ export async function processarEmailConta(
   const jaAvisada = jaTratada.some((x) => x.transacao_id === ocorrencia.id);
   const semNovidade = !(("valor" in mudancas && Number(mudancas.valor) !== valorAnterior) || ("data" in mudancas && String(mudancas.data) !== dataAtual));
   if (jaAvisada && semNovidade) { await marcar("repetido", { recorrencia_id: rec.id, transacao_id: ocorrencia.id }); return { ok: true, status: "repetido" }; }
+
+  if (!rascunhoDeOcorrencia) {
+    const origem = dados.valor !== null ? "valor do e-mail" : "e-mail sem valor: mantive o valor do mês anterior";
+    await marcar("atualizado", { recorrencia_id: rec.id, transacao_id: ocorrencia.id });
+    await tg(token, "sendMessage", {
+      chat_id: chatId,
+      text: `📧 ${nome} — atualizei o lançamento em "a pagar"\n${formatarMoedaBR(valorFinal)} · vence ${dataFinal.split("-").reverse().join("/")} (${origem})${dados.valor !== null && valorAnterior > 0 && Math.abs(dados.valor - valorAnterior) / valorAnterior > 0.4 ? `\n⚠️ Bem diferente do mês anterior (${formatarMoedaBR(valorAnterior)})` : ""}`,
+      reply_markup: { inline_keyboard: [[{ text: "✏️ Editar", callback_data: `ultedit:${ocorrencia.id}` }]] },
+    });
+    return { ok: true, status: "atualizado" };
+  }
 
   // rascunho da própria ocorrência (o mesmo do lembrete: confirmar atualiza a linha, nunca insere outra)
   const listas = await carregarListasUsuario(admin, userId);
