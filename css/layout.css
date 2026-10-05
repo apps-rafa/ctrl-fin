@@ -411,7 +411,6 @@ footer.footer {
 
 /* Containers de conteúdo */
 .resumo-container,
-.analise-container,
 .transacoes-container,
 .proximas-container,
 .chart-container,
@@ -420,7 +419,6 @@ footer.footer {
 }
 
 .resumo-container h2,
-.analise-container h2,
 .transacoes-container h2,
 .proximas-container h2 {
     margin-bottom: var(--spacing-lg);

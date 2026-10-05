@@ -602,7 +602,7 @@ function _recEncerradasHTML(encerradas, aberto) {
             ${_recItensHTML(lista)}
         </details>`;
     return `
-    <details class="rec-grupo" data-rec-chave="encerradas" style="--cor-rec:var(--text-muted)" ${aberto ? 'open' : ''}>
+    <details class="rec-grupo cor-rec-muted" data-rec-chave="encerradas" ${aberto ? 'open' : ''}>
         <summary><span class="rec-grupo-nome">Encerradas</span><span class="rec-grupo-espaco"></span><span class="rec-grupo-contagem">${encerradas.length}</span></summary>
         <div class="rec-grupo-itens">
             ${sub('encerradas:saidas', 'Despesa', 'var(--despesa-text)', encerradas.filter(r => r.tipo === 'saidas'))}

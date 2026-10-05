@@ -854,3 +854,9 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 .despesa-linha2 { min-height: calc(1.15 * .78rem); }
 .despesa-linha2 > .despesa-desc--vazia { flex: 0 0 0; width: 0; margin-right: -.35rem; }
 .despesa-linha2 > .despesa-desc--vazia:last-child { margin-right: 0; }
+
+/* Cor do grupo (--cor-rec) por classe, em vez de style="" no HTML gerado */
+.cor-rec-primary { --cor-rec: var(--primary); }
+.cor-rec-muted { --cor-rec: var(--text-muted); }
+.cor-rec-despesa { --cor-rec: var(--despesa-text); }
+.ico-olho { display: block; }
