@@ -1110,7 +1110,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
                 ${parcelaTag}
                 ${quitarCheckbox}
                 ${(metaChip || quandoTag || quitadoTag) ? `<span class="despesa-badges">${metaChip}${quandoTag}${quitadoTag}</span>` : ''}
-                ${(catChip || descTxt) ? `<span class="despesa-linha2">${catChip}${descTxt}</span>` : ''}
+                ${(catChip || descTxt) ? `<span class="despesa-linha2">${descTxt}${catChip}</span>` : ''}
             </div>
             <div class="despesa-actions">${acoes}</div>
         </div>`;
