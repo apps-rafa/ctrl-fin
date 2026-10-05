@@ -1349,3 +1349,9 @@ summary [role="button"] { font-family: Arial; text-align: center; }
    dele sobrar visível. */
 .pluggy-revisao-busca { margin-bottom: .6rem; }
 .pluggy-busca-oculta { display: none !important; }
+
+/* Open Finance: "Saldo em contas" na linha abaixo de "Dados cadastrais"; as contas conectadas (e o + que conecta uma nova) num grupo com borda fina */
+.pluggy-saldo-linha { margin: .4rem 0 .6rem; }
+.pluggy-contas-caixa { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .45rem .6rem .5rem; margin: .5rem 0 .8rem; }
+.pluggy-contas-cab { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .3rem; }
+.pluggy-contas-cab-tit { font-size: .8rem; font-weight: 700; color: var(--text); }
