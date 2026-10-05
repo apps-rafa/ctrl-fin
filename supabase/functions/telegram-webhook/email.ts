@@ -7,6 +7,7 @@ import type { createClient } from "npm:@supabase/supabase-js@2";
 import { tg, formatarMoedaBR, rotuloMetodo } from "./util.ts";
 import { enviarRascunho, carregarListasUsuario } from "./lancamentos.ts";
 import { textoParecidos, tecladoParecidos } from "../_shared/parecidos.ts";
+import { responderDecisaoParecido, acaoDe } from "./decisao-parecido.ts";
 import { hojeBrasiliaISO, somarDiasISO, normalizarTexto, type RascunhoLancamento } from "./parser.ts";
 
 export interface EmailConta { messageId: string; from: string; subject: string; body: string }
@@ -275,85 +276,68 @@ export async function executarConta(
   return { ok: true, status: "rascunho" };
 }
 
-/** Resposta aos botões do aviso "já existe lançamento parecido": emig (é o mesmo: ignora), emat (é o mesmo: atualiza valor/vencimento)
- *  e emou (é outra conta: segue o fluxo normal de rascunho). */
+/** Botões do aviso "já existe lançamento parecido" de um e-mail (emig / emat / emou) — resposta compartilhada com as demais origens. */
 export async function tratarDecisaoEmail(
   admin: Admin, token: string, cq: { id: string; message: { message_id: number; text?: string } }, chatId: number, acao: string, seq: number,
 ): Promise<void> {
   const { data: tgUser } = await admin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
-  const { data: linha } = tgUser
-    ? await admin.from("emails_processados").select("message_id, recorrencia_id, status, pendente").eq("seq", seq).eq("user_id", tgUser.user_id).maybeSingle()
-    : { data: null };
-  if (!tgUser || !linha || linha.status !== "aguardando") {
-    await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Esse aviso já foi resolvido" });
-    return;
-  }
-  const userId = tgUser.user_id as string;
-  const pend = (linha.pendente ?? {}) as { valor: number | null; vencimento: string | null; similares: number[] };
+  const userId = tgUser?.user_id as string | undefined;
+  let linha: { recorrencia_id: number; pendente: unknown } | null = null;
   const marcar: Marcar = (status, extra = {}) => admin.from("emails_processados").update({ status, ...extra }).eq("seq", seq);
-  const editar = (texto: string) => tg(token, "editMessageText", { chat_id: chatId, message_id: cq.message.message_id, text: `${cq.message.text ?? ""}\n\n${texto}` });
-
-  if (acao === "emig") {
-    await marcar("ignorado");
-    await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Ignorado" });
-    await editar("✅ Ignorado — é o mesmo lançamento");
-    return;
-  }
-  if (acao === "emat") {
-    const alvoId = (pend.similares ?? [])[0];
-    const mudancas: Record<string, unknown> = {};
-    if (pend.valor !== null && pend.valor !== undefined) mudancas.valor = pend.valor;
-    if (pend.vencimento) mudancas.data = pend.vencimento;
-    let erro: unknown = null;
-    if (alvoId && Object.keys(mudancas).length) {
-      ({ error: erro } = await admin.from("transacoes").update(mudancas).eq("id", alvoId).eq("user_id", userId));
-      if (erro && mudancas.data) { delete mudancas.data; if (Object.keys(mudancas).length) ({ error: erro } = await admin.from("transacoes").update(mudancas).eq("id", alvoId).eq("user_id", userId)); }
-    }
-    await marcar("atualizado", { transacao_id: alvoId ?? null });
-    await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: erro ? "Não consegui atualizar" : "Atualizado" });
-    await editar(erro ? "⚠️ Não consegui atualizar — edite pelo app" : "🔄 Lançamento atualizado com o valor/vencimento do e-mail");
-    return;
-  }
-  // emou: é outra conta -> segue o fluxo normal
-  await marcar("outro");
-  await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Ok, outra conta" });
-  await editar("➕ Ok, tratando como outra conta");
-  const { data: rec } = await admin.from("recorrencias").select("id, descricao, categoria, remetentes").eq("id", linha.recorrencia_id).maybeSingle();
-  if (rec) await executarConta(admin, token, userId, chatId, rec as RecorrenciaEmail, { valor: pend.valor ?? null, vencimento: pend.vencimento ?? null }, marcar, []);
+  const pend = () => ((linha?.pendente ?? {}) as { valor: number | null; vencimento: string | null; similares: number[] });
+  await responderDecisaoParecido(token, cq, chatId, acaoDe(acao), {
+    carregar: async () => {
+      if (!userId) return false;
+      const { data } = await admin.from("emails_processados").select("recorrencia_id, status, pendente").eq("seq", seq).eq("user_id", userId).maybeSingle();
+      if (!data || data.status !== "aguardando") return false;
+      linha = data;
+      return true;
+    },
+    ignorar: async () => { await marcar("ignorado"); },
+    atualizar: async () => {
+      const alvoId = (pend().similares ?? [])[0];
+      const mudancas: Record<string, unknown> = {};
+      if (pend().valor !== null && pend().valor !== undefined) mudancas.valor = pend().valor;
+      if (pend().vencimento) mudancas.data = pend().vencimento;
+      let erro: unknown = null;
+      if (alvoId && Object.keys(mudancas).length) {
+        ({ error: erro } = await admin.from("transacoes").update(mudancas).eq("id", alvoId).eq("user_id", userId));
+        if (erro && mudancas.data) { delete mudancas.data; if (Object.keys(mudancas).length) ({ error: erro } = await admin.from("transacoes").update(mudancas).eq("id", alvoId).eq("user_id", userId)); }
+      }
+      await marcar("atualizado", { transacao_id: alvoId ?? null });
+      return !erro;
+    },
+    outro: async () => {
+      await marcar("outro");
+      const { data: rec } = await admin.from("recorrencias").select("id, descricao, categoria, remetentes").eq("id", linha!.recorrencia_id).maybeSingle();
+      if (rec) await executarConta(admin, token, userId!, chatId, rec as RecorrenciaEmail, { valor: pend().valor ?? null, vencimento: pend().vencimento ?? null }, marcar, []);
+    },
+  });
 }
 
-/** Resposta aos botões do aviso "já existe lançamento parecido" de uma mensagem/SMS (mesmo tratamento do e-mail):
- *  smig (é o mesmo: descarta o rascunho), smat (é o mesmo: atualiza valor/data do existente) e smou (é outro: segue o rascunho). */
+/** Botões do aviso "já existe lançamento parecido" de uma mensagem/SMS (smig / smat / smou). */
 export async function tratarDecisaoSms(
   admin: Admin, token: string, cq: { id: string; message: { message_id: number; text?: string } }, chatId: number, acao: string, rascunhoId: number,
 ): Promise<void> {
   const { data: tgUser } = await admin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
-  const { data: rasc } = tgUser
-    ? await admin.from("telegram_rascunhos").select("dados").eq("id", rascunhoId).eq("chat_id", chatId).eq("user_id", tgUser.user_id).maybeSingle()
-    : { data: null };
-  if (!tgUser || !rasc) {
-    await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Esse aviso já foi resolvido" });
-    return;
-  }
-  const d = rasc.dados as RascunhoLancamento;
-  const editar = (texto: string) => tg(token, "editMessageText", { chat_id: chatId, message_id: cq.message.message_id, text: `${cq.message.text ?? ""}\n\n${texto}` });
-  if (acao === "smig") {
-    await admin.from("telegram_rascunhos").delete().eq("id", rascunhoId);
-    await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Ignorado" });
-    await editar("✅ Ignorado — é o mesmo lançamento");
-    return;
-  }
-  if (acao === "smat") {
-    const alvoId = (d.similares ?? [])[0];
-    let erro: unknown = alvoId ? null : "sem alvo";
-    if (alvoId) ({ error: erro } = await admin.from("transacoes").update({ valor: d.valor, data: d.data }).eq("id", alvoId).eq("user_id", tgUser.user_id));
-    await admin.from("telegram_rascunhos").delete().eq("id", rascunhoId);
-    await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: erro ? "Não consegui atualizar" : "Atualizado" });
-    await editar(erro ? "⚠️ Não consegui atualizar — edite pelo app" : "🔄 Lançamento atualizado com o valor/data da mensagem");
-    return;
-  }
-  // smou: é outro lançamento -> mostra o rascunho normal
-  await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Ok, outro lançamento" });
-  await editar("➕ Ok, tratando como outro lançamento");
-  await enviarRascunho(token, chatId, rascunhoId, { ...d, similares: undefined }, admin, tgUser.user_id as string);
+  const userId = tgUser?.user_id as string | undefined;
+  let d: RascunhoLancamento | null = null;
+  await responderDecisaoParecido(token, cq, chatId, acaoDe(acao), {
+    carregar: async () => {
+      if (!userId) return false;
+      const { data } = await admin.from("telegram_rascunhos").select("dados").eq("id", rascunhoId).eq("chat_id", chatId).eq("user_id", userId).maybeSingle();
+      if (!data) return false;
+      d = data.dados as RascunhoLancamento;
+      return true;
+    },
+    ignorar: async () => { await admin.from("telegram_rascunhos").delete().eq("id", rascunhoId); },
+    atualizar: async () => {
+      const alvoId = (d!.similares ?? [])[0];
+      let erro: unknown = alvoId ? null : "sem alvo";
+      if (alvoId) ({ error: erro } = await admin.from("transacoes").update({ valor: d!.valor, data: d!.data }).eq("id", alvoId).eq("user_id", userId));
+      await admin.from("telegram_rascunhos").delete().eq("id", rascunhoId);
+      return !erro;
+    },
+    outro: async () => { await enviarRascunho(token, chatId, rascunhoId, { ...d!, similares: undefined }, admin, userId!); },
+  });
 }

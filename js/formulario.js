@@ -94,7 +94,7 @@ function _parcelasNumero(input) {
 }
 
 /** O "Mês" (competência) fica sempre ao lado da Data, em despesa e em receita (ver #dataValorBloco). */
-function posicionarCompetencia(_ehReceita) {
+function posicionarCompetencia() {
     const grp = document.getElementById('competenciaGroup');
     if (grp) grp.hidden = false;
 }
