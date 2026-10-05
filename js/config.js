@@ -51,11 +51,6 @@ const CATEGORIAS_PADRAO = {
 };
 
 // Cores para o gráfico
-const CORES_CATEGORIAS = [
-    '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
-    '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B88B', '#ABEBC6',
-    '#F1948A', '#85C1E2', '#F8B195', '#C39BD3', '#F1948A'
-];
 
 // Paleta dos "chips" (métodos / categorias / recorrências).
 // Se o item não tiver cor escolhida, sugere-se uma da paleta de forma estável pelo nome.
@@ -124,7 +119,6 @@ const SELECTORS = {
   entradasLista: '#entradasLista',
   saidasLista: '#saidasLista',
   proximasLista: '#proximasLista',
-  categoriesList: '#categoriesList',
   menusContainer: '#menusContainer',
   
   // Formulário

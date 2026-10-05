@@ -531,8 +531,6 @@ function mudarAba(novaAba) {
         if (typeof atualizarEntradasLista === 'function') atualizarEntradasLista();
     } else if (novaAba === 'saidas') {
         if (typeof atualizarSaidasLista === 'function') atualizarSaidasLista();
-        // Renderizar gráfico após pequeno delay
-        setTimeout(atualizarGrafico, 100);
     } else if (novaAba === 'pendencias') {
         if (typeof renderPendencias === 'function') renderPendencias();
     } else if (novaAba === 'recorrencias') {

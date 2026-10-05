@@ -31,7 +31,6 @@ footer.footer {
 .summary-card,
 .transacoes-container,
 .proximas-container,
-.analise-container,
 .menu-item,
 .despesa-item,
 .dialogo,
@@ -312,12 +311,12 @@ input.campo-travado,
 }
 
 /* ---------- Densidade geral da UI (mais enxuta) ---------- */
-.resumo-container, .analise-container, .transacoes-container,
+.resumo-container, .transacoes-container,
 .proximas-container, .chart-container, .form-transacao {
     margin-bottom: var(--spacing-lg);
 }
 .transacoes-container h2, .proximas-container h2,
-.resumo-container h2, .analise-container h2 {
+.resumo-container h2 {
     margin-bottom: var(--spacing-md);
     font-size: var(--font-size-lg);
 }

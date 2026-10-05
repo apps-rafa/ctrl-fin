@@ -138,7 +138,7 @@ function _renderGrupoDuplicatas(transacoes, tipoUI, aberto, duplicatasPre, onde 
     const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
     const total = duplicatas.reduce((s, t) => s + valorDe(t), 0);
     return `
-    <details class="rec-grupo" data-nome="__duplicatas__" style="--cor-rec:var(--despesa-text)" ${aberto ? 'open' : ''}>
+    <details class="rec-grupo cor-rec-despesa" data-nome="__duplicatas__" ${aberto ? 'open' : ''}>
       <summary>
         <span class="rec-grupo-nome">📑 Duplicatas</span>
         <span role="button" tabindex="0" class="mini-btn" data-dup-aceitar-todas title="Aceitar todas: marca todas como &quot;não é duplicata&quot; — não avisa de novo sobre elas"><span class="mb-ico">✓</span><span class="mb-txt"> Aceitar todas</span></span>
@@ -201,7 +201,7 @@ function _renderGrupoAConfirmar(itens, tipoUI, aberto, onde = 'home') {
     const tipoDe = typeof tipoUI === 'function' ? tipoUI : () => tipoUI;
     const total = itens.reduce((s, t) => s + ((t.valorMes != null ? t.valorMes : t.valor) || 0), 0);
     return `
-    <details class="rec-grupo" data-nome="__aconfirmar__" style="--cor-rec:var(--text-muted)" ${aberto ? 'open' : ''}>
+    <details class="rec-grupo cor-rec-muted" data-nome="__aconfirmar__" ${aberto ? 'open' : ''}>
       <summary>
         <span class="rec-grupo-nome">🔁 A confirmar</span>
         <span role="button" tabindex="0" class="mini-btn" data-ac-confirmar-todas title="Confirmar todas as ocorrências listadas aqui"><span class="mb-ico">✓</span><span class="mb-txt"> Confirmar todas</span></span>
@@ -1237,62 +1237,6 @@ function onListaTransacaoClick(e) {
             atualizarUI();
             break;
     }
-}
-
-/**
- * Atualiza gráfico de categorias
- */
-async function atualizarGrafico() {
-    const container = document.querySelector(SELECTORS.categoriesList);
-    if (!container) return;
-    
-    const transacoes = estadoApp.transacoes.saidas;
-    
-    // Agrupar por categoria
-    const porCategoria = {};
-    transacoes.forEach(trans => {
-        if (!porCategoria[trans.categoria]) {
-            porCategoria[trans.categoria] = 0;
-        }
-        porCategoria[trans.categoria] += trans.valor;
-    });
-    
-    // Ordenar por valor decrescente
-    const categoriasOrdenadas = Object.entries(porCategoria)
-        .sort((a, b) => b[1] - a[1]);
-    
-    if (categoriasOrdenadas.length === 0) {
-        container.innerHTML = '<p class="empty-message">Nenhuma despesa neste mês</p>';
-        return;
-    }
-    
-    // Total para percentual
-    const total = Object.values(porCategoria).reduce((a, b) => a + b, 0);
-    
-    // Gerar HTML
-    let html = '';
-    categoriasOrdenadas.forEach((entrada, index) => {
-        const [categoria, valor] = entrada;
-        const percentual = total > 0 ? (valor / total) * 100 : 0;
-        const cor = CORES_CATEGORIAS[index % CORES_CATEGORIAS.length];
-        
-        html += `
-            <div class="category-item">
-                <div class="category-color" style="background-color: ${cor};"></div>
-                <div class="category-info">
-                    <div class="category-name">${categoria}</div>
-                    <div class="category-bar">
-                        <div class="category-fill" style="width: ${percentual}%; background-color: ${cor};"></div>
-                    </div>
-                </div>
-                <div class="category-value">
-                    ${formatarMoeda(valor)} (${percentual.toFixed(1)}%)
-                </div>
-            </div>
-        `;
-    });
-    
-    container.innerHTML = html;
 }
 
 /** Clique dentro da lista de "Próximas" — cobre o organizador inline das
