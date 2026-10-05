@@ -280,11 +280,14 @@ function atualizarResumo() {
     // Gasto diário = balanço / dias restantes do mês vigente
     const gd = document.getElementById('gastoDiario');
     const gdSub = document.getElementById('gastoDiarioSub');
-    const dias = diasRestantesMesVigente();
+    let dias = diasRestantesMesVigente();
+    // Mês futuro: já dá para estimar o gasto diário se houver ao menos uma receita e uma despesa previstas (usa o mês inteiro)
+    const previsto = dias === 0 && _mesFuturo() && (estadoApp.resumo.entradas || 0) > 0 && (estadoApp.resumo.saidas || 0) > 0;
+    if (previsto) { const m = estadoApp.mesAtual; dias = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate(); }
     const gastoDiarioValor = dias > 0 ? (estadoApp.resumo.balanco || 0) / dias : 0;
     if (gd) {
         gd.textContent = mask(formatarMoeda(gastoDiarioValor));
-        if (gdSub) gdSub.textContent = dias > 0 ? `${dias} dia${dias === 1 ? '' : 's'} restante${dias === 1 ? '' : 's'}` : (_mesFuturo() ? 'inicia na virada do mês' : 'mês encerrado');
+        if (gdSub) gdSub.textContent = previsto ? `previsto · ${dias} dias` : dias > 0 ? `${dias} dia${dias === 1 ? '' : 's'} restante${dias === 1 ? '' : 's'}` : (_mesFuturo() ? 'sem receita e despesa previstas' : 'mês encerrado');
     }
 
     // Espelha os totais no resumo compacto (barra fixa) — com "R$", sem centavos ",00"
