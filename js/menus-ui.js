@@ -140,6 +140,9 @@ async function carregarAbaMenus() {
           <button type="button" class="mini-btn" id="btnPluggyCred" aria-expanded="false">🔑 Dados cadastrais</button>
           <span id="pluggyCredStatusOf" class="menu-hint pluggy-cred-status"></span>
         </div>
+        <div class="pluggy-saldo-linha">
+          <button type="button" class="pluggy-toggle-opt" id="btnSaldoContas" role="switch" title="Mostrar ou esconder o saldo das contas no dashboard"></button>
+        </div>
 
         <!-- Painel "Dados cadastrais" (credencial própria da Pluggy) — troca
              de lugar com o conteúdo normal do Open Finance quando o botão
@@ -198,12 +201,14 @@ async function carregarAbaMenus() {
               e importa os lançamentos automaticamente, você confirma cada um antes de virar um lançamento de verdade,
               e possíveis duplicatas ficam avisadas à parte.
             </p>
-            <div class="menu-acoes-linha">
-              <button type="button" class="pluggy-toggle-opt" id="btnSaldoContas" role="switch" title="Mostrar ou esconder o saldo das contas no dashboard"></button>
-              <button type="button" class="h3-add" id="btnConectarPluggy" title="Conectar nova conta">+</button>
-            </div>
           </div>
-          <div class="menu-list" id="pluggyContasList"></div>
+          <div class="pluggy-contas-caixa">
+            <div class="pluggy-contas-cab">
+              <span class="pluggy-contas-cab-tit">🏦 Contas conectadas</span>
+              <button type="button" class="h3-add" id="btnConectarPluggy" title="Conectar nova conta" aria-label="Conectar nova conta">+</button>
+            </div>
+            <div class="menu-list" id="pluggyContasList"></div>
+          </div>
 
           <div class="pluggy-toolbar">
             <div class="pluggy-toolbar-item pluggy-sync-periodo">
