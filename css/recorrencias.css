@@ -88,3 +88,5 @@ body .rec-item { padding-left: 2.3rem !important; }
 .rec-linha--2 > .form-group:nth-child(3) { grid-column: span 2; }
 .rec-linha--2 > .form-group:nth-child(4) { grid-column: span 4; }
 .rec-linha--3 > .form-group { grid-column: span 12; }
+/* card da recorrência em 3 linhas: nome/valor/forma de pgto.; frequência/categoria; duração/início */
+.rec-item .despesa-linha2 > .despesa-desc { flex: 0 1 auto; }
