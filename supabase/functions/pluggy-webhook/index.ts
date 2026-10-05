@@ -19,6 +19,7 @@
 // Ver plano da integração: memória "app-financeiro-pluggy-integracao".
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { analisarParecidos, textoParecidos, tecladoParecidos, montarAvisoPluggy } from "../_shared/parecidos.ts";
 
 const PLUGGY_API_URL = "https://api.pluggy.ai";
 const DIAS_HISTORICO_PRIMEIRA_SYNC = 30;
@@ -84,7 +85,7 @@ function limparLinks(t: string): string {
   return String(t ?? "").replace(/(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+)\.(?:com|net|org|io|app|co|me|tv|gov|edu|br)(?:\.[a-z]{2})?(?:\/\S*)?/gi, (_m, nome: string) => nome.charAt(0).toUpperCase() + nome.slice(1));
 }
 
-async function enviarMensagemTelegram(token: string, chatId: number, texto: string, botoes: unknown[][]) {
+async function enviarMensagemTelegram(token: string, chatId: number, texto: string, botoes: unknown[][], markdown = true) {
   try {
     const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
@@ -92,7 +93,7 @@ async function enviarMensagemTelegram(token: string, chatId: number, texto: stri
       body: JSON.stringify({
         chat_id: chatId,
         text: texto,
-        parse_mode: "Markdown",
+        ...(markdown ? { parse_mode: "Markdown" } : {}),
         link_preview_options: { is_disabled: true },
         reply_markup: { inline_keyboard: botoes },
       }),
@@ -135,26 +136,17 @@ async function notificarTelegramNovas(
     return m ? rotuloMetodo(m) : null;
   };
 
-  const fmtValor = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-
   for (const item of itens) {
-    const sinal = item.tipo === "entradas" ? "+" : "-";
-    const emoji = item.tipo === "entradas" ? "💰" : "💸";
-    const dataFmt = new Date(`${item.data}T00:00:00`).toLocaleDateString("pt-BR");
-    const metodoTxt = nomeMetodo(item.metodo_sugerido);
-
-    const texto = [
-      `${emoji} *Novo lançamento via Pluggy*`,
-      `${sinal} ${fmtValor.format(item.valor)} — ${dataFmt}`,
-      item.descricao_banco ? `_${limparLinks(item.descricao_banco)}_` : null,
-      item.categoria_sugerida ? `Categoria sugerida: ${item.categoria_sugerida}` : "Sem sugestão de categoria — confirme pelo app",
-      metodoTxt ? `Método: ${metodoTxt}` : null,
-    ].filter(Boolean).join("\n");
-
-    const botoes = item.categoria_sugerida
-      ? [[{ text: "✅ Confirmar", callback_data: `confirmar:${item.id}` }, { text: "❌ Ignorar", callback_data: `ignorar:${item.id}` }]]
-      : [[{ text: "❌ Ignorar", callback_data: `ignorar:${item.id}` }]];
-
+    // Antes de avisar, a mesma busca de qualquer lançamento automático: se já existe algo parecido, pergunta (mesmas opções das outras origens).
+    try {
+      const { casada, parecidos } = await analisarParecidos(supabaseAdmin, userId, { tipo: item.tipo, valor: Number(item.valor), data: String(item.data).slice(0, 10), texto: String(item.descricao_banco ?? "") });
+      const achados = casada ? [casada] : parecidos;
+      if (achados.length) {
+        await enviarMensagemTelegram(token, tgUser.chat_id, textoParecidos({ origem: "pluggy", titulo: limparLinks(item.descricao_banco || "Lançamento do banco"), valor: Number(item.valor), data: String(item.data).slice(0, 10), parecidos: achados }), tecladoParecidos("pluggy", item.id).inline_keyboard, false);
+        continue;
+      }
+    } catch (e) { console.error("parecidos (pluggy):", e); }
+    const { texto, botoes } = montarAvisoPluggy(item, nomeMetodo(item.metodo_sugerido), limparLinks);
     await enviarMensagemTelegram(token, tgUser.chat_id, texto, botoes);
   }
 }

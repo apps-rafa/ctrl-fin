@@ -56,6 +56,8 @@ import { executarBackup } from "./backup.ts";
 import { executarLembretes } from "./lembretes.ts";
 import { responderPendencias, abrirDuplicata, aprovarDuplicata } from "./pendencias.ts";
 import { processarEmailConta, tratarDecisaoEmail, tratarDecisaoSms } from "./email.ts";
+import { analisarParecidos, textoParecidos, tecladoParecidos } from "../_shared/parecidos.ts";
+import { tratarDecisaoPluggy } from "./pluggy-parecido.ts";
 import { gerarOcorrencias } from "../_shared/ocorrencias.ts";
 import {
   idRascunhoDaResposta, tratarRespostaRascunho,
@@ -345,46 +347,21 @@ async function processarTextoLivre(
 
   await limparRascunhosAntigos(supabaseAdmin); // melhor esforço: não deixa a fila crescer sem fim
 
-  // Uma varredura só, antes de montar o rascunho: olha TODAS as despesas do mês (a confirmar, a pagar e já pagas).
-  //  - ocorrência "a confirmar" de recorrência que bate (nome no texto, ou nome parecido + mesmo valor): o rascunho a ATUALIZA;
-  //  - qualquer outra coisa parecida (nome+valor, valor em até 3 dias, ou nome em até 3 dias): só avisa, e o usuário cancela se for o mesmo.
+  // Mesma busca e mesma pergunta de qualquer lançamento automático (ver _shared/parecidos.ts): olha as despesas do mês
+  // (a confirmar, a pagar, pagas). Ocorrência "a confirmar" de recorrência que bate: o rascunho a ATUALIZA; algo parecido: pergunta.
   let recCasada: string | null = null;
   let similaresTxt = "";
   if (tipo === "saidas") {
     try {
-      const dataR = rascunho.data || hojeBrasiliaISO();
-      const mes = dataR.slice(0, 7);
-      const ini = [`${mes}-01`, somarDiasISO(dataR, -12)].sort()[0];
-      const fim = [`${mes}-31`, somarDiasISO(dataR, 40)].sort().reverse()[0];
-      const { data: todas } = await supabaseAdmin.from("transacoes").select("id, descricao, categoria, valor, data, metodo, a_confirmar, recorrencia_id")
-        .eq("user_id", tgUser.user_id).eq("tipo", "saidas").gte("data", ini).lte("data", fim).order("data", { ascending: true });
-      type Tx = { id: number; descricao: string | null; categoria: string; valor: number; data: string; metodo: string | null; a_confirmar: boolean; recorrencia_id: string | null };
-      const lista = (todas ?? []) as Tx[];
-      const alvo = normalizarTexto(`${texto} ${rascunho.descricao}`);
-      const dias = (d: string) => Math.abs(Date.parse(`${d.slice(0, 10)}T00:00:00Z`) - Date.parse(`${dataR}T00:00:00Z`)) / 86400000;
-      const nomeBate = (t: Tx) => {
-        const palavras = normalizarTexto(String(t.descricao ?? "")).split(/[^a-z0-9]+/).filter((q) => q.length >= 4);
-        return palavras.length === 0 ? 0 : palavras.every((q) => alvo.includes(q)) ? 2 : palavras.some((q) => alvo.includes(q)) ? 1 : 0;
-      };
-      const mesmoValor = (t: Tx) => Math.abs(Number(t.valor) - valor) < 0.5;
-      const casadas = lista.filter((t) => t.a_confirmar && t.recorrencia_id)
-        .map((t) => ({ t, p: nomeBate(t) >= 2 || (nomeBate(t) >= 1 && mesmoValor(t)) ? nomeBate(t) + (mesmoValor(t) ? 1 : 0) : 0 }))
-        .filter((x) => x.p > 0).sort((x, y) => y.p - x.p || dias(x.t.data) - dias(y.t.data));
-      if (casadas.length) {
-        const o = casadas[0].t;
-        rascunho.ocorrenciaId = o.id;
-        rascunho.categoria = o.categoria || rascunho.categoria;
-        if (o.descricao) rascunho.descricao = o.descricao;
-        recCasada = o.descricao || o.categoria;
-      } else {
-        const achados = lista.filter((t) => t.data.slice(0, 7) === mes && ((nomeBate(t) > 0 && mesmoValor(t)) || (mesmoValor(t) && dias(t.data) <= 3) || (nomeBate(t) > 0 && dias(t.data) <= 3))).slice(0, 3);
-        if (achados.length) {
-          const fmt = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-          similaresTxt = "⚠️ Já existe algo parecido neste mês:\n"
-            + achados.map((t) => `• ${t.descricao || t.categoria} — ${fmt(Number(t.valor))} em ${t.data.slice(8, 10)}/${t.data.slice(5, 7)}${t.a_confirmar ? " (a confirmar)" : ""}${t.metodo ? ` · ${t.metodo}` : ""}`).join("\n")
-            + "\n\nÉ o mesmo?";
-          rascunho.similares = achados.map((t) => t.id);
-        }
+      const { casada, parecidos } = await analisarParecidos(supabaseAdmin, tgUser.user_id, { tipo, valor, data: rascunho.data || hojeBrasiliaISO(), texto: `${texto} ${rascunho.descricao}` });
+      if (casada) {
+        rascunho.ocorrenciaId = casada.id;
+        rascunho.categoria = casada.categoria || rascunho.categoria;
+        if (casada.descricao) rascunho.descricao = casada.descricao;
+        recCasada = casada.descricao || casada.categoria;
+      } else if (parecidos.length) {
+        rascunho.similares = parecidos.map((t) => t.id);
+        similaresTxt = textoParecidos({ origem: "sms", titulo: rascunho.descricao || rascunho.categoria || "Despesa", valor, data: rascunho.data, parecidos });
       }
     } catch (e) { console.error("procurar parecidos/recorrência:", e); }
   }
@@ -403,15 +380,7 @@ async function processarTextoLivre(
   }
 
   if (similaresTxt) {
-    await tg(token, "sendMessage", {
-      chat_id: chatId,
-      text: `💸 ${formatarMoedaBR(rascunho.valor)}${rascunho.descricao ? ` · ${rascunho.descricao}` : ""}\n${similaresTxt}`,
-      reply_markup: { inline_keyboard: [
-        [{ text: "✅ É o mesmo (ignorar)", callback_data: `smig:${novoRascunho.id}` }],
-        [{ text: "🔄 É o mesmo, atualizar valor/data", callback_data: `smat:${novoRascunho.id}` }],
-        [{ text: "➕ Não, é outro lançamento", callback_data: `smou:${novoRascunho.id}` }],
-      ] },
-    });
+    await tg(token, "sendMessage", { chat_id: chatId, text: similaresTxt, reply_markup: tecladoParecidos("sms", novoRascunho.id) });
     return;
   }
   if (recCasada) await tg(token, "sendMessage", { chat_id: chatId, text: `🔁 Isto bate com a recorrência "${recCasada}" que estava a confirmar. Ao confirmar, ela é atualizada (não cria um lançamento repetido).` });
@@ -610,6 +579,11 @@ Deno.serve(async (req: Request) => {
 
       if ((acao === "emig" || acao === "emat" || acao === "emou") && chatId) {
         await tratarDecisaoEmail(supabaseAdmin, token, cq, chatId, acao, Number(idStr));
+        return json({ ok: true });
+      }
+
+      if ((acao === "pgig" || acao === "pgat" || acao === "pgou") && chatId) {
+        await tratarDecisaoPluggy(supabaseAdmin, token, cq, chatId, acao, Number(idStr));
         return json({ ok: true });
       }
 
