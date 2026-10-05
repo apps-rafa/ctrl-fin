@@ -3,7 +3,7 @@
  *
  * Instalar (uma vez só, ~2 minutos):
  *  1) script.google.com -> Novo projeto -> cole este arquivo.
- *  2) Logo abaixo, troque COLE_O_SEGREDO_AQUI pelo segredo "email_conta" que o Claude te passou (a URL já está certa).
+ *  2) Logo abaixo, na linha "var SEGREDO" (e SÓ nela), troque o texto entre aspas pelo segredo que o Claude te passou (a URL já está certa).
  *  3) Selecione a função "instalar" e clique em Executar. O Google pede autorização (Gmail e conexão externa): aceite.
  *     Isso guarda a configuração e cria sozinho o acionador que roda "processarContas" a cada 5 minutos.
  *  4) (opcional) Apague o segredo do código depois de rodar "instalar": ele já fica guardado nas propriedades do script.
@@ -20,9 +20,10 @@ var SEGREDO = 'COLE_O_SEGREDO_AQUI';
 /** Roda uma vez: guarda URL/segredo e cria o acionador de 5 em 5 minutos. */
 function instalar() {
   var props = PropertiesService.getScriptProperties();
-  if (SEGREDO && SEGREDO !== 'COLE_O_SEGREDO_AQUI') props.setProperty('SEGREDO', SEGREDO);
+  // só a linha "var SEGREDO" leva o segredo; aqui não precisa mexer em nada
+  if (SEGREDO && SEGREDO.length > 20) props.setProperty('SEGREDO', SEGREDO);
   props.setProperty('URL', URL_BOT);
-  if (!props.getProperty('SEGREDO')) throw new Error('Cole o segredo na variável SEGREDO e rode "instalar" de novo.');
+  if (!props.getProperty('SEGREDO')) throw new Error('Cole o segredo na linha "var SEGREDO" e rode "instalar" de novo.');
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'processarContas') ScriptApp.deleteTrigger(t);
   });
