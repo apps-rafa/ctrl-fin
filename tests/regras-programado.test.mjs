@@ -71,3 +71,29 @@ test("aviso de parecido: mesmo texto e mesmos botões em qualquer origem (só mu
   assert.deepEqual(rotulos("sms"), rotulos("email"));
   assert.deepEqual(tecladoParecidos("pluggy", 5).inline_keyboard.flat().map((b) => b.callback_data), ["pgig:5", "pgat:5", "pgou:5"]);
 });
+
+// ---- Cliente: gravação de lançamento (api.js) e forma de pagamento padrão da receita (menus-api.js) ----
+const cliente = vm.createContext({ console, Date, parseFloat, parseInt, String, Math, CATEGORIA_REEMBOLSO: "Reembolso", CATEGORIA_DINHEIRO_RECEITA: "Dinheiro", CATEGORIA_ESTORNO: "Estorno", estadoApp: { menus: { metodos: [] } } });
+for (const arq of ["recorrencia.js", "menus-api.js", "api.js"]) vm.runInContext(fs.readFileSync(new URL(`../js/${arq}`, import.meta.url), "utf8"), cliente);
+const iso = (dias) => { const d = new Date(); d.setDate(d.getDate() + dias); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+
+test("montarRegistro: data futura = agendado; data de hoje/passada não; sem data (indefinida) = agendado + data_indefinida", () => {
+  const dados = { tipo: "saidas", valor: 10, categoria: "Casa", metodo: "PIX" };
+  const futuro = cliente.montarRegistro({ ...dados, data: iso(3) });
+  assert.equal(futuro.agendado, true);
+  assert.equal(futuro.data_indefinida, false);
+  assert.equal(cliente.montarRegistro({ ...dados, data: iso(0) }).agendado, false);
+  assert.equal(cliente.montarRegistro({ ...dados, data: iso(-5) }).agendado, false);
+  const sem = cliente.montarRegistro({ ...dados, data: iso(-1), dataIndefinida: true });
+  assert.equal(sem.agendado, true);
+  assert.equal(sem.data_indefinida, true);
+});
+
+test("rotuloPixPadrao: primeiro PIX do cadastro (com ou sem banco); vazio se não houver", () => {
+  cliente.estadoApp.menus.metodos = [{ nome: "Dinheiro", metodoKind: "Dinheiro" }, { nome: "Crédito — X", metodoKind: "Crédito", banco: "X" }];
+  assert.equal(cliente.rotuloPixPadrao(), "");
+  cliente.estadoApp.menus.metodos.push({ nome: "PIX", metodoKind: "PIX", banco: "" });
+  assert.equal(cliente.rotuloPixPadrao(), "PIX");
+  cliente.estadoApp.menus.metodos.unshift({ nome: "PIX Itaú", metodoKind: "PIX/Débito", banco: "Itaú" });
+  assert.equal(cliente.rotuloPixPadrao(), "PIX Itaú");
+});
