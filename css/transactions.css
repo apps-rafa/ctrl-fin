@@ -898,3 +898,5 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 @media (max-width: 480px) { .conc-selos-col .conc-selo { font-size: .58rem; } }
 /* Recém-lançados: 2 linhas de descrição reservadas (linhas sem descrição têm a mesma altura das demais) */
 .despesa-desc--reserva { min-height: calc(2 * 1.15 * .78rem); }
+/* grupo semanal: contorno contínuo (sem o tracejado do cabeçalho) */
+.subgrupo[data-nome^="Semanal"] > .subgrupo-cab { border-bottom-style: solid; }

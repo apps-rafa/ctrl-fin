@@ -165,6 +165,24 @@ function _subgruposDespesaReceita(itens, tipoDe, htmlItem, pai, onde) {
         const chave = `${pai}:${k}`;
         const aberto = _filaManual[onde + ':' + chave] ?? unico;
         const total = lista.reduce((acc, t) => acc + ((t.valorMes != null ? t.valorMes : t.valor) || 0), 0);
+        let barra = '', corpo;
+        if (pai === '__aconfirmar__') {
+            // A confirmar: filtros de Categoria / Forma de pgto. (quando há mais de uma opção) e semanais sempre em grupo
+            const sk = k === 'saidas' ? 'saida' : 'entrada';
+            barra = _barraGrupo(_renderOrganizadorInline(sk, 'aconfirmar', chave, k === 'saidas', lista));
+            if (_subModoGrupoDe(sk, 'aconfirmar', chave) === 'cronologica') {
+                const porRec = new Map();
+                lista.forEach(t => { if (t.recorrenciaSemanalId) porRec.set(t.recorrenciaSemanalId, [...(porRec.get(t.recorrenciaSemanalId) || []), t]); });
+                const grupos = [...porRec.entries()].filter(([, l]) => l.length > 1);
+                const ids = new Set(grupos.map(([id]) => id));
+                const ab = {};
+                document.querySelectorAll('details.subgrupo[data-nome^="Semanal "]').forEach(d => { ab[d.dataset.nome] = d.open; });
+                corpo = grupos.map(([id, l]) => _htmlSubgrupoSemanal(id, l, cor, sk, false, ab, htmlItem, onde)).join('')
+                    + lista.filter(t => !ids.has(t.recorrenciaSemanalId)).map(htmlItem).join('');
+            } else {
+                corpo = _corpoGrupoComSubmodo(lista, sk, 'aconfirmar', chave, k === 'saidas', {}, { comConfirmarOcorrencia: true });
+            }
+        } else corpo = lista.map(htmlItem).join('');
         return `
         <details class="subgrupo" data-nome="${chave}" style="--cor-rec:${cor}" ${aberto ? 'open' : ''}>
           <summary class="subgrupo-cab">
@@ -172,7 +190,7 @@ function _subgruposDespesaReceita(itens, tipoDe, htmlItem, pai, onde) {
             <span class="subgrupo-contagem">${lista.length}</span>
             <span class="subgrupo-total">${formatarMoeda(total)}</span>
           </summary>
-          ${lista.map(htmlItem).join('')}
+          ${barra}${corpo}
         </details>`;
     }).join('');
 }
@@ -208,6 +226,17 @@ function _ligarFilaManual(box, onde) {
         if (!sm || e.target.closest('.mini-btn') || !sm.parentElement.dataset.nome) return;
         _filaManual[onde + ':' + sm.parentElement.dataset.nome] = !sm.parentElement.open; // o clique ainda vai inverter
     }, true);
+    // filtros (Categoria / Forma de pgto.) dentro do A confirmar
+    box.addEventListener('click', e => {
+        const btn = e.target.closest('[data-submodo], [data-submodo-icone]');
+        const org = btn && btn.closest('[data-grupo-chave]');
+        if (!org || !String(org.dataset.grupoChave).startsWith('__aconfirmar__')) return;
+        e.preventDefault(); e.stopImmediatePropagation();
+        const chave = org.dataset.grupoChave, sk = chave.endsWith(':saidas') ? 'saida' : 'entrada';
+        const atual = _subModoGrupoDe(sk, 'aconfirmar', chave);
+        _setSubModoGrupo(sk, 'aconfirmar', chave, btn.dataset.submodo && btn.dataset.submodo !== atual ? btn.dataset.submodo : 'cronologica');
+        if (box._refazer) box._refazer();
+    }, true);
 }
 
 /** Botões "Confirmar/Aceitar todas" e "Apagar todas" (Duplicatas e A confirmar): se o cabeçalho do grupo não comporta o texto (o título nunca quebra
@@ -240,6 +269,7 @@ function renderFilaHome() {
     const htmlAC = _renderGrupoAConfirmar(aConf, tipoDe, aberto('__aconfirmar__') ?? soAC, 'home');
     const htmlDup = dups.length ? _renderGrupoDuplicatas(null, tipoDe, aberto('__duplicatas__') ?? soDup, dups, 'home') : '';
     box.innerHTML = htmlAC + htmlDup;
+    box._refazer = renderFilaHome;
     box.onclick = onListaTransacaoClick;
     ajustarBotoesTodas();
 }
@@ -332,6 +362,7 @@ function renderListaPorModo(container, transacoes, tipoUI, modo, msgVazia) {
         const htmlAC = _renderGrupoAConfirmar(aConfirmar, tipoUI, abertoAConfirmar ?? (aConfirmar.length > 0 && !nDup), tipoUI);
         const htmlDup = nDup ? _renderGrupoDuplicatas(transacoes, tipoUI, abertoDuplicatas ?? !aConfirmar.length, null, tipoUI) : '';
         dupContainer.innerHTML = htmlAC + htmlDup;
+        dupContainer._refazer = () => { dupContainer.innerHTML = _renderGrupoAConfirmar(aConfirmar, tipoUI, true, tipoUI) + htmlDup; ajustarBotoesTodas(); };
         ajustarBotoesTodas();
         dupContainer.onclick = onListaTransacaoClick;
     }
@@ -587,9 +618,10 @@ function _htmlSubgrupoFatura(f, its, totalRef, tipoUI, abertosSub, estornos, for
 }
 
 /** Subgrupo "<nome> · semanal": as ocorrências de uma recorrência semanal num grupo só, com a quantidade e o total. */
-function _htmlSubgrupoSemanal(id, lista, cor, tipoUI, semRelogio, abertos) {
+function _htmlSubgrupoSemanal(id, lista, cor, tipoUI, semRelogio, abertos, htmlItem, onde) {
     const nome = lista[0].descricao || lista[0].categoria || 'Recorrência';
     const chave = `Semanal ${id}`;
+    if (onde) abertos = { ...abertos, [chave]: _filaManual[onde + ':' + chave] ?? abertos[chave] };
     const total = lista.reduce((acc, t) => acc + ((t.valorMes != null ? t.valorMes : t.valor) || 0), 0);
     const ordenadas = lista.slice().sort((a, b) => String(a.data).localeCompare(String(b.data)));
     return `
@@ -600,7 +632,7 @@ function _htmlSubgrupoSemanal(id, lista, cor, tipoUI, semRelogio, abertos) {
             <span class="subgrupo-contagem">${lista.length}</span>
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(total)}</span></span>
           </summary>
-          ${ordenadas.map(t => gerarHTMLTransacao(t, tipoUI, { semMetodoChip: true, semRelogio })).join('')}
+          ${ordenadas.map(t => (htmlItem ? htmlItem(t) : gerarHTMLTransacao(t, tipoUI, { semMetodoChip: true, semRelogio }))).join('')}
         </details>`;
 }
 
@@ -666,11 +698,12 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     // Ocorrências de recorrência SEMANAL saem da lista solta e viram um subgrupo por recorrência (nome, quantidade e total),
     // como a fatura do cartão. Os totais dos grupos já foram somados acima, com elas dentro.
     grupos.forEach(g => {
-        const semanais = g.itens.filter(t => t.recorrenciaSemanalId);
-        if (!semanais.length) return;
         const porRec = new Map();
-        semanais.forEach(t => porRec.set(t.recorrenciaSemanalId, [...(porRec.get(t.recorrenciaSemanalId) || []), t]));
-        g.itens = g.itens.filter(t => !t.recorrenciaSemanalId);
+        g.itens.filter(t => t.recorrenciaSemanalId).forEach(t => porRec.set(t.recorrenciaSemanalId, [...(porRec.get(t.recorrenciaSemanalId) || []), t]));
+        // só agrupa com 2 ou mais da mesma recorrência no mesmo grupo (1 sozinha fica solta)
+        for (const [id, l] of [...porRec]) if (l.length < 2) porRec.delete(id);
+        if (!porRec.size) return;
+        g.itens = g.itens.filter(t => !porRec.has(t.recorrenciaSemanalId));
         g.extraHTML = (g.extraHTML || '') + [...porRec.entries()].map(([id, lista]) => _htmlSubgrupoSemanal(id, lista, g.cor, tipoUI, g.nome === rotuloPendente, _lerAbertosSubgrupo(container))).join('');
         g.extraContagem = (g.extraContagem || 0) + porRec.size;
     });
@@ -817,6 +850,7 @@ function _ordenarPorGrupo(itens) {
 // escolhido — sempre as OUTRAS 2, nunca a mesma dimensão que já agrupa a
 // tela toda. Ordem = ordem dos botões.
 const _SUBMODOS_POR_MODO = {
+    aconfirmar: ['categoria', 'metodo'],   // grupo "A confirmar"
     cronologica: ['metodo'],   // grupos Atual / A pagar: filtro por forma de pagamento
     metodo: ['categoria'],
     categoria: ['metodo']
