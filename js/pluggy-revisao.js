@@ -759,7 +759,7 @@ async function importarProntasPluggy() {
                 tipo: item.tipo,
                 data: item.data,
                 valor: item.valor,
-                metodo: metodoObj ? rotuloMetodo(metodoObj) : null,
+                metodo: metodoObj ? rotuloMetodo(metodoObj) : (item.tipo === 'entradas' ? (rotuloPixPadrao() || null) : null), // receita: PIX
                 categoria: _categoriaAoVivoPluggy(item),
                 descricao: _descricaoAoVivoPluggy(item),
                 formaPagamento: 'À vista',

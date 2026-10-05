@@ -159,6 +159,12 @@ function rotuloMetodoNiveis(item) {
     return { full, media: `${tipo} ${bancoMedio}`, curto: `${tipo} ${bancoCurto}` };
 }
 
+/** Rótulo da forma de pagamento padrão da RECEITA (o primeiro PIX ativo), ou '' se não houver. */
+function rotuloPixPadrao() {
+    const pix = ((typeof estadoApp !== 'undefined' && estadoApp.menus && estadoApp.menus.metodos) || []).find(m => m.metodoKind === 'PIX' || m.metodoKind === 'PIX/Débito');
+    return pix ? rotuloMetodo(pix) : '';
+}
+
 /**
  * Carrega todos os itens (ativos e inativos), agrupados por tipo.
  */

@@ -103,7 +103,7 @@ function iniciarEdicaoTransacao(trans, tipoTransacao) {
     // Precisa vir depois de setar a categoria: é ela que decide se o campo
     // Método aparece pra receita (categorias "Estorno"/"Reembolso").
     if (typeof atualizarCampoMetodoReceita === 'function') atualizarCampoMetodoReceita();
-    document.querySelector(SELECTORS.metodo).value = trans.metodo || '';
+    document.querySelector(SELECTORS.metodo).value = trans.metodo || (tipoTransacao === 'entradas' ? rotuloPixPadrao() : ''); // receita sem forma: PIX
 
     const parc = document.getElementById('parcelas');
     if (parc) parc.value = trans.parcelasTotal || 1;
