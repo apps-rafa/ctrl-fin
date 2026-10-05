@@ -545,7 +545,7 @@ function _recCardHTML(r) {
                 <span class="despesa-desc">${r.competenciaOffset ? `Competência: mês ${r.competenciaOffset > 0 ? 'seguinte' : 'anterior'} · ` : ''}${r.meses ? `Total: ${_recTotalTexto(r)}` : 'Contínuo'} · ${r.status === 'encerrada' && r.encerradaEm ? `${_recMesCriacaoTexto(r.ativaDesde)} – ${_recMesCriacaoTexto(String(r.encerradaEm).slice(0, 7))}` : `Desde ${_recMesCriacaoTexto(r.criadoEm)}`}</span>
             </div>
             <div class="despesa-actions">
-                ${r.status === 'encerrada' ? '' : '<button type="button" class="btn-icon" data-rec-act="editar" title="Editar">✏️</button>'}
+                ${r.status === 'encerrada' ? '' : '<button type="button" class="btn-icon" data-rec-act="editar" title="Editar" aria-label="Editar">' + ICONE_LAPIS + '</button>'}
                 <button type="button" class="btn-icon btn-danger" data-rec-act="excluir" title="Excluir" aria-label="Excluir">${ICONE_LIXEIRA}</button>
             </div>
         </div>`;

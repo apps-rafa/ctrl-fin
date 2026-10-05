@@ -505,7 +505,7 @@ function renderizarItemsMenu(tipo, containerId, itens, grupo) {
 
     const acoes = `
       <div class="item-actions">
-        ${semEdicao ? '' : `<button class="btn-icon" data-act="editar" data-tipo="${tipo}" data-id="${item.linha}" title="Editar">✏️</button>`}
+        ${semEdicao ? '' : `<button class="btn-icon" data-act="editar" data-tipo="${tipo}" data-id="${item.linha}" title="Editar" aria-label="Editar">${ICONE_LAPIS}</button>`}
         ${semRemocao ? '' : `<button class="btn-icon btn-danger" data-act="remover" data-id="${item.linha}" title="Remover" aria-label="Remover">${ICONE_LIXEIRA}</button>`}
         ${ehEstornoDespesa ? '' : `<button class="btn-icon ${item.status === 'Ativo' ? 'btn-warning' : 'btn-success'}"
                 data-act="${item.status === 'Ativo' ? 'desativar' : 'ativar'}" data-id="${item.linha}"

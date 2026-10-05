@@ -167,7 +167,13 @@ function ajustarFonteParaCaber(el, minPx = 10, tamanhoInicial = null) {
 /** Elementos de valor que podem precisar encolher — reavaliados também no
  *  resize (a largura do card muda, então o que cabia pode deixar de caber). */
 function ajustarFontesDashboard() {
-    ['totalEntradas', 'totalSaidas'].forEach(id => ajustarFonteParaCaber(document.getElementById(id)));
+    ['totalEntradas', 'totalSaidas'].forEach(id => {
+        const b = document.getElementById(id);
+        const rot = b && b.parentElement.querySelector('.rot-total');
+        if (rot) rot.hidden = false;
+        ajustarFonteParaCaber(b);
+        if (rot && b.clientWidth && b.scrollWidth > b.clientWidth + 1) { rot.hidden = true; ajustarFonteParaCaber(b); } // sem espaço: some o rótulo
+    });
     // Balanço e Gasto diário (3ª coluna, estreita): o CSS (cqw) já faz caber; aqui só encolhe se ainda estourar.
     const par = ['balanco', 'gastoDiario'].map(id => document.getElementById(id)).filter(Boolean);
     par.forEach(el => ajustarFonteParaCaber(el, 10));

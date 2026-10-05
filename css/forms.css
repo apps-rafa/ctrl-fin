@@ -660,3 +660,8 @@ button:has(> .ico-lixeira:only-child):hover { color: var(--danger, #DC2626); bac
 /* "Editar recorrência" (ao lado de Salvar alterações): mesmo tamanho de texto do Salvar */
 #editarRecorrenciaEdicao { font-size: .95rem; font-weight: var(--font-weight-bold); }
 @media (max-width: 480px) { #editarRecorrenciaEdicao { font-size: var(--font-size-sm); } }
+
+/* Lápis (botão só com o ícone SVG): discreto, acende ao passar o mouse */
+button:has(> .ico-lapis:only-child) { color: var(--text-muted); }
+button:has(> .ico-lapis:only-child):hover { color: var(--primary); }
+.ico-lapis { display: inline-block; vertical-align: -.15em; }

@@ -610,7 +610,7 @@ function gerarHTMLHistoricoPluggy(item) {
     // Mesmo card dos lançamentos das páginas de Receitas/Despesas; só as ações
     // são trocadas pelas do histórico (editar/excluir pelo id da fila).
     const html = gerarHTMLTransacao(mapearTransacao(t), t.tipo === 'entradas' ? 'entrada' : 'saida', { semAcoes: true, semMetodoChip: true }); // a forma de pagamento já é a da conta mostrada nesta tela
-    const acoes = `<button class="btn-icon" data-act="editar-historico" data-id="${item.id}" title="Editar">✏️</button><button class="btn-icon btn-danger" data-act="excluir-historico" data-id="${item.id}" title="Excluir">${ICONE_LIXEIRA}</button>`;
+    const acoes = `<button class="btn-icon" data-act="editar-historico" data-id="${item.id}" title="Editar" aria-label="Editar">${ICONE_LAPIS}</button><button class="btn-icon btn-danger" data-act="excluir-historico" data-id="${item.id}" title="Excluir">${ICONE_LIXEIRA}</button>`;
     return html.replace('<div class="despesa-actions"></div>', `<div class="despesa-actions">${acoes}</div>`);
 }
 
