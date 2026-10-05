@@ -136,7 +136,7 @@ export async function processarEmailConta(
   // Já tratei essa conta (mesma recorrência) nos últimos 60 dias? Então é lembrete repetido: não avisa de novo
   const desde = new Date(Date.now() - 60 * 86400000).toISOString();
   const { data: anteriores } = await admin.from("emails_processados").select("transacao_id, status")
-    .eq("user_id", userId).eq("recorrencia_id", rec.id).in("status", ["rascunho", "atualizado", "repetido"]).gte("criado_em", desde);
+    .eq("user_id", userId).eq("recorrencia_id", rec.id).in("status", ["rascunho", "atualizado", "repetido", "sem_ocorrencia"]).gte("criado_em", desde);
   const jaTratada = (anteriores ?? []) as { transacao_id: number | null; status: string }[];
   if (!ocorrencia) {
     if (jaTratada.length) { await marcar("repetido", { recorrencia_id: rec.id }); return { ok: true, status: "repetido" }; } // ex.: já confirmada
