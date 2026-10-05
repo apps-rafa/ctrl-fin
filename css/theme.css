@@ -135,8 +135,6 @@ input.campo-travado,
     border-color: var(--border);
 }
 
-.add-item-form { background-color: var(--surface-2); border-color: var(--border); }
-
 /* ---------- Abas ---------- */
 .tab-btn { color: var(--text-muted); }
 .tab-btn:hover { color: var(--text); }
@@ -170,16 +168,6 @@ input.campo-travado,
 }
 
 /* ---------- Chips / semanas ---------- */
-.semanas-chips .chip {
-    background-color: var(--surface-2);
-    color: var(--text);
-    border-color: var(--border-strong);
-}
-.semanas-chips .chip.on {
-    background-color: var(--primary);
-    color: var(--primary-contrast);
-    border-color: var(--primary);
-}
 
 /* ---------- Botões auxiliares ---------- */
 .btn-mini-add {
@@ -291,18 +279,6 @@ input.campo-travado,
 .item-descricao,
 .menus-gerenciamento .empty-text,
 .menu-hint { color: var(--text-muted); }
-
-.add-item-form {
-    background-color: var(--surface-2);
-    border: 1px dashed var(--border-strong);
-}
-.add-item-form input,
-.add-item-form select {
-    background-color: var(--surface);
-    color: var(--text);
-    border-color: var(--border-strong);
-}
-.add-item-form input::placeholder { color: var(--text-muted); }
 
 .item-edit input {
     background-color: var(--surface);
@@ -488,8 +464,6 @@ body .rec-grupo-itens > .grupo-barra { padding-left: .8rem; padding-right: .8rem
 body #btnTema, body #btnLogout { height: 1.9rem; min-width: 1.9rem; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; padding-top: 0; padding-bottom: 0; }
 
 /* "Próximos" 3/4 e lixeira 1/4 da coluna */
-body .tabs-dir [data-tab="proximas"] { flex: 3 1 0; min-width: 0; }
-body .tabs-dir .tab-btn-icone { flex: 1 1 0; min-width: 0; padding-left: 0; padding-right: 0; }
 
 /* Resumo compacto: valores não vazam dos boxes */
 .mini-box { gap: .15rem; padding: .35rem .12rem; }
