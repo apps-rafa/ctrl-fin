@@ -58,6 +58,24 @@ export function recorrenciaDoEmail(recs: RecorrenciaEmail[], from: string, subje
   return null;
 }
 
+const PALAVRAS_COMUNS = new Set(["conta", "contas", "fatura", "boleto", "pagamento", "valor", "casa", "mensal", "digital", "servico", "servicos", "cobranca"]);
+
+/** Sem remetente cadastrado: acha a recorrência pelas PALAVRAS da descrição/categoria dela no remetente, no assunto ou no corpo
+ *  ("Luz Light" -> "light", "Gás Naturgy" -> "naturgy", "Condomínio" -> "condominio"). Palavra no remetente/assunto vale 2, no corpo 1;
+ *  precisa de pelo menos 2 pontos e de um vencedor único. */
+export function recorrenciaPorPalavras(recs: RecorrenciaEmail[], from: string, subject: string, body: string): RecorrenciaEmail | null {
+  const cab = normalizarTexto(`${from} ${subject}`);
+  const corpo = normalizarTexto(body.slice(0, 5000));
+  const placar = recs.map((r) => {
+    const palavras = [...new Set(normalizarTexto(`${r.descricao} ${r.categoria}`).split(/[^a-z0-9]+/).filter((p) => p.length >= 4 && !PALAVRAS_COMUNS.has(p)))];
+    let pontos = 0;
+    for (const p of palavras) pontos += cab.includes(p) ? 2 : corpo.includes(p) ? 1 : 0;
+    return { r, pontos };
+  }).filter((x) => x.pontos >= 2).sort((a, b) => b.pontos - a.pontos);
+  if (!placar.length) return null;
+  return placar.length === 1 || placar[0].pontos > placar[1].pontos ? placar[0].r : null;
+}
+
 /** Ocorrência "a confirmar" que essa conta representa: a de data mais próxima do vencimento (até 25 dias); sem vencimento,
  *  a primeira de hoje (ou até 10 dias atrás) em diante. */
 export function escolherOcorrencia(ocs: OcorrenciaEmail[], vencimento: string | null, hoje: string): OcorrenciaEmail | null {
@@ -81,12 +99,13 @@ export async function processarEmailConta(
   const marcar = (status: string, extra: Record<string, unknown> = {}) =>
     admin.from("emails_processados").update({ status, ...extra }).eq("user_id", userId).eq("message_id", e.messageId);
 
-  const { data: recs } = await admin.from("recorrencias").select("id, descricao, categoria, remetentes")
-    .eq("user_id", userId).eq("status", "ativa").neq("remetentes", "");
-  const rec = recorrenciaDoEmail((recs ?? []) as RecorrenciaEmail[], e.from, e.subject);
+  const { data: recs } = await admin.from("recorrencias").select("id, descricao, categoria, remetentes, tipo")
+    .eq("user_id", userId).eq("status", "ativa");
+  const despesas = ((recs ?? []) as (RecorrenciaEmail & { tipo: string })[]).filter((r) => r.tipo === "saidas");
+  const rec = recorrenciaDoEmail(despesas, e.from, e.subject) ?? recorrenciaPorPalavras(despesas, e.from, e.subject, e.body);
   if (!rec) {
     await marcar("sem_recorrencia");
-    await tg(token, "sendMessage", { chat_id: chatId, text: `📧 E-mail de ${nomeCurto(e.from)} — "${e.subject.slice(0, 80)}"\nNão há recorrência ligada a esse remetente. Cadastre o e-mail da conta na recorrência (campo "E-mail da conta") para eu vincular da próxima vez.` });
+    await tg(token, "sendMessage", { chat_id: chatId, text: `📧 E-mail de ${nomeCurto(e.from)} — "${e.subject.slice(0, 80)}"\nNão consegui ligar a nenhuma recorrência. Cadastre o e-mail da conta na recorrência (campo "E-mail da conta") para eu vincular da próxima vez.` });
     return { ok: true, status: "sem_recorrencia" };
   }
 
@@ -96,7 +115,13 @@ export async function processarEmailConta(
     .eq("user_id", userId).eq("recorrencia_id", rec.id).eq("a_confirmar", true).order("data", { ascending: true });
   const ocorrencia = escolherOcorrencia((ocs ?? []) as OcorrenciaEmail[], dados.vencimento, hoje);
   const nome = rec.descricao || rec.categoria;
+  // Já tratei essa conta (mesma recorrência) nos últimos 60 dias? Então é lembrete repetido: não avisa de novo
+  const desde = new Date(Date.now() - 60 * 86400000).toISOString();
+  const { data: anteriores } = await admin.from("emails_processados").select("transacao_id, status")
+    .eq("user_id", userId).eq("recorrencia_id", rec.id).in("status", ["rascunho", "atualizado", "repetido"]).gte("criado_em", desde);
+  const jaTratada = (anteriores ?? []) as { transacao_id: number | null; status: string }[];
   if (!ocorrencia) {
+    if (jaTratada.length) { await marcar("repetido", { recorrencia_id: rec.id }); return { ok: true, status: "repetido" }; } // ex.: já confirmada
     await marcar("sem_ocorrencia", { recorrencia_id: rec.id });
     await tg(token, "sendMessage", { chat_id: chatId, text: `📧 ${nome}: chegou o e-mail${dados.valor ? ` (${formatarMoedaBR(dados.valor)})` : ""}, mas não achei uma ocorrência "a confirmar" dessa recorrência para atualizar.` });
     return { ok: true, status: "sem_ocorrencia" };
@@ -118,6 +143,10 @@ export async function processarEmailConta(
   }
   const valorFinal = Number(mudancas.valor ?? valorAnterior);
   const dataFinal = String(mudancas.data ?? dataAtual);
+  // lembrete repetido da mesma ocorrência sem nada de novo (mesmo valor e data): só registra, sem novo aviso
+  const jaAvisada = jaTratada.some((x) => x.transacao_id === ocorrencia.id);
+  const semNovidade = !(("valor" in mudancas && Number(mudancas.valor) !== valorAnterior) || ("data" in mudancas && String(mudancas.data) !== dataAtual));
+  if (jaAvisada && semNovidade) { await marcar("repetido", { recorrencia_id: rec.id, transacao_id: ocorrencia.id }); return { ok: true, status: "repetido" }; }
 
   // rascunho da própria ocorrência (o mesmo do lembrete: confirmar atualiza a linha, nunca insere outra)
   const listas = await carregarListasUsuario(admin, userId);
@@ -141,7 +170,7 @@ export async function processarEmailConta(
   const origemValor = dados.valor !== null ? "valor do e-mail" : "e-mail sem valor: mesmo valor do mês anterior";
   const alerta = dados.valor !== null && valorAnterior > 0 && Math.abs(dados.valor - valorAnterior) / valorAnterior > 0.4
     ? `\n⚠️ Bem diferente do mês anterior (${formatarMoedaBR(valorAnterior)})` : "";
-  await marcar("rascunho", { recorrencia_id: rec.id, transacao_id: ocorrencia.id });
-  await enviarRascunho(token, chatId, rascunhoId, rascunho, admin, userId, `📧 ${nome} — ${origemValor}${dados.vencimento ? ` · vence ${dados.vencimento.split("-").reverse().join("/")}` : ""}${alerta}`);
+  await marcar(jaAvisada ? "atualizado" : "rascunho", { recorrencia_id: rec.id, transacao_id: ocorrencia.id });
+  await enviarRascunho(token, chatId, rascunhoId, rascunho, admin, userId, `📧 ${nome}${jaAvisada ? " (atualizado por novo e-mail)" : ""} — ${origemValor}${dados.vencimento ? ` · vence ${dados.vencimento.split("-").reverse().join("/")}` : ""}${alerta}`);
   return { ok: true, status: "rascunho" };
 }
