@@ -40,6 +40,7 @@ function mapearTransacao(row) {
         cartaoId: row.cartao_id || null,
         grupoId: row.grupo_id || null,
         pendente: !!row.pendente,
+        recorrenciaSemanalId: row.recorrencia_semanal_id || null, // ocorrência de recorrência SEMANAL: agrupada com o total, mesmo depois de confirmada
         recorrenciaId: row.recorrencia_id || null,   // ocorrência de uma recorrência (nulo = lançamento normal)
         aConfirmar: !!row.a_confirmar,               // gerada pela recorrência e ainda sem decisão do usuário
         duplicataOk: !!row.duplicata_ok, // "não é duplicata" confirmado (vale em todos os dispositivos)

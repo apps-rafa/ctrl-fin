@@ -158,6 +158,8 @@ export async function gerarOcorrencias(
         status: "Ativa", recorrencia_id: r.id, a_confirmar: true,
         // semanal: o mesmo valor/forma/descrição várias vezes no mês é o normal, nunca duplicata
         duplicata_ok: r.frequencia === "semanal",
+        // semanal: marca o grupo (as ocorrências aparecem agrupadas, com o total, mesmo depois de confirmadas e soltas da recorrência)
+        recorrencia_semanal_id: r.frequencia === "semanal" ? r.id : null,
       }));
       const { error } = await admin.from("transacoes").upsert(linhas, { onConflict: "recorrencia_id,data", ignoreDuplicates: true });
       if (error) { console.error("Ocorrências não geradas:", error); continue; }
