@@ -345,55 +345,47 @@ async function processarTextoLivre(
 
   await limparRascunhosAntigos(supabaseAdmin); // melhor esforço: não deixa a fila crescer sem fim
 
-  // Assinatura/conta recorrente no cartão: se já existe a ocorrência "a confirmar" dela (mesmo nome no texto, ou mesmo valor),
-  // o rascunho passa a ATUALIZAR essa ocorrência em vez de criar um lançamento repetido.
+  // Uma varredura só, antes de montar o rascunho: olha TODAS as despesas do mês (a confirmar, a pagar e já pagas).
+  //  - ocorrência "a confirmar" de recorrência que bate (nome no texto, ou nome parecido + mesmo valor): o rascunho a ATUALIZA;
+  //  - qualquer outra coisa parecida (nome+valor, valor em até 3 dias, ou nome em até 3 dias): só avisa, e o usuário cancela se for o mesmo.
   let recCasada: string | null = null;
-  if (tipo === "saidas") {
-    try {
-      const hojeI = hojeBrasiliaISO();
-      const { data: ocs } = await supabaseAdmin.from("transacoes").select("id, descricao, categoria, valor, data")
-        .eq("user_id", tgUser.user_id).eq("tipo", "saidas").eq("a_confirmar", true).not("recorrencia_id", "is", null)
-        .gte("data", somarDiasISO(rascunho.data || hojeI, -12)).lte("data", somarDiasISO(rascunho.data || hojeI, 40)).order("data", { ascending: true });
-      const alvo = normalizarTexto(texto);
-      const diasDe = (d: string) => Math.abs(Date.parse(`${d.slice(0, 10)}T00:00:00Z`) - Date.parse(`${rascunho.data || hojeI}T00:00:00Z`));
-      const pontua = (o: { descricao: string | null; valor: number }) => {
-        const palavras = normalizarTexto(String(o.descricao ?? "")).split(/[^a-z0-9]+/).filter((p) => p.length >= 4);
-        const nome = palavras.length > 0 && palavras.every((p) => alvo.includes(p)) ? 2 : palavras.some((p) => alvo.includes(p)) ? 1 : 0;
-        const mesmoValor = Math.abs(Number(o.valor) - valor) < 0.5 ? 1 : 0;
-        return nome >= 2 || (nome >= 1 && mesmoValor) ? nome + mesmoValor : 0;
-      };
-      const melhor = ((ocs ?? []) as { id: number; descricao: string | null; categoria: string; valor: number; data: string }[])
-        .map((o) => ({ o, p: pontua(o) })).filter((x) => x.p > 0)
-        .sort((a, b) => b.p - a.p || diasDe(a.o.data) - diasDe(b.o.data))[0];
-      if (melhor) {
-        rascunho.ocorrenciaId = melhor.o.id;
-        rascunho.categoria = melhor.o.categoria || rascunho.categoria;
-        if (melhor.o.descricao) rascunho.descricao = melhor.o.descricao;
-        recCasada = melhor.o.descricao || melhor.o.categoria;
-      }
-    } catch (e) { console.error("casar SMS com recorrência:", e); }
-  }
-  // Antes de lançar, olha TODAS as despesas do mês (a pagar, pagas...) e avisa se já existe algo parecido.
   let similaresTxt = "";
-  if (tipo === "saidas" && !recCasada) {
+  if (tipo === "saidas") {
     try {
       const dataR = rascunho.data || hojeBrasiliaISO();
       const mes = dataR.slice(0, 7);
-      const { data: doMes } = await supabaseAdmin.from("transacoes").select("descricao, categoria, valor, data, metodo, a_confirmar")
-        .eq("user_id", tgUser.user_id).eq("tipo", "saidas").gte("data", `${mes}-01`).lte("data", `${mes}-31`);
-      const alvoN = normalizarTexto(`${texto} ${rascunho.descricao}`);
+      const ini = [`${mes}-01`, somarDiasISO(dataR, -12)].sort()[0];
+      const fim = [`${mes}-31`, somarDiasISO(dataR, 40)].sort().reverse()[0];
+      const { data: todas } = await supabaseAdmin.from("transacoes").select("id, descricao, categoria, valor, data, metodo, a_confirmar, recorrencia_id")
+        .eq("user_id", tgUser.user_id).eq("tipo", "saidas").gte("data", ini).lte("data", fim).order("data", { ascending: true });
+      type Tx = { id: number; descricao: string | null; categoria: string; valor: number; data: string; metodo: string | null; a_confirmar: boolean; recorrencia_id: string | null };
+      const lista = (todas ?? []) as Tx[];
+      const alvo = normalizarTexto(`${texto} ${rascunho.descricao}`);
       const dias = (d: string) => Math.abs(Date.parse(`${d.slice(0, 10)}T00:00:00Z`) - Date.parse(`${dataR}T00:00:00Z`)) / 86400000;
-      const achados = ((doMes ?? []) as { descricao: string | null; categoria: string; valor: number; data: string; metodo: string | null; a_confirmar: boolean }[]).filter((t) => {
+      const nomeBate = (t: Tx) => {
         const palavras = normalizarTexto(String(t.descricao ?? "")).split(/[^a-z0-9]+/).filter((q) => q.length >= 4);
-        const nome = palavras.length > 0 && palavras.some((q) => alvoN.includes(q));
-        const mesmoValor = Math.abs(Number(t.valor) - valor) < 0.5;
-        return (nome && mesmoValor) || (mesmoValor && dias(t.data) <= 3) || (nome && dias(t.data) <= 3);
-      }).slice(0, 3);
-      if (achados.length) {
-        const fmt = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-        similaresTxt = "⚠️ Já existe algo parecido neste mês:\n" + achados.map((t) => `• ${t.descricao || t.categoria} — ${fmt(Number(t.valor))} em ${t.data.slice(8, 10)}/${t.data.slice(5, 7)}${t.a_confirmar ? " (a confirmar)" : ""}${t.metodo ? ` · ${t.metodo}` : ""}`).join("\n")          + "\nSe for o mesmo, toque em ❌ Cancelar neste rascunho; se for outro, ✅ Confirmar.";
+        return palavras.length === 0 ? 0 : palavras.every((q) => alvo.includes(q)) ? 2 : palavras.some((q) => alvo.includes(q)) ? 1 : 0;
+      };
+      const mesmoValor = (t: Tx) => Math.abs(Number(t.valor) - valor) < 0.5;
+      const casadas = lista.filter((t) => t.a_confirmar && t.recorrencia_id)
+        .map((t) => ({ t, p: nomeBate(t) >= 2 || (nomeBate(t) >= 1 && mesmoValor(t)) ? nomeBate(t) + (mesmoValor(t) ? 1 : 0) : 0 }))
+        .filter((x) => x.p > 0).sort((x, y) => y.p - x.p || dias(x.t.data) - dias(y.t.data));
+      if (casadas.length) {
+        const o = casadas[0].t;
+        rascunho.ocorrenciaId = o.id;
+        rascunho.categoria = o.categoria || rascunho.categoria;
+        if (o.descricao) rascunho.descricao = o.descricao;
+        recCasada = o.descricao || o.categoria;
+      } else {
+        const achados = lista.filter((t) => t.data.slice(0, 7) === mes && ((nomeBate(t) > 0 && mesmoValor(t)) || (mesmoValor(t) && dias(t.data) <= 3) || (nomeBate(t) > 0 && dias(t.data) <= 3))).slice(0, 3);
+        if (achados.length) {
+          const fmt = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+          similaresTxt = "⚠️ Já existe algo parecido neste mês:\n"
+            + achados.map((t) => `• ${t.descricao || t.categoria} — ${fmt(Number(t.valor))} em ${t.data.slice(8, 10)}/${t.data.slice(5, 7)}${t.a_confirmar ? " (a confirmar)" : ""}${t.metodo ? ` · ${t.metodo}` : ""}`).join("\n")
+            + "\nSe for o mesmo, toque em ❌ Cancelar neste rascunho; se for outro, ✅ Confirmar.";
+        }
       }
-    } catch (e) { console.error("procurar parecidos:", e); }
+    } catch (e) { console.error("procurar parecidos/recorrência:", e); }
   }
 
   // Cada texto/SMS vira um rascunho independente — vários pendentes ao mesmo
