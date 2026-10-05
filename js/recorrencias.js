@@ -199,13 +199,11 @@ function _recDistribuirRecorrenciaEDia() {
     const e = _recElementos();
     e.dia.classList.remove('compacto');
     e.inicio.classList.remove('compacto');
-    if (e.freq.value === 'mensal' && e.dia.options[0] && e.dia.options[0].value === 'hoje') e.dia.options[0].textContent = 'Hoje';
     _recRotulosInicio(false);
     if (!e.freq.clientWidth) return;
-    const textoDia = e.freq.value === 'mensal' ? 'Hoje' : 'Var.';
+    const textoDia = 'Var.'; // o 1º item do menu Dia é "Variável" nos dois ritmos
     if (e.dia.clientWidth < _recLarguraNecessaria(e.dia, textoDia)) {
         e.dia.classList.add('compacto');
-        if (e.freq.value === 'mensal' && e.dia.clientWidth < _recLarguraNecessaria(e.dia, 'Hoje') && e.dia.options[0] && e.dia.options[0].value === 'hoje') e.dia.options[0].textContent = 'HJ';
     }
     if (e.inicio.clientWidth && e.inicio.clientWidth < _recLarguraNecessaria(e.inicio, 'OUT') + 24) {
         e.inicio.classList.add('compacto');

@@ -26,10 +26,10 @@ function _ajustarBadgesQuebrados(root) {
     (root || document).querySelectorAll('.despesa-item').forEach(item => {
         const badges = item.querySelector('.despesa-badges');
         const valor = item.querySelector('.despesa-valor');
-        if (!badges || !valor) { item.classList.remove('badges-quebrou'); delete item.dataset.metTier; return; }
+        if (!badges || !valor) { delete item.dataset.metTier; return; }
         if (item.offsetParent === null) return; // oculto (grupo fechado): mede quando aparecer
         const quebrou = () => badges.offsetTop > valor.offsetTop + 2;
-        if (!item.querySelector('.met-tier-full')) { item.classList.toggle('badges-quebrou', quebrou()); return; }
+        if (!item.querySelector('.met-tier-full')) return;
         // Prioridade máxima: não quebrar linha. Tenta o nome inteiro, depois "CC Bradesco" e "CC Brad."; só se nem o mais curto
         // couber, os chips quebram e voltam ao nome inteiro (sozinhos na linha, sobra espaço).
         let tier = 'full';
@@ -39,7 +39,6 @@ function _ajustarBadgesQuebrados(root) {
             tier = null;
         }
         if (!tier) item.dataset.metTier = 'full';
-        item.classList.toggle('badges-quebrou', !tier);
     });
 }
 

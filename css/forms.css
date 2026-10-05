@@ -202,11 +202,6 @@
 }
 #metodoBloco > #parceleGroup { flex: 0 0 4.9rem; }
 
-.campo-mini--xs input {
-    padding-left: .3rem;
-    padding-right: .3rem;
-    text-align: center;
-}
 #parcelas { -moz-appearance: textfield; }
 #parcelas::-webkit-inner-spin-button,
 #parcelas::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
