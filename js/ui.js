@@ -1109,8 +1109,8 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
                 <span class="despesa-valor">${sinal} ${valorFormatado}</span>
                 ${parcelaTag}
                 ${quitarCheckbox}
-                ${(metaChip || catChip || quandoTag || quitadoTag) ? `<span class="despesa-badges">${metaChip}${catChip}${quandoTag}${quitadoTag}</span>` : ''}
-                ${descTxt}
+                ${(metaChip || quandoTag || quitadoTag) ? `<span class="despesa-badges">${metaChip}${quandoTag}${quitadoTag}</span>` : ''}
+                ${(catChip || descTxt) ? `<span class="despesa-linha2">${catChip}${descTxt}</span>` : ''}
             </div>
             <div class="despesa-actions">${acoes}</div>
         </div>`;
