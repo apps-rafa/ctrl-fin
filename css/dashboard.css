@@ -448,3 +448,5 @@
 .card-linhas-topo.rot-emoji .linha i[data-rot] { font-size: .8rem; font-style: normal; }
 /* sobrou espaço (o rótulo virou emoji): o valor cresce */
 .card-linhas-topo.rot-emoji .linha b { font-size: clamp(.7rem, 10.5cqw, 1.25rem); }
+/* pix / crédito / pendentes: sempre em itálico (e menores que os rótulos, ver _unificarDetalhes) */
+.card-linhas-topo .linha-detalhe i { font-style: italic; }
