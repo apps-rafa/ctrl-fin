@@ -237,7 +237,8 @@ function montarRegistro(dados) {
         // categoria/descrição/etc. na revisão) — mesma ideia do origem,
         // invisível na UI. Ver schema.sql:transacoes.dados_originais.
         dados_originais: dados.dadosOriginais || null,
-        agendado: !!dados.data && String(dados.data).slice(0, 10) > hojeISO() // data futura = programado
+        data_indefinida: !!dados.dataIndefinida,
+        agendado: !!dados.dataIndefinida || (!!dados.data && String(dados.data).slice(0, 10) > hojeISO()) // data futura ou sem data = programado
     };
 }
 
@@ -375,7 +376,6 @@ async function editarTransacaoAPI(dados) {
     const registro = montarRegistro(dados);
     delete registro.tipo;
     if (!registro.agendado) delete registro.agendado; // data de hoje/passada não desfaz um agendamento existente
-    registro.data_indefinida = false; // salvar com a data escolhida no formulário a define
     registro.a_confirmar = false; // salvar uma ocorrência (editada à mão) a confirma: vira lançamento normal, com o selo
     // origem/dados_originais são gravados só na criação (import) — editar um
     // lançamento pelo formulário normal nunca passa esses campos em `dados`,
