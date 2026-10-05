@@ -532,8 +532,8 @@ function _recCardHTML(r) {
                 <span class="rec-nome">${r.descricao || r.categoria}</span>
                 <span class="despesa-valor">${despesa ? '-' : '+'} ${formatarMoeda(r.valor)}</span>
                 <span class="despesa-badges"><span class="chip" style="background:${corMet}">${r.metodo}</span></span>
-                <span class="despesa-linha2"><span class="despesa-desc">${_recRotuloFrequencia(r).replace(' · ', ' ')}</span><span class="chip" style="background:${corCat}">${r.categoria}</span></span>
-                <span class="despesa-desc">${r.competenciaOffset ? `mês de referência: ${r.competenciaOffset > 0 ? 'próximo' : 'anterior'} - ` : ''}${r.meses ? `total: ${_recTotalTexto(r)}` : 'contínuo'} - ${r.status === 'encerrada' && r.encerradaEm ? `${_recMesCriacaoTexto(r.ativaDesde).toLowerCase()} – ${_recMesCriacaoTexto(String(r.encerradaEm).slice(0, 7)).toLowerCase()}` : `desde ${_recMesCriacaoTexto(r.criadoEm).toLowerCase()}`}</span>
+                <span class="despesa-linha2"><span class="despesa-desc">${_recRotuloFrequencia(r).replace(' · ', ' ').toLowerCase()}${r.competenciaOffset ? ` • mês de referência: ${r.competenciaOffset > 0 ? 'próximo' : 'anterior'}` : ''}</span><span class="chip" style="background:${corCat}">${r.categoria}</span></span>
+                <span class="despesa-desc">${r.meses ? `total: ${_recTotalTexto(r)}` : 'contínuo'}, ${r.status === 'encerrada' && r.encerradaEm ? `${_recMesCriacaoTexto(r.ativaDesde).toLowerCase()} – ${_recMesCriacaoTexto(String(r.encerradaEm).slice(0, 7)).toLowerCase()}` : `desde ${_recMesCriacaoTexto(r.criadoEm).toLowerCase()}`}</span>
             </div>
             <div class="despesa-actions">
                 ${r.status === 'encerrada' ? '' : '<button type="button" class="btn-icon" data-rec-act="editar" title="Editar" aria-label="Editar">' + ICONE_LAPIS + '</button>'}

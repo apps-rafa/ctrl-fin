@@ -44,6 +44,7 @@ function mapearTransacao(row) {
         recorrenciaId: row.recorrencia_id || null,   // ocorrência de uma recorrência (nulo = lançamento normal)
         aConfirmar: !!row.a_confirmar,               // gerada pela recorrência e ainda sem decisão do usuário
         duplicataOk: !!row.duplicata_ok, // "não é duplicata" confirmado (vale em todos os dispositivos)
+        agendado: !!row.agendado, // lançamento programado: o "Pago"/"Recebido" aparece quando a data chega, até ser marcado
         dataIndefinida: !!row.data_indefinida, // recorrência mensal "Variável": só o mês é conhecido (mostra --/mês)
         parcelaNum: row.parcela_num || null,
         parcelasTotal: row.parcelas_total || null,
@@ -235,7 +236,8 @@ function montarRegistro(dados) {
         // Snapshot "cru" (como veio da fonte, antes do usuário editar
         // categoria/descrição/etc. na revisão) — mesma ideia do origem,
         // invisível na UI. Ver schema.sql:transacoes.dados_originais.
-        dados_originais: dados.dadosOriginais || null
+        dados_originais: dados.dadosOriginais || null,
+        agendado: !!dados.data && String(dados.data).slice(0, 10) > hojeISO() // data futura = programado
     };
 }
 
@@ -372,6 +374,7 @@ async function editarTransacaoAPI(dados) {
 
     const registro = montarRegistro(dados);
     delete registro.tipo;
+    if (!registro.agendado) delete registro.agendado; // data de hoje/passada não desfaz um agendamento existente
     registro.data_indefinida = false; // salvar com a data escolhida no formulário a define
     registro.a_confirmar = false; // salvar uma ocorrência (editada à mão) a confirma: vira lançamento normal, com o selo
     // origem/dados_originais são gravados só na criação (import) — editar um
