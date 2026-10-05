@@ -1009,8 +1009,9 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     // tricode do dia da semana (ex.: 26/9 SÁB).
     const _dowTri = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
     const _dt = trans.data ? parseDataLocal(trans.data) : null;
-    const diaFormatado = _dt ? `${String(_dt.getDate()).padStart(2, '0')}/${String(_dt.getMonth() + 1).padStart(2, '0')}` : '--';
-    const dowFormatado = _dt ? _dowTri[_dt.getDay()] : '';
+    // Data indefinida (recorrência mensal "Variável"): só o mês, "--/10"
+    const diaFormatado = _dt ? `${trans.dataIndefinida ? '--' : String(_dt.getDate()).padStart(2, '0')}/${String(_dt.getMonth() + 1).padStart(2, '0')}` : '--';
+    const dowFormatado = _dt && !trans.dataIndefinida ? _dowTri[_dt.getDay()] : '';
 
     const quandoTag = opts.quando ? `<span class="quando-tag">${opts.quando}</span>` : '';
 
@@ -1022,6 +1023,13 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     // junto dos ícones de editar/excluir no fim da linha.
     const quitarCheckbox = (ehParcela && !trans.quitada && !opts.semAcoes)
         ? `<label class="quitar-check" title="Quitar a partir deste mês"><input type="checkbox" name="quitar-parcela" data-act="quitar-parc" data-id="${trans.id}" ${trans.quitadoEm ? 'checked' : ''}> quitar</label>`
+        : '';
+    // Lançamento de hoje ou futuro (fora cartão de crédito/parcelas/rascunhos): "Pago"/"Recebido" — marcado sozinho quando a data chega;
+    // marcar leva a data para hoje; desmarcar, para amanhã.
+    const _metTrans = ((estadoApp.menus && estadoApp.menus.metodos) || []).find(m => rotuloMetodo(m) === trans.metodo);
+    const _rotPago = tipo === 'entrada' ? 'Recebido' : 'Pago';
+    const pagoCheck = (!opts.semAcoes && !trans.aConfirmar && !ehParcela && trans.data && String(trans.data).slice(0, 10) >= hojeISO() && !(_metTrans && _metTrans.metodoKind === 'Crédito') && !_ehEstornoCartao(trans))
+        ? `<label class="pago-check" title="${_rotPago}: marcar leva a data para hoje; desmarcar, para amanhã"><input type="checkbox" name="marcar-pago" data-act="marcar-pago" data-id="${trans.id}" ${String(trans.data).slice(0, 10) <= hojeISO() ? 'checked' : ''}> ${_rotPago}</label>`
         : '';
     const quitadoTag = ehParcela && trans.quitadoEm
         ? `<span class="quitado-badge">quitado ${typeof mesTri === 'function' ? mesTri(String(trans.quitadoEm).slice(5, 7)) + '/' + String(trans.quitadoEm).slice(2, 4) : ''}</span>`
@@ -1109,11 +1117,22 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
                 <span class="despesa-valor">${sinal} ${valorFormatado}</span>
                 ${parcelaTag}
                 ${quitarCheckbox}
+                ${pagoCheck}
                 ${(metaChip || quandoTag || quitadoTag) ? `<span class="despesa-badges">${metaChip}${quandoTag}${quitadoTag}</span>` : ''}
                 <span class="despesa-linha2">${descTxt}${catChip}</span>
             </div>
             <div class="despesa-actions">${acoes}</div>
         </div>`;
+}
+
+/** Marcar "Pago"/"Recebido" num lançamento de hoje/futuro: a data vai para hoje; desmarcar leva para amanhã. */
+async function marcarPagoRecebido(trans, marcado) {
+    const amanha = parseDataLocal(hojeISO()); amanha.setDate(amanha.getDate() + 1);
+    const novaData = marcado ? hojeISO() : formatarDataISO(amanha);
+    const { error } = await sb.from('transacoes').update({ data: novaData, data_indefinida: false }).eq('id', trans.id);
+    if (error) { console.error(error); mostrarNotificacao('Não consegui atualizar a data', 'erro'); }
+    await recarregarDados();
+    atualizarUI();
 }
 
 /** Delegação de clique nas listas de transações */
@@ -1178,6 +1197,9 @@ function onListaTransacaoClick(e) {
     switch (el.dataset.act) {
         case 'quitar-parc':
             quitarParcelamento(id, el.checked);
+            break;
+        case 'marcar-pago':
+            marcarPagoRecebido(trans, el.checked);
             break;
         case 'editar-trans': {
             if (trans.parcelasTotal && trans.parcelaNum !== 1) { abrirOriginalDaParcela(trans); break; }

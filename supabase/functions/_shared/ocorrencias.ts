@@ -47,7 +47,7 @@ export function fimDaRecorrencia(r: Pick<RecorrenciaLinha, "inicio" | "meses" | 
 }
 
 /** Todas as datas da recorrência de `inicio` até `ate` (inclusive), respeitando a duração. */
-export interface OcorrenciaData { data: string; nominal: string }
+export interface OcorrenciaData { data: string; nominal: string; indefinida?: boolean }
 
 /** Datas + a data NOMINAL de cada uma (o dia da regra, antes de ir para o próximo dia útil). A competência sai da nominal:
  *  salário do dia 31/10 pago em 03/11 (dia útil) continua sendo de outubro. */
@@ -59,12 +59,13 @@ export function ocorrenciasDaRecorrencia(
   const dentro = (d: string) => d <= ate && (!fim || d < fim);
   const saida: OcorrenciaData[] = [];
   if (r.frequencia === "mensal") {
-    const dia = r.dia_mes ?? paraData(r.inicio).getUTCDate();
+    const variavel = r.dia_mes == null; // "Variável": sem dia definido -> cai no fim do mês, marcada como data indefinida ("--/mês")
+    const dia = r.dia_mes ?? 31;
     for (let k = 0; k < 600; k++) {
       const d = somarMesesNoDia(r.inicio, k, dia);
       if (d < r.inicio.slice(0, 10)) continue; // no mês do início o dia escolhido já tinha passado: começa no mês seguinte
       if (d > ate || (fim && d >= fim)) break;
-      saida.push({ data: ajustar(d), nominal: d }); // mensal: fim de semana/feriado vai para o próximo dia útil
+      saida.push(variavel ? { data: d, nominal: d, indefinida: true } : { data: ajustar(d), nominal: d }); // mensal: fim de semana/feriado vai para o próximo dia útil
     }
     return saida;
   }
@@ -155,7 +156,7 @@ export async function gerarOcorrencias(
       const linhas = novas.map((o) => ({
         user_id: r.user_id, tipo: r.tipo, data: o.data, valor: valorRef, metodo: r.metodo, categoria: r.categoria,
         descricao: r.descricao, forma_pagamento: "À vista", tipo_recorrencia: "Pontual", competencia: competenciaDaOcorrencia(o.nominal, fech, r.competencia_offset),
-        status: "Ativa", recorrencia_id: r.id, a_confirmar: true,
+        status: "Ativa", recorrencia_id: r.id, a_confirmar: true, data_indefinida: !!o.indefinida,
         // semanal: o mesmo valor/forma/descrição várias vezes no mês é o normal, nunca duplicata
         duplicata_ok: r.frequencia === "semanal",
         // semanal: marca o grupo (as ocorrências aparecem agrupadas, com o total, mesmo depois de confirmadas e soltas da recorrência)

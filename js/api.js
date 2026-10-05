@@ -44,6 +44,7 @@ function mapearTransacao(row) {
         recorrenciaId: row.recorrencia_id || null,   // ocorrência de uma recorrência (nulo = lançamento normal)
         aConfirmar: !!row.a_confirmar,               // gerada pela recorrência e ainda sem decisão do usuário
         duplicataOk: !!row.duplicata_ok, // "não é duplicata" confirmado (vale em todos os dispositivos)
+        dataIndefinida: !!row.data_indefinida, // recorrência mensal "Variável": só o mês é conhecido (mostra --/mês)
         parcelaNum: row.parcela_num || null,
         parcelasTotal: row.parcelas_total || null,
         valorTotal: row.valor_total != null ? parseFloat(row.valor_total) : null,
@@ -371,6 +372,7 @@ async function editarTransacaoAPI(dados) {
 
     const registro = montarRegistro(dados);
     delete registro.tipo;
+    registro.data_indefinida = false; // salvar com a data escolhida no formulário a define
     registro.a_confirmar = false; // salvar uma ocorrência (editada à mão) a confirma: vira lançamento normal, com o selo
     // origem/dados_originais são gravados só na criação (import) — editar um
     // lançamento pelo formulário normal nunca passa esses campos em `dados`,

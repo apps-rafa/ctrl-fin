@@ -165,7 +165,7 @@ function _recMesesDe(n) { return n > 1 ? n : 0; }
 
 /** Texto curto da recorrência para a lista ("Mensal", "Semanal · SEG", "Semanal · Variável"). */
 function _recRotuloFrequencia(r) {
-    if (r.frequencia === 'mensal') return r.diaMes ? `Mensal · dia ${r.diaMes}` : 'Mensal';
+    if (r.frequencia === 'mensal') return r.diaMes ? `Mensal · dia ${r.diaMes}` : 'Mensal · variável';
     return `Semanal · ${r.diaSemana !== '' && r.diaSemana != null ? _DIAS_TRI[Number(r.diaSemana)] : 'Variável'}`;
 }
 
@@ -247,14 +247,15 @@ function _recDatas(r, ate) {
     const fim = r.meses && r.meses > 1 ? iso(_recSomarMeses(ini, r.meses)) : null;
     const out = [];
     if (r.frequencia === 'mensal') {
-        const dia = r.diaMes || ini.getDate();
+        const variavel = !r.diaMes; // sem dia definido: a ocorrência cai no fim do mês, marcada como "--/mês"
+        const dia = variavel ? 31 : r.diaMes;
         for (let k = 0; k < 600; k++) {
             const base = new Date(ini.getFullYear(), ini.getMonth() + k, 1);
             base.setDate(Math.min(dia, new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate()));
             const d = iso(base);
             if (d < r.inicio) continue;
             if (d > ate || (fim && d >= fim)) break;
-            out.push(!r.semDiaUtil && typeof proximoDiaUtil === 'function' ? iso(proximoDiaUtil(base)) : d); // cartão de crédito: qualquer dia
+            out.push(!variavel && !r.semDiaUtil && typeof proximoDiaUtil === 'function' ? iso(proximoDiaUtil(base)) : d); // cartão de crédito: qualquer dia
         }
         return out;
     }
@@ -275,7 +276,7 @@ function _recPerguntarRetroativas({ frequencia, passadas, proxima, mesCorrente, 
     const lista = passadas.length <= 6 ? passadas.map(fmt).join(', ') : `de ${fmt(passadas[0])} a ${fmt(passadas[passadas.length - 1])}`;
     const n = passadas.length;
     let texto, rotuloFrente;
-    if (mesCorrente && frequencia === 'mensal') {
+    if (mesCorrente && frequencia === 'mensal' && diaMes) {
         texto = `Hoje é dia ${hoje.slice(8, 10)} e a recorrência é todo dia ${diaMes}. Criar também a ocorrência de ${lista} ou começar só no próximo mês?`;
         rotuloFrente = 'Só no próximo mês';
     } else if (mesCorrente) {
@@ -302,8 +303,9 @@ function _recMontarMenuDia(freq, valor) {
     if (e.dia.dataset.freq === freq) return;
     e.dia.dataset.freq = freq;
     if (freq === 'mensal') {
-        e.dia.innerHTML = '<option value="hoje">Hoje</option>' + Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
-        e.dia.value = valor != null && valor !== '' ? String(valor) : 'hoje'; // novo: "Hoje" (vira o dia de hoje ao salvar)
+        // "Variável" = sem dia definido (a ocorrência fica como "--/mês" até você escolher a data); novo: já vem no dia de hoje
+        e.dia.innerHTML = '<option value="">Variável</option>' + Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
+        e.dia.value = valor === undefined ? String(Number(hojeISO().slice(8, 10))) : (valor == null || valor === '' ? '' : String(valor));
     } else {
         e.dia.innerHTML = '<option value="">Variável</option><option value="1">SEG</option><option value="2">TER</option><option value="3">QUA</option><option value="4">QUI</option><option value="5">SEX</option><option value="6">SÁB</option><option value="0">DOM</option>';
         e.dia.value = valor != null ? String(valor) : '';
@@ -369,7 +371,7 @@ function abrirFormRecorrencia(rec) {
     _recDefinirTipo(rec ? rec.tipo : 'saidas');
     e.freq.value = rec ? rec.frequencia : 'mensal';
     delete e.dia.dataset.freq; // remonta o menu de dias do ritmo escolhido
-    _recMontarMenuDia(e.freq.value, rec ? (rec.frequencia === 'mensal' ? rec.diaMes : rec.diaSemana) : null);
+    _recMontarMenuDia(e.freq.value, rec ? (rec.frequencia === 'mensal' ? rec.diaMes : rec.diaSemana) : undefined);
     e.valor.value = rec ? formatarValorParaCampo(rec.valor) : '';
     e.duracao.value = rec && rec.meses ? String(rec.meses) : '1';
     e.metodo.value = rec ? rec.metodo : '';
@@ -422,7 +424,7 @@ async function salvarRecorrencia(ev) {
     const campos = {
         tipo: e.tipo.value, frequencia: freq,
         dia_semana: freq === 'semanal' && e.dia.value !== '' ? Number(e.dia.value) : null,
-        dia_mes: freq === 'mensal' ? (Number(e.dia.value) || Number(hojeISO().slice(8, 10))) : null, // "Hoje" = o dia de hoje
+        dia_mes: freq === 'mensal' ? (Number(e.dia.value) || null) : null, // mensal "Variável" = sem dia (nulo)
         
         valor, meses: _recMesesDe(_recDuracaoAtual()) || null, metodo: e.metodo.value, categoria: e.categoria.value,
         descricao: e.descricao.value.trim(),
