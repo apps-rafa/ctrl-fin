@@ -353,6 +353,13 @@ function _unificarDetalhes() {
     const refPx = ref ? parseFloat(getComputedStyle(ref).fontSize) : 0;
     if (refPx > 0) menor = Math.min(menor, refPx * 0.88);
     els.forEach(x => { x.style.fontSize = menor + 'px'; });
+    // Conferência final com o texto já na tela (fontes do aparelho, itálico...): se ainda passar da linha, encolhe todos juntos até caber
+    for (let i = 0; i < 25; i++) {
+        const estoura = els.some(x => { const l = x.closest('.linha') || x.parentElement; return l.clientWidth && x.getBoundingClientRect().width > l.clientWidth - 2; });
+        if (!estoura || menor <= 6) break;
+        menor *= 0.96;
+        els.forEach(x => { x.style.fontSize = menor + 'px'; });
+    }
 }
 
 /** Texto de detalhe do dashboard (ex.: "pendentes 10 + crédito 20"): usa a 1ª versão que cabe com respiro; senão a mais curta. */
