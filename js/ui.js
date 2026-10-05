@@ -1039,7 +1039,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     const seloRec = trans.recorrenciaId ? '<span class="conc-selo conc-selo--in" title="Lançamento de uma recorrência">🔁</span>' : '';
     // Com descrição: ⏰/🏦 na linha da data e 🔁 na da descrição. Sem descrição: os dois em coluna (⏰ em cima, 🔁 embaixo) na
     // margem, com o lançamento centralizado verticalmente numa linha um pouco mais alta.
-    const recNaDesc = !!(seloRec && (trans.descricao || opts.descReservada));
+    const recNaDesc = !!seloRec; // a linha da descrição existe sempre: o 🔁 fica nela
     let seloLinha = '';
     let doisSelos = false;
     if (seloRec && !recNaDesc) {
