@@ -99,7 +99,13 @@
 .card-linhas .linha.total {
     display: flex;
     justify-content: flex-end;
+    align-items: baseline;
+    gap: .4rem;
 }
+/* "total" à esquerda do valor total (some se não couber, ver ajustarFontesDashboard) */
+.card-linhas .linha.total .rot-total { flex: none; font-style: italic; opacity: .7; font-size: clamp(.65rem, 6cqw, 1rem); }
+.card-linhas .linha.total .rot-total[hidden] { display: none; }
+.card-linhas .linha.total .amount { flex: 0 1 auto; min-width: 0; }
 .card-linhas .linha.total .amount {
     /* Tamanho-base (cqw) pensado pro caso comum — quando um valor mais
        longo (ex. "R$ 10.615,35") ainda não coube nisso, JS encolhe esse

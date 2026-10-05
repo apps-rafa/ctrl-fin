@@ -304,6 +304,9 @@ function mostrarDialogo({ titulo, texto, corpoHTML, acoes }) {
 /** Ícone de lixeira (SVG, herda a cor do texto) — usado no lugar do emoji em todos os botões de apagar. */
 const ICONE_LIXEIRA = '<svg class="ico-lixeira" viewBox="0 0 24 24" width="1.1em" height="1.1em" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>';
 
+/** Ícone de lápis (SVG, herda a cor do texto) — usado no lugar do emoji nos botões de editar. */
+const ICONE_LAPIS = '<svg class="ico-lapis" viewBox="0 0 24 24" width="1.1em" height="1.1em" fill="none" aria-hidden="true"><path d="M18 2L22 6M2 22L3.2764 17.3199C3.35968 17.0145 3.40131 16.8619 3.46523 16.7195C3.52199 16.5931 3.59172 16.4729 3.67332 16.3609C3.76521 16.2348 3.87711 16.1229 4.1009 15.8991L14.4343 5.56569C14.6323 5.36768 14.7313 5.26867 14.8455 5.23158C14.9459 5.19895 15.0541 5.19895 15.1545 5.23158C15.2687 5.26867 15.3677 5.36768 15.5657 5.56569L18.4343 8.43431C18.6323 8.63232 18.7313 8.73133 18.7684 8.84549C18.8011 8.94591 18.8011 9.05409 18.7684 9.15451C18.7313 9.26867 18.6323 9.36768 18.4343 9.56569L8.1009 19.8991C7.87711 20.1229 7.76521 20.2348 7.63908 20.3267C7.52709 20.4083 7.40692 20.478 7.28052 20.5348C7.13815 20.5987 6.98548 20.6403 6.68014 20.7236L2 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 /** Máscara mm/aaaa */
 function mascaraCompetencia(input) {
     let v = input.value.replace(/\D/g, '').slice(0, 6);
