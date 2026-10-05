@@ -704,7 +704,7 @@ main.main > * { flex-shrink: 0; }
 /* Apertando: o texto diminui um pouco (preservando o emoji); depois some o emoji; só em tela extrema sobra o emoji */
 .acoes-topo { --fs-acao: .8rem; }
 .acoes-topo .tab-btn[data-tab="adicionar"], .acoes-topo .acao-sec { font-size: var(--fs-acao); }
-@container (max-width: 510px) { .acoes-topo { --fs-acao: .66rem; } .acoes-topo .acao-sec { padding: 0 .45rem; } .acoes-topo .acao-sec .b-emo { margin-right: .2rem; } }
-@container (max-width: 420px) { .acoes-topo .acao-sec .b-emo { display: none; } .acoes-topo .acao-sec .b-txt { margin: 0; } }
-@container (max-width: 360px) { .acoes-topo .acao-sec .b-txt { display: none; } .acoes-topo .acao-sec .b-emo { display: inline; margin-right: 0; } .acoes-topo .acao-sec { font-size: 1rem; padding: 0 .3rem; } }
+@container (max-width: 510px) { .acoes-topo .tab-btn[data-tab="adicionar"], .acoes-topo .acao-sec { font-size: .66rem; } .acoes-topo .acao-sec { padding: 0 .35rem; } .acoes-topo .acao-sec .b-emo { margin-right: .2rem; } }
+@container (max-width: 340px) { .acoes-topo .acao-sec .b-emo { display: none; } .acoes-topo .acao-sec .b-txt { margin: 0; } }
+@container (max-width: 296px) { .acoes-topo .acao-sec .b-txt { display: none; } .acoes-topo .acao-sec .b-emo { display: inline; margin-right: 0; } .acoes-topo .acao-sec { font-size: 1rem; padding: 0 .3rem; } }
 body.modo-anual .acoes-topo { display: none; }
