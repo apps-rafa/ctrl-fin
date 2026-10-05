@@ -23,13 +23,6 @@
    Largura máxima: os 3 pares lado a lado (Rec 2 | Dia 2 | Início 1 | Duração 3 | Valor 2 | Total 2).
    Apertando: Valor+Total descem primeiro (Rec/Dia/Início/Duração ficam juntos o máximo possível); depois cada par numa linha. */
 .rec-linha--1 { container-type: inline-size; }
-.rec-par { display: grid; gap: .6rem; min-width: 0; grid-column: span 4; align-items: start; }
-.rec-par > .form-group { grid-column: auto; margin: 0; min-width: 0; }
-.rec-par--a { grid-template-columns: minmax(6.2rem, 1fr) minmax(0, 1fr); }  /* "Semanal"/"Mensal" nunca abreviam */
-.rec-par--b { grid-template-columns: minmax(3.2rem, 1fr) minmax(0, 3fr); }
-.rec-par--c { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-@container (max-width: 649px) { .rec-par--a, .rec-par--b { grid-column: span 6; } .rec-par--c { grid-column: span 12; } }
-@container (max-width: 349px) { .rec-par { grid-column: span 12; } .rec-par--b { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } } /* extremo: Início e Duração meio a meio */
 .rec-c-dia[hidden] { display: none; }
 .rec-c-dia select { padding-left: .35rem; padding-right: 1.1rem; }
 .rec-c-inicio select { padding-left: .35rem; padding-right: .35rem; }
@@ -58,8 +51,6 @@
 .rec-item .despesa-desc { flex: 1 0 100%; }
 
 /* Chips: o par categoria + forma de pagamento nunca se separa (se um desce, descem os 2) */
-.rec-chips { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .2rem .35rem; }
-.rec-chips-par { display: inline-flex; flex-wrap: nowrap; align-items: center; gap: .35rem; }
 
 /* Play/stop em SVG no lugar do selo (margem esquerda, centralizado na altura da linha) */
 body .rec-item { padding-left: 2.3rem !important; }
