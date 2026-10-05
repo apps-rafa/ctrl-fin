@@ -114,23 +114,24 @@ export async function processarEmailConta(
   const { data: ocs } = await admin.from("transacoes").select("id, data, valor, tipo, metodo, categoria, descricao, competencia")
     .eq("user_id", userId).eq("recorrencia_id", rec.id).eq("a_confirmar", true).order("data", { ascending: true });
   const campos = "id, data, valor, tipo, metodo, categoria, descricao, competencia";
-  let ocorrencia = escolherOcorrencia((ocs ?? []) as OcorrenciaEmail[], dados.vencimento, hoje);
-  let candidatas = (ocs ?? []) as Record<string, unknown>[];
-  let rascunhoDeOcorrencia = !!ocorrencia; // true: ocorrência "a confirmar" (vira rascunho); false: lançamento "a pagar" que já existe
+  // Candidatas da MESMA recorrência: as "a confirmar" (viram rascunho) e as já confirmadas ainda "a pagar". A escolha vale para o
+  // conjunto todo — a conta que acabou de chegar é a mais próxima de vencer, esteja ela confirmada ou não (a de outubro já
+  // confirmada vence antes da de novembro a confirmar).
   const piso = somarDiasISO(hoje, -10);
-  if (!ocorrencia) {
-    // 2) lançamento "a pagar": já confirmado, ainda não venceu, da mesma recorrência
-    const { data: apagar } = await admin.from("transacoes").select(campos)
-      .eq("user_id", userId).eq("recorrencia_id", rec.id).eq("a_confirmar", false).gte("data", piso).order("data", { ascending: true });
-    candidatas = (apagar ?? []) as Record<string, unknown>[];
-    ocorrencia = escolherOcorrencia(candidatas as unknown as OcorrenciaEmail[], dados.vencimento, hoje);
-  }
+  const { data: apagar } = await admin.from("transacoes").select(campos)
+    .eq("user_id", userId).eq("recorrencia_id", rec.id).eq("a_confirmar", false).gte("data", piso).order("data", { ascending: true });
+  const doRascunho = ((ocs ?? []) as Record<string, unknown>[]).map((o) => ({ ...o, _rascunho: true }));
+  const jaConfirmadas = ((apagar ?? []) as Record<string, unknown>[]).map((o) => ({ ...o, _rascunho: false }));
+  let candidatas = [...doRascunho, ...jaConfirmadas] as Record<string, unknown>[];
+  let ocorrencia = escolherOcorrencia(candidatas as unknown as OcorrenciaEmail[], dados.vencimento, hoje);
+  let rascunhoDeOcorrencia = !!ocorrencia && (candidatas.find((o) => o.id === ocorrencia!.id) as Record<string, unknown>)._rascunho === true;
   if (!ocorrencia && (rec.descricao || "").trim().length >= 4) {
     // 3) lançamento avulso "a pagar" com a mesma descrição (não veio da recorrência)
     const { data: avulsos } = await admin.from("transacoes").select(campos)
       .eq("user_id", userId).eq("tipo", "saidas").eq("a_confirmar", false).ilike("descricao", `%${rec.descricao.trim()}%`).gte("data", piso).order("data", { ascending: true });
     candidatas = (avulsos ?? []) as Record<string, unknown>[];
     ocorrencia = escolherOcorrencia(candidatas as unknown as OcorrenciaEmail[], dados.vencimento, hoje);
+    rascunhoDeOcorrencia = false;
   }
   const nome = rec.descricao || rec.categoria;
   // Já tratei essa conta (mesma recorrência) nos últimos 60 dias? Então é lembrete repetido: não avisa de novo
