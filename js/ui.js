@@ -1024,12 +1024,13 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     const quitarCheckbox = (ehParcela && !trans.quitada && !opts.semAcoes)
         ? `<label class="quitar-check" title="Quitar a partir deste mês"><input type="checkbox" name="quitar-parcela" data-act="quitar-parc" data-id="${trans.id}" ${trans.quitadoEm ? 'checked' : ''}> quitar</label>`
         : '';
-    // Lançamento de hoje ou futuro (fora cartão de crédito/parcelas/rascunhos): "Pago"/"Recebido" — marcado sozinho quando a data chega;
-    // marcar leva a data para hoje; desmarcar, para amanhã.
+    // Lançamento programado (data futura quando foi criado/editado): o "Pago"/"Recebido" aparece a partir do dia programado (se a data é
+    // variável, o tempo todo) e some quando você marca; só volta se a data for mudada para o futuro e chegar de novo.
+    // Fora: cartão de crédito, parcelas, estornos e rascunhos "a confirmar".
     const _metTrans = ((estadoApp.menus && estadoApp.menus.metodos) || []).find(m => rotuloMetodo(m) === trans.metodo);
     const _rotPago = tipo === 'entrada' ? 'Recebido' : 'Pago';
-    const pagoCheck = (!opts.semAcoes && !trans.aConfirmar && !ehParcela && trans.data && String(trans.data).slice(0, 10) >= hojeISO() && !(_metTrans && _metTrans.metodoKind === 'Crédito') && !_ehEstornoCartao(trans))
-        ? `<label class="pago-check" title="${_rotPago}: marcar leva a data para hoje; desmarcar, para amanhã"><input type="checkbox" name="marcar-pago" data-act="marcar-pago" data-id="${trans.id}" ${String(trans.data).slice(0, 10) <= hojeISO() ? 'checked' : ''}> ${_rotPago}</label>`
+    const pagoCheck = (!opts.semAcoes && trans.agendado && !trans.aConfirmar && !ehParcela && trans.data && (trans.dataIndefinida || String(trans.data).slice(0, 10) <= hojeISO()) && !(_metTrans && _metTrans.metodoKind === 'Crédito') && !_ehEstornoCartao(trans))
+        ? `<label class="pago-check" title="Marcar como ${_rotPago.toLowerCase()}${trans.dataIndefinida ? ' (a data passa a ser hoje)' : ''}"><input type="checkbox" name="marcar-pago" data-act="marcar-pago" data-id="${trans.id}"> ${_rotPago}</label>`
         : '';
     const quitadoTag = ehParcela && trans.quitadoEm
         ? `<span class="quitado-badge">quitado ${typeof mesTri === 'function' ? mesTri(String(trans.quitadoEm).slice(5, 7)) + '/' + String(trans.quitadoEm).slice(2, 4) : ''}</span>`
@@ -1125,12 +1126,13 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
         </div>`;
 }
 
-/** Marcar "Pago"/"Recebido" num lançamento de hoje/futuro: a data vai para hoje; desmarcar leva para amanhã. */
+/** Marcar "Pago"/"Recebido": o lançamento deixa de ser "programado" (o checkbox some); se a data era variável, passa a ser hoje. */
 async function marcarPagoRecebido(trans, marcado) {
-    const amanha = parseDataLocal(hojeISO()); amanha.setDate(amanha.getDate() + 1);
-    const novaData = marcado ? hojeISO() : formatarDataISO(amanha);
-    const { error } = await sb.from('transacoes').update({ data: novaData, data_indefinida: false }).eq('id', trans.id);
-    if (error) { console.error(error); mostrarNotificacao('Não consegui atualizar a data', 'erro'); }
+    if (!marcado) return;
+    const campos = { agendado: false };
+    if (trans.dataIndefinida) { campos.data = hojeISO(); campos.data_indefinida = false; }
+    const { error } = await sb.from('transacoes').update(campos).eq('id', trans.id);
+    if (error) { console.error(error); mostrarNotificacao('Não consegui atualizar', 'erro'); }
     await recarregarDados();
     atualizarUI();
 }

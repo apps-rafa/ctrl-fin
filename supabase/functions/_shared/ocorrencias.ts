@@ -156,7 +156,7 @@ export async function gerarOcorrencias(
       const linhas = novas.map((o) => ({
         user_id: r.user_id, tipo: r.tipo, data: o.data, valor: valorRef, metodo: r.metodo, categoria: r.categoria,
         descricao: r.descricao, forma_pagamento: "À vista", tipo_recorrencia: "Pontual", competencia: competenciaDaOcorrencia(o.nominal, fech, r.competencia_offset),
-        status: "Ativa", recorrencia_id: r.id, a_confirmar: true, data_indefinida: !!o.indefinida,
+        status: "Ativa", recorrencia_id: r.id, a_confirmar: true, data_indefinida: !!o.indefinida, agendado: !!o.indefinida || o.data >= hoje,
         // semanal: o mesmo valor/forma/descrição várias vezes no mês é o normal, nunca duplicata
         duplicata_ok: r.frequencia === "semanal",
         // semanal: marca o grupo (as ocorrências aparecem agrupadas, com o total, mesmo depois de confirmadas e soltas da recorrência)
