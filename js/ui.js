@@ -1350,12 +1350,12 @@ function _aplicarLimiteListas(raiz) {
             itens[itens.length - 1].after(btn);
         }
     });
-    // Próximos: os MESES também aparecem 5 por vez ("Carregar mais 5")
-    const meses = [...raiz.querySelectorAll('details.fatura-item[data-pend^="mes:"]')].filter(m => m.parentElement);
+    // Próximos: os MESES também aparecem 5 por vez ("Carregar mais 5"); na Visão anual, todo subgrupo (mês, categoria, forma)
+    const meses = [...raiz.querySelectorAll('details.fatura-item[data-pend^="mes:"]' + (raiz.id === 'anual' ? ', details.subgrupo' : ''))].filter(m => m.parentElement);
     new Set(meses.map(m => m.parentElement)).forEach(pai => {
         pai.querySelectorAll(':scope > .lista-mais-btn').forEach(b => b.remove());
         const lista = meses.filter(m => m.parentElement === pai);
-        const chave = (pai.closest('.tab-content')?.id || '') + '>meses';
+        const chave = _chaveLista(pai) + '>meses';
         const lim = _limitesLista[chave] || 5;
         lista.forEach((m, i) => { m.hidden = i >= lim; });
         if (lista.length > lim) {

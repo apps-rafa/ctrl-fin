@@ -137,3 +137,6 @@
 .gh-total { font-size: .74rem; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .gh-linha.rec .gh-total { color: var(--receita-text); }
 .gh-linha.desp .gh-total { color: var(--despesa-text); }
+/* Extrato do filtro: cada mês é um quadro com contorno, e a seta dele é branca (as cores ficam para categoria/forma, dentro) */
+.anual-extrato details.subgrupo[data-mes] { border: 1px solid var(--border-strong, var(--border)); border-radius: var(--radius-sm); margin: .4rem .6rem; overflow: hidden; }
+.anual-extrato details.subgrupo[data-mes] > .subgrupo-cab::before { color: var(--text); }
