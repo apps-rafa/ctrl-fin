@@ -130,3 +130,18 @@ test("api.js: operações nomeadas montam as consultas certas", async () => {
   ctxApi.apagarOcorrenciasDaRecorrenciaAPI(3);
   assert.equal(chamadas.at(-1).filtros.length, 2);
 });
+
+test("transacoesParaDuplicatasAPI devolve as linhas no formato da tela (aprovadas e de recorrência são reconhecidas)", async () => {
+  const bruto = [
+    { id: 1, tipo: "saidas", valor: "190.00", metodo: "PIX", descricao: null, data: "2026-10-02", competencia: "2026-10-01", duplicata_ok: true, a_confirmar: false, recorrencia_id: null, recorrencia_semanal_id: null },
+    { id: 2, tipo: "saidas", valor: "190.00", metodo: "PIX", descricao: "Terapia", data: "2026-10-09", competencia: "2026-10-01", duplicata_ok: false, a_confirmar: false, recorrencia_id: 14, recorrencia_semanal_id: 14 },
+  ];
+  const q = { select: () => q, order: () => q, range: () => Promise.resolve({ data: bruto, error: null }) };
+  const c = vm.createContext({ console, Number, String, Math, sb: { from: () => q } });
+  vm.runInContext(fs.readFileSync(new URL("../js/api.js", import.meta.url), "utf8"), c);
+  const r = await c.transacoesParaDuplicatasAPI();
+  assert.equal(r[0].duplicataOk, true, "duplicata_ok vira duplicataOk");
+  assert.equal(r[0].valor, 190, "valor vira número");
+  assert.equal(r[1].recorrenciaId, 14, "recorrencia_id vira recorrenciaId");
+  assert.equal(r[1].aConfirmar, false);
+});
