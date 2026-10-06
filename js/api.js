@@ -527,11 +527,17 @@ function transacoesDoPeriodoAPI(ini, fim) {
     return _lerEmPaginas((a, b) => sb.from('transacoes').select('*').gte('data', ini).lt('data', fim).order('id').range(a, b));
 }
 
-/** Todas as transações, só com as colunas da detecção de duplicatas. */
-function transacoesParaDuplicatasAPI() {
-    return _lerEmPaginas((a, b) => sb.from('transacoes')
-        .select('id, tipo, valor, metodo, descricao, data, competencia, duplicata_ok, a_confirmar')
+/** Todas as transações, só com as colunas da detecção de duplicatas, JÁ no formato da tela (duplicataOk, aConfirmar, recorrenciaId...):
+ *  sem essa conversão o "não é duplicata" e as ocorrências de recorrência deixavam de ser reconhecidos. */
+async function transacoesParaDuplicatasAPI() {
+    const linhas = await _lerEmPaginas((a, b) => sb.from('transacoes')
+        .select('id, tipo, valor, metodo, descricao, data, competencia, duplicata_ok, a_confirmar, recorrencia_id, recorrencia_semanal_id')
         .order('id', { ascending: true }).range(a, b));
+    return linhas.map(r => ({
+        id: r.id, tipo: r.tipo, valor: Number(r.valor), metodo: r.metodo, descricao: r.descricao || '',
+        data: r.data, competencia: r.competencia, duplicataOk: !!r.duplicata_ok, aConfirmar: !!r.a_confirmar,
+        recorrenciaId: r.recorrencia_id || null, recorrenciaSemanalId: r.recorrencia_semanal_id || null,
+    }));
 }
 
 /** Linhas completas de alguns ids (quem chama divide em lotes). */
