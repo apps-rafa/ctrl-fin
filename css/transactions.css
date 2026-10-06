@@ -837,7 +837,7 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 .conc-selos-col .conc-selo { position: static; font-size: .7rem; }
 .despesa-item.com-2-selos { min-height: 3.1rem; }
 @media (max-width: 480px) { .conc-selos-col .conc-selo { font-size: .58rem; } }
-/* Recém-lançados: 2 linhas de descrição reservadas (linhas sem descrição têm a mesma altura das demais) */
+/* Recentes: 2 linhas de descrição reservadas (linhas sem descrição têm a mesma altura das demais) */
 .despesa-desc--reserva { min-height: calc(2 * 1.15 * .78rem); }
 /* grupo semanal: contorno contínuo (sem o tracejado do cabeçalho) */
 .subgrupo[data-nome^="Semanal"] > .subgrupo-cab { border-bottom-style: solid; }
@@ -860,3 +860,8 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 .cor-rec-muted { --cor-rec: var(--text-muted); }
 .cor-rec-despesa { --cor-rec: var(--despesa-text); }
 .ico-olho { display: block; }
+/* descrição em branco: o selo 🔁 (preso à linha da descrição) fica na altura do chip da categoria, que é mais alto que a linha de texto */
+.despesa-linha2:has(> .despesa-desc--vazia) { align-items: center; }
+.despesa-linha2 > .despesa-desc--vazia { align-self: stretch; }
+/* Próximos: os meses em zebrado (alternando o fundo) */
+#proximas details.fatura-item[data-pend^="mes:"]:nth-of-type(even) { background: color-mix(in srgb, var(--surface-3) 55%, transparent); }

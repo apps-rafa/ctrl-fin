@@ -1083,7 +1083,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     // completo continua no title) pra o chip não empurrar a linha pra baixo.
     const catChip = (!opts.semCategoriaChip && trans.categoria)
         ? chip(corDaCategoria(trans.categoria, (tipo === 'entrada' && !_ehEstornoCartao(trans)) ? 'entradas' : 'saidas'), _htmlNomeCategoriaChip(trans.categoria)) : '';
-    // descReservada (Recém-lançados): a descrição sempre ocupa 2 linhas, mesmo vazia, pra todas as linhas terem a mesma altura
+    // descReservada (Recentes): a descrição sempre ocupa 2 linhas, mesmo vazia, pra todas as linhas terem a mesma altura
     // A linha da descrição existe sempre (a 2ª linha do lançamento), mesmo em branco: assim todos os lançamentos têm a mesma estrutura/altura
     const descTxt = `<span class="despesa-desc${opts.descReservada ? ' despesa-desc--reserva' : ''}${trans.descricao ? '' : ' despesa-desc--vazia'}">${recNaDesc ? seloRec : ''}${trans.descricao || '&nbsp;'}</span>`;
 
@@ -1341,6 +1341,23 @@ function _aplicarLimiteListas(raiz) {
             btn.dataset.listaChave = chave;
             btn.innerHTML = `Carregar mais 5 <small>restam ${itens.length - lim}</small>`;
             itens[itens.length - 1].after(btn);
+        }
+    });
+    // Próximos: os MESES também aparecem 5 por vez ("Carregar mais 5")
+    const meses = [...raiz.querySelectorAll('details.fatura-item[data-pend^="mes:"]')].filter(m => m.parentElement);
+    new Set(meses.map(m => m.parentElement)).forEach(pai => {
+        pai.querySelectorAll(':scope > .lista-mais-btn').forEach(b => b.remove());
+        const lista = meses.filter(m => m.parentElement === pai);
+        const chave = (pai.closest('.tab-content')?.id || '') + '>meses';
+        const lim = _limitesLista[chave] || 5;
+        lista.forEach((m, i) => { m.hidden = i >= lim; });
+        if (lista.length > lim) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'busca-ampla-btn lista-mais-btn';
+            btn.dataset.listaChave = chave;
+            btn.innerHTML = `Carregar mais 5 <small>restam ${lista.length - lim}</small>`;
+            lista[lista.length - 1].after(btn);
         }
     });
     if (_observadorLimite) _observadorLimite.takeRecords(); // ignora as mudanças feitas aqui
