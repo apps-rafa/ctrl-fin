@@ -101,7 +101,7 @@ async function onCliqueLixeira(e) {
             const { data: item, error } = await sb.from('lixeira').select('dados').eq('id', id).single();
             if (error) throw error;
             const { id: _i, user_id, criado_em, ...resto } = item.dados;
-            const { error: e2 } = await sb.from('transacoes').insert(resto);
+            const { error: e2 } = await restaurarTransacaoAPI(resto);
             if (e2) throw e2;
             const { error: e3 } = await sb.from('lixeira').delete().eq('id', id);
             if (e3) throw e3;

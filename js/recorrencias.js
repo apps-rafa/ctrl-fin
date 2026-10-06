@@ -56,7 +56,7 @@ async function garantirOcorrenciasDoDia() {
 
 /** ✓ no bloco "A confirmar": a ocorrência vira lançamento normal (continua com o selo 🔁 enquanto não passa). */
 async function confirmarOcorrenciaRecorrencia(id) {
-    const { error } = await sb.from('transacoes').update({ a_confirmar: false }).eq('id', id);
+    const { error } = await confirmarOcorrenciasAPI(id);
     if (error) { console.error(error); mostrarNotificacao('Não consegui confirmar', 'erro'); return; }
     await recarregarDados();
     atualizarUI();
@@ -64,7 +64,7 @@ async function confirmarOcorrenciaRecorrencia(id) {
 
 /** "Confirmar todas" do bloco A confirmar. */
 async function confirmarOcorrenciasRecorrencia(ids) {
-    const { error } = await sb.from('transacoes').update({ a_confirmar: false }).in('id', ids);
+    const { error } = await confirmarOcorrenciasAPI(ids);
     if (error) { console.error(error); mostrarNotificacao('Não consegui confirmar', 'erro'); return; }
     await recarregarDados();
     atualizarUI();
@@ -72,7 +72,7 @@ async function confirmarOcorrenciasRecorrencia(ids) {
 
 /** "Apagar todas" do bloco A confirmar: só estas ocorrências (as recorrências seguem ativas). */
 async function apagarOcorrenciasRecorrencia(ids) {
-    const { error } = await sb.from('transacoes').delete().in('id', ids);
+    const { error } = await apagarPorIdAPI(ids);
     if (error) { console.error(error); mostrarNotificacao('Erro ao excluir', 'erro'); return; }
     await recarregarDados();
     atualizarUI();
@@ -91,9 +91,9 @@ function perguntarExcluirRecorrente(trans) {
             texto: `<strong>${trans.descricao || trans.categoria || 'Este lançamento'}</strong> faz parte de uma recorrência. Apagar só este mês ou encerrar a recorrência?`,
             acoes: [
                 { label: 'Cancelar', onClick: () => resolve(false) },
-                { label: 'Só este mês', primario: true, onClick: () => feito(async () => { const { error } = await sb.from('transacoes').delete().eq('id', trans.id); if (error) throw error; }, 'Erro ao excluir') },
+                { label: 'Só este mês', primario: true, onClick: () => feito(async () => { const { error } = await apagarPorIdAPI(trans.id); if (error) throw error; }, 'Erro ao excluir') },
                 { label: 'Encerrar recorrência', perigo: true, onClick: () => feito(async () => {
-                    const { error } = await sb.from('transacoes').delete().eq('id', trans.id); if (error) throw error;
+                    const { error } = await apagarPorIdAPI(trans.id); if (error) throw error;
                     await encerrarRecorrencia(trans.recorrenciaId);
                 }, 'Erro ao encerrar a recorrência') },
             ],
@@ -461,16 +461,16 @@ async function _recSalvarEdicao(id, campos, novoInicio = null) {
     if (novoInicio) { // mudou o início: recomeça a geração do zero (as ocorrências JÁ confirmadas ficam como estão)
         const { error: erroI } = await sb.from('recorrencias').update({ ...campos, inicio: novoInicio, ativa_desde: novoInicio, gerado_ate: null }).eq('id', id);
         if (erroI) throw erroI;
-        await sb.from('transacoes').delete().eq('recorrencia_id', id).eq('a_confirmar', true);
+        await apagarOcorrenciasDaRecorrenciaAPI(id);
         return;
     }
     const mudouAgenda = atual.frequencia !== campos.frequencia || (atual.diaSemana ?? null) !== campos.dia_semana || (atual.diaMes ?? null) !== campos.dia_mes || (atual.meses || null) !== campos.meses || (atual.competenciaOffset || 0) !== campos.competencia_offset;
     const { error } = await sb.from('recorrencias').update(campos).eq('id', id);
     if (error) throw error;
     const comuns = { valor: campos.valor, metodo: campos.metodo, categoria: campos.categoria, descricao: campos.descricao };
-    await sb.from('transacoes').update(comuns).eq('recorrencia_id', id).eq('a_confirmar', true).gte('data', hoje);
+    await atualizarOcorrenciasDaRecorrenciaAPI(id, comuns, hoje);
     if (mudouAgenda) { // novo ritmo/duração: apaga as futuras a confirmar e recomeça a geração de hoje em diante
-        await sb.from('transacoes').delete().eq('recorrencia_id', id).eq('a_confirmar', true).gte('data', hoje);
+        await apagarOcorrenciasDaRecorrenciaAPI(id, hoje);
         const ontem = new Date(); ontem.setDate(ontem.getDate() - 1);
         await sb.from('recorrencias').update({ gerado_ate: formatarDataISO(ontem) }).eq('id', id);
     }
@@ -479,7 +479,7 @@ async function _recSalvarEdicao(id, campos, novoInicio = null) {
 /** Encerra: some das ativas (vai para "Encerradas") e as ocorrências futuras a confirmar são apagadas. */
 async function encerrarRecorrencia(id) {
     const hoje = hojeISO();
-    await sb.from('transacoes').delete().eq('recorrencia_id', id).eq('a_confirmar', true).gte('data', hoje);
+    await apagarOcorrenciasDaRecorrenciaAPI(id, hoje);
     const { error } = await sb.from('recorrencias').update({ status: 'encerrada', encerrada_em: hoje }).eq('id', id);
     if (error) throw error;
 }
@@ -493,7 +493,7 @@ async function reativarRecorrencia(id) {
 
 /** Exclui a recorrência de vez: as futuras a confirmar somem; o que já foi confirmado continua como lançamento normal. */
 async function excluirRecorrencia(id) {
-    await sb.from('transacoes').delete().eq('recorrencia_id', id).eq('a_confirmar', true).gte('data', hojeISO());
+    await apagarOcorrenciasDaRecorrenciaAPI(id, hojeISO());
     const { error } = await sb.from('recorrencias').delete().eq('id', id);
     if (error) throw error;
 }

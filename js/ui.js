@@ -80,7 +80,7 @@ function _aprovarDuplicata(id) {
     // na memória (a tela já some com o aviso) e no banco
     [...(estadoApp.transacoes?.entradas || []), ...(estadoApp.transacoes?.saidas || []), ...(typeof _transacoesExtra !== 'undefined' ? _transacoesExtra : [])]
         .forEach(t => { if (t.id === id) t.duplicataOk = true; });
-    Promise.resolve(sb.from('transacoes').update({ duplicata_ok: true }).eq('id', id)).then(({ error }) => {
+    Promise.resolve(aprovarDuplicatasAPI(id)).then(({ error }) => {
         if (error) { // sem rede/erro: guarda no aparelho e tenta de novo na próxima abertura
             console.error('Erro ao salvar "não é duplicata":', error);
             const s = _duplicatasAprovadasSet(); s.add(id);
@@ -92,7 +92,7 @@ function _aprovarDuplicata(id) {
 async function sincronizarDuplicatasAprovadasLocais() {
     const ids = [..._duplicatasAprovadasSet()].filter(Number.isFinite);
     if (!ids.length) return;
-    const { error } = await sb.from('transacoes').update({ duplicata_ok: true }).in('id', ids);
+    const { error } = await aprovarDuplicatasAPI(ids);
     if (error) { console.error('Erro ao subir duplicatas aprovadas:', error); return; }
     try { localStorage.removeItem('duplicatasAprovadas'); } catch (_) {}
     await recarregarDados();
@@ -1129,9 +1129,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
 /** Marcar "Pago"/"Recebido": o lançamento deixa de ser "programado" (o checkbox some); se a data era variável, passa a ser hoje. */
 async function marcarPagoRecebido(trans, marcado) {
     if (!marcado) return;
-    const campos = { agendado: false };
-    if (trans.dataIndefinida) { campos.data = hojeISO(); campos.data_indefinida = false; }
-    const { error } = await sb.from('transacoes').update(campos).eq('id', trans.id);
+    const { error } = await marcarPagoAPI(trans);
     if (error) { console.error(error); mostrarNotificacao('Não consegui atualizar', 'erro'); }
     await recarregarDados();
     atualizarUI();

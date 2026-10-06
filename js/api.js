@@ -425,3 +425,66 @@ async function deletarTransacaoAPI(id) {
     if (error) throw error;
     return { mensagem: 'Transação removida' };
 }
+
+// ---------------------------------------------------------------------------
+// Escritas em `transacoes` com nome (as telas chamam estas funções em vez de falar direto com a tabela): cada regra
+// (o que "confirmar", "marcar pago", "aprovar duplicata" mudam no banco) fica em UM lugar. Todas devolvem { error }.
+// ---------------------------------------------------------------------------
+const _emIds = (q, ids) => (Array.isArray(ids) ? q.in('id', ids) : q.eq('id', ids));
+
+/** ✓ numa ocorrência de recorrência (ou em várias): o rascunho vira lançamento normal. */
+function confirmarOcorrenciasAPI(ids) {
+    return _emIds(sb.from('transacoes').update({ a_confirmar: false }), ids);
+}
+
+/** "Não é duplicata": o lançamento (ou vários) deixa de ser avisado. */
+function aprovarDuplicatasAPI(ids) {
+    return _emIds(sb.from('transacoes').update({ duplicata_ok: true }), ids);
+}
+
+/** "Pago"/"Recebido": o lançamento deixa de ser "programado" (some o checkbox); se a data era variável, passa a ser hoje. */
+function marcarPagoAPI(trans) {
+    const campos = { agendado: false };
+    if (trans.dataIndefinida) { campos.data = hojeISO(); campos.data_indefinida = false; }
+    return sb.from('transacoes').update(campos).eq('id', trans.id);
+}
+
+/** Apaga lançamento(s) pelo id, sem a regra de parcelas (use deletarTransacaoAPI para isso). */
+function apagarPorIdAPI(ids) {
+    return _emIds(sb.from('transacoes').delete(), ids);
+}
+
+/** Ocorrências ainda "a confirmar" de uma recorrência (de `desde` em diante, ou todas). */
+function _ocorrenciasAConfirmar(q, recorrenciaId, desde) {
+    q = q.eq('recorrencia_id', recorrenciaId).eq('a_confirmar', true);
+    return desde ? q.gte('data', desde) : q;
+}
+function apagarOcorrenciasDaRecorrenciaAPI(recorrenciaId, desde = null) {
+    return _ocorrenciasAConfirmar(sb.from('transacoes').delete(), recorrenciaId, desde);
+}
+function atualizarOcorrenciasDaRecorrenciaAPI(recorrenciaId, campos, desde = null) {
+    return _ocorrenciasAConfirmar(sb.from('transacoes').update(campos), recorrenciaId, desde);
+}
+
+/** Devolve ao banco uma linha de `transacoes` exatamente como estava (restaurar da lixeira). */
+function restaurarTransacaoAPI(linha) {
+    return sb.from('transacoes').insert(linha);
+}
+
+/** Uma parcela vinda da Pluggy: insere a linha pronta e devolve a transação já mapeada. */
+function inserirLinhaTransacaoAPI(registro) {
+    return sb.from('transacoes').insert(registro).select().single();
+}
+
+/** Renomeou uma forma de pagamento / categoria no cadastro: os lançamentos antigos acompanham o novo nome. */
+function renomearMetodoNasTransacoesAPI(velho, novo) {
+    return sb.from('transacoes').update({ metodo: novo }).eq('metodo', velho);
+}
+function renomearCategoriaNasTransacoesAPI(antiga, nova) {
+    return sb.from('transacoes').update({ categoria: nova }).eq('categoria', antiga);
+}
+
+/** "Apagar tudo" (Configurações > Dados): remove todos os lançamentos do usuário logado. */
+function apagarTodasTransacoesAPI() {
+    return sb.from('transacoes').delete().gte('id', 0);
+}

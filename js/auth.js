@@ -195,7 +195,7 @@ function apagarTudoTeste() {
             { label: 'Cancelar' },
             { label: 'Apagar tudo', primario: true, perigo: true, onClick: async () => {
                 try {
-                    await sb.from('transacoes').delete().gte('id', 0);
+                    await apagarTodasTransacoesAPI();
                     await sb.from('menu_itens').delete().gte('id', 0);
                     mostrarNotificacao('Tudo apagado', 'sucesso');
                     setTimeout(() => location.reload(), 400);
