@@ -1,4 +1,4 @@
-// Busca universal e Recém-lançados: filtros por texto/valor/ano/mês, busca em todos os meses e resultado agrupado.
+// Busca universal e Recentes: filtros por texto/valor/ano/mês, busca em todos os meses e resultado agrupado.
 // Extraído de ui.js (mesmas funções globais; carregado logo depois dele em index.html).
 
 /** Busca em tempo real por descrição/categoria/forma de pagamento — filtra
@@ -71,7 +71,7 @@ function _filtrarPorBusca(transacoes, termo) {
     return (transacoes || []).filter(tr => _bateConsulta(tr, q, t));
 }
 
-/** "Recém-lançados": os últimos lançamentos CRIADOS (de qualquer mês), 5 por vez com
+/** "Recentes": os últimos lançamentos CRIADOS (de qualquer mês), 5 por vez com
  *  "Carregar mais". Usa a mesma área dos resultados da busca. */
 /** Parcela que não é a 1ª: só o lançamento original edita o parcelamento — avisa e abre o original. */
 async function abrirOriginalDaParcela(parcela) {
@@ -95,7 +95,7 @@ async function abrirOriginalDaParcela(parcela) {
     });
 }
 
-let _transacoesExtra = []; // itens mostrados fora do mês em tela (Recém-lançados) — editar/excluir precisam achá-los
+let _transacoesExtra = []; // itens mostrados fora do mês em tela (Recentes) — editar/excluir precisam achá-los
 async function mostrarRecemLancados(qtd = 5) {
     const box = document.getElementById('resultadoBusca');
     if (!box) return;
@@ -125,7 +125,7 @@ async function mostrarRecemLancados(qtd = 5) {
     const temMais = unicos.length > qtd || (data || []).length === qtd * 12;
     box.innerHTML = `
         <div class="busca-ampla-resumo">
-            <b>🕓 Recém-lançados</b>
+            <b>🕓 Recentes</b>
             <span>${itens.length} últimos</span>
         </div>
         <div class="rec-grupo-itens recentes-lista">${itens.map(i => gerarHTMLTransacao(i, i.tipo === 'entradas' ? 'entrada' : 'saida', { descReservada: true })).join('') || '<p class="empty-message">Nenhum lançamento ainda</p>'}</div>

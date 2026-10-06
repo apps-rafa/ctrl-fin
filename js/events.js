@@ -453,8 +453,8 @@ function _restaurarMemoriaDespesa(tipo) {
  */
 /** Desativa todas as abas (nenhum conteúdo aberto) */
 let _abaAnterior = null; // memória de 1 nível: a aba que estava aberta antes da atual
-/** Botões do topo (Recorrências / Recém-lançados / Próximos / ...): só o que está NA FRENTE fica destacado. Com a busca ou os
- *  Recém-lançados na frente (sem aba por cima), nenhuma aba fica "ligada"; com uma aba por cima, o Recém-lançados desliga. */
+/** Botões do topo (Recorrências / Recentes / Próximos / ...): só o que está NA FRENTE fica destacado. Com a busca ou os
+ *  Recentes na frente (sem aba por cima), nenhuma aba fica "ligada"; com uma aba por cima, o Recentes desliga. */
 function sincronizarBotoesTopo() {
     const corpo = document.body;
     const buscaNaFrente = corpo.classList.contains('buscando') && !corpo.classList.contains('aba-por-cima');
@@ -482,7 +482,7 @@ function mudarAba(novaAba) {
     // Saindo do formulário em edição por outra aba: a busca volta ANTES de decidir quem fica na frente
     if (ativa === 'adicionar' && novaAba !== ativa && typeof _sairDoModoEdicaoSeAtivo === 'function') _sairDoModoEdicaoSeAtivo();
 
-    // Busca / Recém-lançados na tela: a aba pedida abre POR CIMA dela (o resultado fica guardado
+    // Busca / Recentes na tela: a aba pedida abre POR CIMA dela (o resultado fica guardado
     // por baixo e volta quando essa aba for fechada).
     const sobBusca = document.body.classList.contains('buscando') && !document.body.classList.contains('aba-por-cima') && !(novaAba === ativa && ativa === 'adicionar');
     if (sobBusca) {

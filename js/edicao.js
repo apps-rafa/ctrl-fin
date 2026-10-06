@@ -68,7 +68,7 @@ function iniciarEdicaoTransacao(trans, tipoTransacao) {
     // Estorno de cartão é gravado como entrada, mas se lança (e edita) como Despesa > categoria Estorno
     if (tipoTransacao === 'entradas' && _ehEstornoCartao(trans)) tipoTransacao = 'saidas';
     estadoApp.editandoId = trans.id;
-    // Guarda a tela de busca/Recém-lançados (com o modo e o que estava por cima) pra devolver
+    // Guarda a tela de busca/Recentes (com o modo e o que estava por cima) pra devolver
     // exatamente igual quando a edição fechar; o formulário precisa da área livre.
     estadoApp.telaAntesEdicao = _capturarTelaBusca();
     if (estadoApp.telaAntesEdicao) {
@@ -85,7 +85,7 @@ function iniciarEdicaoTransacao(trans, tipoTransacao) {
     mudarAba('adicionar');
 
     // Tipo (entrada/saída) sem recarregar menus
-    // A lista de onde veio (ex.: Recém-lançados) pode ter deixado a página rolada: o formulário
+    // A lista de onde veio (ex.: Recentes) pode ter deixado a página rolada: o formulário
     // é bem menor, então sem isto a tela ficava presa no fim, com o dashboard cortado em cima
     rolarAteFormulario();
     estadoApp.tipoAtual = tipoTransacao;
@@ -140,7 +140,7 @@ function sincronizarModoEdicao() {
     }
 }
 
-/** Foto da tela de busca atual (null se não há busca/Recém-lançados na tela). */
+/** Foto da tela de busca atual (null se não há busca/Recentes na tela). */
 function _capturarTelaBusca() {
     if (!document.body.classList.contains('buscando')) return null;
     const box = document.getElementById('resultadoBusca');
@@ -152,7 +152,7 @@ function _capturarTelaBusca() {
     };
 }
 
-/** Devolve a busca/Recém-lançados como estavam (mesmo modo; por cima ou por baixo da aba). */
+/** Devolve a busca/Recentes como estavam (mesmo modo; por cima ou por baixo da aba). */
 function _aplicarTelaBusca(snap, restaurarPorCima) {
     const buscaEl = document.getElementById('buscaGlobal');
     if (buscaEl) buscaEl.value = snap.termo;
@@ -165,7 +165,7 @@ function _aplicarTelaBusca(snap, restaurarPorCima) {
 }
 
 /** Depois de salvar/cancelar/apagar uma edição: volta EXATAMENTE pra tela de onde veio
- *  (a aba de origem e a busca/Recém-lançados, com o que estava por cima). */
+ *  (a aba de origem e a busca/Recentes, com o que estava por cima). */
 function voltarTelaAposEdicao(origem) {
     const snap = estadoApp.telaPendente;
     estadoApp.telaPendente = null;

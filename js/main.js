@@ -138,7 +138,7 @@ function configurarMiniResumo() {
     if (miniProximos) miniProximos.addEventListener('click', () => {
         if (typeof mudarAba === 'function') mudarAba('proximas');
     });
-    // Recorrências e Recém-lançados: mesmos botões do topo, só o ícone
+    // Recorrências e Recentes: mesmos botões do topo, só o ícone
     document.getElementById('miniRecorrencias')?.addEventListener('click', () => { if (typeof mudarAba === 'function') mudarAba('recorrencias'); });
     document.getElementById('miniRecentes')?.addEventListener('click', () => document.getElementById('btnRecentes')?.click());
     // Lixeira — divide com os outros três a coluna do "Gasto diário"
