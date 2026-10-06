@@ -382,7 +382,7 @@ function _detalheCard(linhaId, detId, a, b, [rotA, emoA], [rotB, emoB], mask) {
     if (!det) return;
     const fmt = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
     const fa = fmt(a), fb = fmt(b);
-    _ajustarDetalhe(det, tem ? [`${rotA} ${fa} + ${rotB} ${fb}`, `${emoA} ${fa} ${emoB} ${fb}`, `${fa} + ${fb}`].map(mask) : null);
+    _ajustarDetalhe(det, tem ? [`${rotA} ${fa} + ${rotB} ${fb}`, `${emoA} ${fa} + ${emoB} ${fb}`, `${fa} + ${fb}`].map(mask) : null);
 }
 
 /** Texto de detalhe do dashboard (ex.: "pendentes 10 + crédito 20"): usa a 1ª versão que cabe com respiro; senão a mais curta. */
