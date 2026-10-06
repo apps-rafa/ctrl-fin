@@ -17,9 +17,10 @@ fs.rmSync(dist, { recursive: true, force: true });
 fs.mkdirSync(dist, { recursive: true });
 
 let html = ler("index.html");
+const CSS_LAZY = ["anual", "docs"]; // CSS só baixado com a tela (ver carregarModulo em js/config.js)
 const reCss = /[ \t]*<link rel="stylesheet" href="(css\/[^"?]+)[^"]*">\r?\n?/g;
 const reJs = /[ \t]*<script src="(js\/[^"?]+)[^"]*"><\/script>\r?\n?/g;
-const arquivosCss = [...html.matchAll(reCss)].map((m) => m[1]);
+const arquivosCss = [...html.matchAll(reCss)].map((m) => m[1]).filter((f) => !CSS_LAZY.some((n) => f === `css/${n}.css`));
 const arquivosJs = [...html.matchAll(reJs)].map((m) => m[1]);
 if (!arquivosCss.length || !arquivosJs.length) throw new Error("index.html sem css/js locais para empacotar");
 
@@ -40,6 +41,11 @@ for (const nome of LAZY) {
     const codigo = transformSync(ler(`js/${nome}.js`), { loader: "js", minify: true, target: "es2020", legalComments: "none" }).code;
     modulos[nome] = `mod.${nome}.${hash(codigo)}.js`;
     fs.writeFileSync(path.join(dist, modulos[nome]), codigo);
+}
+for (const nome of CSS_LAZY) {
+    const codigo = transformSync(ler(`css/${nome}.css`), { loader: "css", minify: true }).code;
+    modulos[`css:${nome}`] = `mod.${nome}.${hash(codigo)}.css`;
+    fs.writeFileSync(path.join(dist, modulos[`css:${nome}`]), codigo);
 }
 
 // --- supabase-js servido pelo próprio site (versão fixa do package.json): um host a menos no 1º carregamento e entra no cache offline

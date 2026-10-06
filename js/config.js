@@ -160,12 +160,22 @@ const CONFIG = {
 /** Módulos que só são baixados quando alguém usa a tela (Documentação, Visão anual, Dados, Open Finance): o carregamento inicial fica menor.
  *  No site publicado, window.__modulos (gerado pelo build) diz o arquivo de cada um; no desenvolvimento, é js/<nome>.js. */
 const _modulosCarregados = {};
+/** Telas que também têm CSS próprio (css/<nome>.css), baixado junto com o módulo: o texto fica pronto antes de a tela ser desenhada. */
+const _MODULOS_COM_CSS = ['anual', 'docs'];
+
 function carregarModulo(nome) {
     if (!_modulosCarregados[nome]) {
+        const css = !_MODULOS_COM_CSS.includes(nome) ? Promise.resolve() : new Promise(ok => {
+            const l = document.createElement('link');
+            l.rel = 'stylesheet';
+            l.href = (window.__modulos && window.__modulos['css:' + nome]) || `css/${nome}.css`;
+            l.onload = l.onerror = () => ok(); // sem o CSS a tela ainda funciona (só fica sem o visual)
+            document.head.appendChild(l);
+        });
         _modulosCarregados[nome] = new Promise((ok, falhou) => {
             const s = document.createElement('script');
             s.src = (window.__modulos && window.__modulos[nome]) || `js/${nome}.js`;
-            s.onload = () => ok();
+            s.onload = () => css.then(ok);
             s.onerror = () => { delete _modulosCarregados[nome]; falhou(new Error(`Não consegui carregar o módulo "${nome}"`)); };
             document.head.appendChild(s);
         });
