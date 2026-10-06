@@ -300,6 +300,7 @@ async function recarregarDados() {
     atualizarUI();
     // Navegou de mês: o campo Data acompanha o mês em exibição (se intocado)
     aplicarDataPadrao(false);
+    if (typeof atualizarVisaoAnualAberta === 'function') atualizarVisaoAnualAberta(); // excluiu/alterou estando na Visão anual
 }
 
 /** Escolhas do usuário sobre faturas de cartão ("metodo|YYYY-MM-01" -> pago true/false); sem escolha vale a data de vencimento. */
