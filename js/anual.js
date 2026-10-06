@@ -137,9 +137,32 @@ function _renderExtratoFiltro(ano) {
     const totalAbs = itens.reduce((a, t) => a + Math.abs(Number(t.valor) || 0), 0);
     const cor = _corDoNomeAnual(estadoAnual.filtro, itens[0].tipoUI === 'entrada' ? 'entradas' : 'saidas');
     const opts = agrupar === 'categoria' ? { semCategoriaChip: true, semAcoes: true } : { semMetodoChip: true, semAcoes: true };
-    const corpo = itens.map(t => gerarHTMLTransacao(t, t.tipoUI, opts)).join('');
+    // Vários meses: um subgrupo por mês (mais recente primeiro), fechados, cada um mostrando 5 por vez ("Carregar mais N");
+    // um mês só: a lista direta (também 5 por vez). O estado aberto/fechado sobrevive ao redesenho.
+    const abertos = {};
+    document.querySelectorAll('#anualConteudo .anual-extrato details[data-nome]').forEach(d => { abertos[d.dataset.nome] = d.open; });
+    const grupoAberto = document.querySelector('#anualConteudo .anual-extrato');
+    const porMes = new Map();
+    itens.forEach(t => { const m = parseInt(String(t.competencia).slice(5, 7), 10) - 1; if (!porMes.has(m)) porMes.set(m, []); porMes.get(m).push(t); });
+    const mesesOrdem = [...porMes.keys()].sort((a, b) => b - a);
+    const corpo = mesesOrdem.length > 1
+        ? mesesOrdem.map(m => {
+            const lista = porMes.get(m);
+            const tot = lista.reduce((a, t) => a + Math.abs(Number(t.valor) || 0), 0);
+            return `
+        <details class="subgrupo" data-nome="mes-${m}" style="--cor-rec:${cor}" ${abertos['mes-' + m] ? 'open' : ''}>
+          <summary class="subgrupo-cab">
+            <span class="subgrupo-nome">${MESES_ANUAL_LONGO[m]}</span>
+            <span class="subgrupo-espaco"></span>
+            <span class="subgrupo-contagem">${lista.length}</span>
+            <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(tot)}</span></span>
+          </summary>
+          ${lista.map(t => gerarHTMLTransacao(t, t.tipoUI, opts)).join('')}
+        </details>`;
+        }).join('')
+        : itens.map(t => gerarHTMLTransacao(t, t.tipoUI, opts)).join('');
     return `
-    <details class="rec-grupo anual-extrato" style="--cor-rec:${cor}">
+    <details class="rec-grupo anual-extrato" data-nome="extrato" style="--cor-rec:${cor}" ${grupoAberto && grupoAberto.open ? 'open' : ''}>
       <summary>
         <span class="rec-grupo-nome">${_esc(estadoAnual.filtro)} — ${_esc(periodo)}</span>
         <span class="rec-grupo-espaco"></span>
@@ -268,7 +291,8 @@ function _renderComparacaoMeses(vD, vR, ref) {
     const maisPerto = (alvo, fora = -1) => lista.filter(i => i !== fora).sort((x, y) => Math.abs(x - alvo) - Math.abs(y - alvo) || y - x)[0];
     if (c.a === null || !lista.includes(c.a)) c.a = maisPerto(ref);
     if (c.b === null || !lista.includes(c.b)) c.b = maisPerto(c.a > 0 ? c.a - 1 : c.a + 1, c.a) ?? c.a;
-    const opcoes = sel => lista.map(i => `<option value="${i}"${i === sel ? ' selected' : ''}>${MESES_ANUAL_LONGO[i]}</option>`).join('');
+    // o mês escolhido em um dropdown aparece, mas desativado, no outro (não dá para comparar um mês com ele mesmo)
+    const opcoes = (sel, outro) => lista.map(i => `<option value="${i}"${i === sel ? ' selected' : ''}${i === outro && lista.length > 1 ? ' disabled' : ''}>${MESES_ANUAL_LONGO[i]}</option>`).join('');
     const bloco = (rotulo, tipo, v) => {
         const ls = v.linhas.map(l => ({ nome: l.nome, a: l.meses[c.a], b: l.meses[c.b] }))
             .filter(l => Math.abs(l.a) > 0.004 || Math.abs(l.b) > 0.004)
@@ -288,9 +312,9 @@ function _renderComparacaoMeses(vD, vR, ref) {
     return `<div class="anual-bloco anual-cmp">
         <div class="anual-cmp-topo">
             <b>Comparar meses</b>
-            <select id="anualCmpA" aria-label="Mês A">${opcoes(c.a)}</select>
+            <select id="anualCmpA" aria-label="Mês A">${opcoes(c.a, c.b)}</select>
             <span>com</span>
-            <select id="anualCmpB" aria-label="Mês B">${opcoes(c.b)}</select>
+            <select id="anualCmpB" aria-label="Mês B">${opcoes(c.b, c.a)}</select>
             <button type="button" class="anual-toggle" data-anual-cmp-inverter title="Trocar A e B">⇅</button>
         </div>
         ${_graficoHorizontal(vR, vD, [c.a, c.b])}
