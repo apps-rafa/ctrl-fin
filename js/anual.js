@@ -192,10 +192,9 @@ function _linhaGrafico(linhasR, linhasD, meses, mesAtual, dim = () => '') {
 function _graficoHorizontal(vR, vD, mesesSel) {
     const positivos = (v, i) => v.linhas.filter(l => !l.nome.startsWith('(−)') && l.meses[i] > 0.004).sort((a, b) => b.meses[i] - a.meses[i]);
     const barras = [];
-    mesesSel.forEach(i => {
-        barras.push({ i, tipo: 'entradas', classe: 'rec', rot: 'Receita', linhas: positivos(vR, i) });
-        barras.push({ i, tipo: 'saidas', classe: 'desp', rot: 'Despesa', linhas: positivos(vD, i) });
-    });
+    // Agrupado por tipo: primeiro as receitas de cada mês, depois as despesas (e não receita/despesa/receita/despesa)
+    mesesSel.forEach(i => barras.push({ i, tipo: 'entradas', classe: 'rec', rot: 'Receita', linhas: positivos(vR, i) }));
+    mesesSel.forEach(i => barras.push({ i, tipo: 'saidas', classe: 'desp', rot: 'Despesa', linhas: positivos(vD, i) }));
     barras.forEach(b => { b.total = b.linhas.reduce((a, l) => a + l.meses[b.i], 0); });
     const max = Math.max(...barras.map(b => b.total), 1);
     const varios = mesesSel.length > 1;
