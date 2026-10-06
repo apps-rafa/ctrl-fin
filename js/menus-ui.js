@@ -128,7 +128,7 @@ async function carregarAbaMenus() {
         <h3 class="dados-selecao-titulo">Lançar por mensagem</h3>
         <p class="menu-hint">
           Escreva como falaria: <em>gastei 35,90 no mercado</em>, <em>recebi 200 de salário</em>, <em>vendi meu casaco por 200 reais</em>,
-          <em>comprei um carro de 80000 parcelado em 10x</em>. O bot monta um rascunho com valor, categoria e forma de pagamento
+          <em>comprei um carro de 80000 parcelado em 10x</em>. Sem saber a data? Acrescente <em>sem data</em>: <em>recebi 214 do casaco sem data</em>. O bot monta um rascunho com valor, categoria e forma de pagamento
           e só grava depois que você tocar em <b>✅ Confirmar</b> no teclado. Se responder qualquer outra coisa
           (sem ser os botões), ele entende como a <b>descrição</b> do lançamento.
         </p>

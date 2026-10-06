@@ -72,7 +72,8 @@ export async function confirmarRascunhoNoBanco(
     competencia,
     status: "Ativa",
     user_id: userId,
-    agendado: d.data > hojeBrasiliaISO(), // data futura = programado (o "Pago"/"Recebido" aparece quando a data chega)
+    agendado: !!d.dataIndefinida || d.data > hojeBrasiliaISO(), // data futura ou sem data = programado (o "Pago"/"Recebido" aparece quando a data chega; sem data, sempre)
+    data_indefinida: !!d.dataIndefinida,
   });
   return { erro: error };
 }
@@ -211,7 +212,7 @@ export async function enviarRascunho(
   admin?: ReturnType<typeof createClient>, userId?: string, cabecalho?: string,
 ) {
   const sinal = r.tipo === "entradas" ? "💰 Receita" : "💸 Despesa";
-  const dataFmt = new Date(`${r.data}T00:00:00`).toLocaleDateString("pt-BR");
+  const dataFmt = r.dataIndefinida ? `--/${r.data.slice(5, 7)} (sem data definida)` : new Date(`${r.data}T00:00:00`).toLocaleDateString("pt-BR");
   const ehCreditoSaida = r.tipo === "saidas" && r.metodoKind === "Crédito";
   const compFatura = r.competencia || competenciaDe(r.data, r.diaFechamento);
   const linhas = [
@@ -221,7 +222,7 @@ export async function enviarRascunho(
     `Data: ${dataFmt}`,
     `Categoria: ${r.categoria}`,
     `Descrição: ${r.descricao || "(em branco)"}`,
-    r.tipo === "saidas" ? `Forma de pgto.: ${r.metodo || "nenhuma cadastrada — ajuste no app"}${r.metodoOrigem === "padrao" ? " (padrão)" : ""}` : null,
+    `Forma de pgto.: ${r.metodo || "nenhuma cadastrada — ajuste no app"}${r.metodoOrigem === "padrao" ? " (padrão)" : ""}`,
     ehCreditoSaida ? `Mês da fatura: ${mesAbrevAno(compFatura)}` : `Mês: ${mesAbrevAno(r.competencia || r.data.slice(0, 7) + "-01")}`,
     ehCreditoSaida && r.categoria !== "Estorno" ? (r.parcelas && r.parcelas > 1 ? `Parcelas: ${r.parcelas}x de ${formatarMoedaBR(r.valor / r.parcelas)}` : "Parcelas: à vista") : null,
     "",
