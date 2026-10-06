@@ -262,9 +262,13 @@ function _pctTipo(tipo, atual, anterior) {
 function _renderComparacaoMeses(vD, vR, ref) {
     const c = estadoAnual.cmp;
     if (!c.ativo) return '';
-    if (c.a === null) c.a = ref;
-    if (c.b === null) c.b = ref > 0 ? ref - 1 : Math.min(11, ref + 1);
-    const opcoes = sel => MESES_ANUAL_LONGO.map((m, i) => `<option value="${i}"${i === sel ? ' selected' : ''}>${m}</option>`).join('');
+    // Só entram na lista os meses que têm algum lançamento no ano
+    const comLancamento = MESES_ANUAL_LONGO.map((_, i) => i).filter(i => [...vD.todas, ...vR.todas].some(l => Math.abs(l.meses[i]) > 0.004));
+    const lista = comLancamento.length ? comLancamento : [ref];
+    const maisPerto = (alvo, fora = -1) => lista.filter(i => i !== fora).sort((x, y) => Math.abs(x - alvo) - Math.abs(y - alvo) || y - x)[0];
+    if (c.a === null || !lista.includes(c.a)) c.a = maisPerto(ref);
+    if (c.b === null || !lista.includes(c.b)) c.b = maisPerto(c.a > 0 ? c.a - 1 : c.a + 1, c.a) ?? c.a;
+    const opcoes = sel => lista.map(i => `<option value="${i}"${i === sel ? ' selected' : ''}>${MESES_ANUAL_LONGO[i]}</option>`).join('');
     const bloco = (rotulo, tipo, v) => {
         const ls = v.linhas.map(l => ({ nome: l.nome, a: l.meses[c.a], b: l.meses[c.b] }))
             .filter(l => Math.abs(l.a) > 0.004 || Math.abs(l.b) > 0.004)
