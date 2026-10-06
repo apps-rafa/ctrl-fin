@@ -1339,7 +1339,7 @@ function _aplicarLimiteListas(raiz) {
             btn.type = 'button';
             btn.className = 'busca-ampla-btn lista-mais-btn';
             btn.dataset.listaChave = chave;
-            btn.innerHTML = `Carregar mais 5 <small>restam ${itens.length - lim}</small>`;
+            btn.textContent = `Carregar mais ${Math.min(5, itens.length - lim)}`;
             itens[itens.length - 1].after(btn);
         }
     });
@@ -1356,7 +1356,7 @@ function _aplicarLimiteListas(raiz) {
             btn.type = 'button';
             btn.className = 'busca-ampla-btn lista-mais-btn';
             btn.dataset.listaChave = chave;
-            btn.innerHTML = `Carregar mais 5 <small>restam ${lista.length - lim}</small>`;
+            btn.textContent = `Carregar mais ${Math.min(5, lista.length - lim)}`;
             lista[lista.length - 1].after(btn);
         }
     });

@@ -148,7 +148,7 @@ function _maisNoGrupoBusca(chaveBusca, grupo) {
     _limitesBusca.mapa[grupo] = (_limitesBusca.mapa[grupo] || 5) + 5;
 }
 function _htmlMaisGrupo(grupo, total, lim) {
-    return total > lim ? `<button type="button" class="busca-ampla-btn" data-mais-grupo="${String(grupo).replace(/"/g, '&quot;')}">Carregar mais 5 <small>restam ${total - lim}</small></button>` : '';
+    return total > lim ? `<button type="button" class="busca-ampla-btn" data-mais-grupo="${String(grupo).replace(/"/g, '&quot;')}">Carregar mais ${Math.min(5, total - lim)}</button>` : '';
 }
 /** Grupos "A confirmar" e "Duplicatas" dos resultados da busca (separados dos de Receitas/Despesas). */
 function _htmlGruposFilaBusca(acs, dups, chaveBusca, abertos = {}) {
