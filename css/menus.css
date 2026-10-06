@@ -389,6 +389,8 @@
   padding: 2px;
   cursor: pointer;
 }
+.cor-aleatoria { width: 100%; margin-top: .5rem; height: 2.2rem; border: 1px solid var(--border-strong, #D1D5DB); border-radius: var(--radius); background: var(--surface); color: var(--text); font-size: .8rem; font-weight: 600; cursor: pointer; }
+.cor-aleatoria:hover { border-color: var(--primary); color: var(--primary); }
 
 .btn-icon {
   background: none;

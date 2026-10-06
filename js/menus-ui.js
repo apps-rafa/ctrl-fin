@@ -644,7 +644,8 @@ function abrirSeletorCor(btn) {
     corpoHTML: `
       <div class="cor-grade">${swatches}</div>
       <div class="campo"><label for="dlgCorLivre">Cor personalizada</label>
-        <input type="color" id="dlgCorLivre" value="${paraHex(corAtual)}"></div>`,
+        <input type="color" id="dlgCorLivre" value="${paraHex(corAtual)}">
+        <button type="button" class="cor-aleatoria" id="dlgCorAleatoria">🎲 Cor aleatória (que ainda não existe)</button></div>`,
     acoes: [
       { label: 'Cancelar' },
       { label: 'Salvar', primario: true, onClick: async (ov) => {
@@ -673,6 +674,31 @@ function abrirSeletorCor(btn) {
       if (livre) livre.value = paraHex(b.dataset.cor);
     });
   });
+  ov?.querySelector('#dlgCorAleatoria')?.addEventListener('click', () => {
+    ov.querySelectorAll('.cor-opcao').forEach(x => x.classList.remove('sel')); // vale a cor do campo, não a da grade
+    ov.querySelector('#dlgCorLivre').value = sortearCorNova();
+  });
+}
+
+/** Sorteia uma cor (#rrggbb) bem diferente de todas as que categorias e formas de pagamento já usam. */
+function sortearCorNova() {
+  const emUso = ['categoriasReceita', 'categoriasDespesa', 'metodos']
+    .flatMap(g => _itensDoGrupo(g)).map(i => paraHex(corDoItemMenu(i)));
+  const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const dist = (a, b) => Math.hypot(...rgb(a).map((v, i) => v - rgb(b)[i]));
+  const hsl = (h, s, l) => {
+    const a = s * Math.min(l, 1 - l);
+    const f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); };
+    return '#' + [f(0), f(8), f(4)].map(x => x.toString(16).padStart(2, '0')).join('');
+  };
+  let melhor = null, melhorDist = -1;
+  for (let t = 0; t < 300; t++) {
+    const c = hsl(Math.random() * 360, .55 + Math.random() * .3, .5 + Math.random() * .1);
+    const d = emUso.length ? Math.min(...emUso.map(u => dist(c, u))) : 999;
+    if (d >= 70) return c; // bem diferente de todas
+    if (d > melhorDist) { melhor = c; melhorDist = d; }
+  }
+  return melhor; // paleta cheia: a mais diferente que apareceu
 }
 
 /** rgb()/hex -> "#rrggbb" (input type=color exige hex) */
