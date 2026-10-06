@@ -50,7 +50,7 @@ async function _mesesComLancamentos() {
         .sort((a, b) => b[0].localeCompare(a[0]))
         .map(([competencia, total]) => ({
             competencia,
-            label: typeof obterMesAnoCurto === 'function' ? obterMesAnoCurto(parseDataLocal(competencia)) : competencia.slice(0, 7),
+            label: obterMesAnoCurto(parseDataLocal(competencia)),
             total
         }));
     return _dadosMesesCache;
@@ -380,8 +380,8 @@ async function onRestaurarBackup() {
 
         mostrarNotificacao(`Backup restaurado! ${b.menuItens.length} itens de configuração, ${b.transacoes.length} lançamentos, ${feriadosLimpos.length} feriados.`, 'sucesso');
         estadoImportarBackup = null;
-        if (typeof recarregarMenus === 'function') await recarregarMenus();
-        if (typeof recarregarDados === 'function') await recarregarDados();
+        await recarregarMenus();
+        await recarregarDados();
         renderImportarBackup();
     } catch (err) {
         console.error('Erro ao restaurar backup:', err);

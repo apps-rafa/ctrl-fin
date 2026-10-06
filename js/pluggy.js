@@ -195,7 +195,7 @@ async function carregarSaldoContas() {
     const contas = (data || []).filter(c => typeof c.saldo === 'number');
     estadoApp.saldoContasLista = contas.map(c => ({ nome: tituloContaPluggyCurto(c), saldo: c.saldo }));
     estadoApp.saldoContas = contas.length ? contas.reduce((a, c) => a + c.saldo, 0) : null;
-    if (typeof atualizarResumo === 'function') atualizarResumo();
+    atualizarResumo();
 }
 
 /** UUID determinístico do parcelamento: a mesma compra parcelada (mesma conta,
@@ -247,7 +247,7 @@ async function carregarFaturasBanco() {
     estadoApp.faturasBanco = (faturas || [])
         .map(f => ({ metodoId: metodoDaConta.get(f.conta_id) ?? null, vencimento: f.vencimento, total: f.total }))
         .filter(f => f.metodoId != null && f.vencimento && typeof f.total === 'number');
-    if (document.getElementById('proximas')?.classList.contains('active') && typeof atualizarProximasTransacoes === 'function') atualizarProximasTransacoes();
+    if (document.getElementById('proximas')?.classList.contains('active')) atualizarProximasTransacoes();
 }
 
 /** Carrega e renderiza as contas conectadas (Importar > Pluggy). */
@@ -581,9 +581,9 @@ function onClickTelegramBox(e) {
 
 /** Chamado ao entrar na sub-aba "Pluggy" de Importar (ver menus-ui.js). */
 function iniciarPluggy() {
-    document.getElementById('btnPluggyCred')?.addEventListener('click', () => { if (typeof alternarPluggyCredPainel === 'function') alternarPluggyCredPainel(); });
-    if (typeof iniciarPluggyCredenciais === 'function') iniciarPluggyCredenciais();
-    if (typeof carregarPluggyCredStatus === 'function') carregarPluggyCredStatus();
+    document.getElementById('btnPluggyCred')?.addEventListener('click', () => { alternarPluggyCredPainel(); });
+    iniciarPluggyCredenciais();
+    carregarPluggyCredStatus();
     document.getElementById('btnConectarPluggy')?.addEventListener('click', conectarContaPluggy);
     const btnSaldo = document.getElementById('btnSaldoContas');
     if (btnSaldo) {
@@ -597,7 +597,7 @@ function iniciarPluggy() {
         btnSaldo.addEventListener('click', () => {
             try { localStorage.setItem('ctrlfin_saldo_contas', saldoContasLigado() ? '0' : '1'); } catch (_) {}
             pintar();
-            if (typeof atualizarResumo === 'function') atualizarResumo();
+            atualizarResumo();
         });
     }
     document.getElementById('btnSincronizarPluggy')?.addEventListener('click', sincronizarPluggyAgora);

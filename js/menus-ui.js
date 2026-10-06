@@ -9,8 +9,8 @@ let subConfigAtiva = null; // sub-aba selecionada na Configuração — nenhuma 
 /** Recarrega a aba de configuração e, em seguida, os dropdowns do formulário */
 async function recarregarMenus() {
   await carregarAbaMenus();
-  if (typeof carregarMenus === 'function') await carregarMenus(); // atualiza form na hora
-  if (typeof atualizarUI === 'function') atualizarUI();           // reaplica cores nas listas
+  await carregarMenus(); // atualiza form na hora
+  atualizarUI();           // reaplica cores nas listas
 }
 
 async function carregarAbaMenus() {
@@ -260,17 +260,17 @@ async function carregarAbaMenus() {
   const secFer = document.querySelector('.menu-section[data-sub="fer"]');
   if (secFer) secFer.addEventListener('click', onFeriadosClick);
   const selUf = document.getElementById('feriadosUf');
-  if (selUf && typeof feriadosUF === 'function') {
+  if (selUf) {
     selUf.value = feriadosUF();
     selUf.addEventListener('change', () => {
       definirFeriadosUF(selUf.value);
       renderFeriados();
-      if (typeof atualizarUI === 'function') atualizarUI();
+      atualizarUI();
     });
   }
 
-  if (typeof iniciarPluggy === 'function') iniciarPluggy();
-  if (typeof iniciarDados === 'function') iniciarDados();
+  iniciarPluggy();
+  iniciarDados();
 }
 
 let feriadosAnoView = new Date().getFullYear();
@@ -286,7 +286,7 @@ function renderFeriados() {
   if (elAno) elAno.textContent = feriadosAnoView;
 
   ['nacional', 'estadual', 'municipal'].forEach(cat => {
-    const lista = (typeof feriadosView === 'function') ? feriadosView(cat, feriadosAnoView) : [];
+    const lista = feriadosView(cat, feriadosAnoView);
     const box = document.getElementById(`feriados-${cat}-list`);
     const cnt = document.querySelector(`[data-fer-count="${cat}"]`);
     if (cnt) cnt.textContent = lista.filter(f => f.ativo).length;
@@ -320,7 +320,7 @@ async function onFeriadosClick(e) {
       const n = await sincronizarFeriados([feriadosAnoView, feriadosAnoView + 1]);
       mostrarNotificacao(n ? `✓ ${n} feriado(s) adicionado(s)` : '✓ Já está tudo atualizado', 'sucesso');
       renderFeriados();
-      if (typeof atualizarUI === 'function') atualizarUI();
+      atualizarUI();
     } catch (err) {
       mostrarNotificacao('❌ ' + (err.message || 'Falha na sincronização'), 'erro');
     } finally {
@@ -339,7 +339,7 @@ async function onFeriadosClick(e) {
         ativo: btn.dataset.ferAtivo !== '1'
       });
       renderFeriados();
-      if (typeof atualizarUI === 'function') atualizarUI();
+      atualizarUI();
     } catch (_) { mostrarNotificacao('❌ Não foi possível salvar', 'erro'); }
     return;
   }
@@ -355,7 +355,7 @@ async function onFeriadosClick(e) {
             try {
               await apagarFeriado(btn.dataset.ferDel);
               renderFeriados();
-              if (typeof atualizarUI === 'function') atualizarUI();
+              atualizarUI();
             } catch (_) { mostrarNotificacao('❌ Não foi possível apagar', 'erro'); }
         } }
       ]
@@ -390,7 +390,7 @@ function abrirNovoFeriado() {
             feriadosAnoView = Number(iso.slice(0, 4));
             renderFeriados();
             document.querySelector(`.fer-grupo[data-fer-cat="${cat}"]`)?.setAttribute('open', '');
-            if (typeof atualizarUI === 'function') atualizarUI();
+            atualizarUI();
           } catch (err) {
             mostrarNotificacao('❌ ' + (err.message || 'Falha ao adicionar'), 'erro');
             return true;
@@ -399,8 +399,8 @@ function abrirNovoFeriado() {
     ]
   });
   const inpData = document.querySelector('.dialogo-overlay #dlgFerData');
-  if (inpData && typeof mascaraDataBR === 'function') {
-    if (typeof ligarCampoData === 'function') ligarCampoData(inpData);
+  if (inpData) {
+    ligarCampoData(inpData);
     inpData.addEventListener('input', () => mascaraDataBR(inpData));
   }
 }

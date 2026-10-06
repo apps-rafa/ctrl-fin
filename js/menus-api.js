@@ -49,7 +49,6 @@ async function semearMenusPadraoSeVazio() {
 
         const { error: insErr } = await sb.from('menu_itens').insert(linhas);
         if (insErr) throw insErr;
-        console.log('🌱 Menus padrão criados para o usuário');
         return true;
     } catch (error) {
         console.error('Erro ao semear menus padrão:', error);

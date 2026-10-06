@@ -183,7 +183,7 @@ function renderFaturasCartao(container, termo = '', soNaoRealizadas = false) {
     const TIPO_UI_FATURA = 'saida';
 
     const linhas = cartoes.map(m => {
-        const rot = (typeof rotuloMetodo === 'function') ? rotuloMetodo(m) : m.nome;
+        const rot = rotuloMetodo(m);
         const naoFiltra = t => !t.aConfirmar && (!soNaoRealizadas || !_transacaoRealizada(t));
         const despesas = _filtrarPorBusca(estadoApp.transacoes.saidas.filter(t => t.metodo === rot), termo).filter(naoFiltra);
         // Receita com esse método = estorno/reembolso lançado na fatura —
@@ -195,7 +195,7 @@ function renderFaturasCartao(container, termo = '', soNaoRealizadas = false) {
         if (!total) return '';
         const diaV = Math.min(parseInt(m.diaVencimento, 10) || 1, ultimoDia);
         const venc = `${String(diaV).padStart(2, '0')}/${String(mes.getMonth() + 1).padStart(2, '0')}`;
-        const cor = coresMet[rot] || (typeof corPadraoChip === 'function' ? corPadraoChip(rot) : 'var(--primary)');
+        const cor = coresMet[rot] || (corPadraoChip(rot));
         const chaveFatura = `proximas:fatura:${rot}`;
         const todos = _ordenarPorGrupo([...despesas, ...estornos], chaveFatura);
         const tipoUiDe = t => t.tipo === 'entradas' ? 'entrada' : 'saida';

@@ -558,7 +558,7 @@ async function _alternarFaturaPagaBtn(fatBtn) {
     if (error) { console.error(error); mostrarNotificacao('Erro ao atualizar a fatura', 'erro'); fatBtn.disabled = false; return false; }
     if (!(estadoApp.faturasPagas instanceof Map)) estadoApp.faturasPagas = new Map();
     if (igualAoAutomatico) estadoApp.faturasPagas.delete(chave); else estadoApp.faturasPagas.set(chave, novo);
-    if (typeof calcularResumoMes === 'function') { calcularResumoMes(); atualizarResumo(); } // pago x a pagar mudam
+    { calcularResumoMes(); atualizarResumo(); } // pago x a pagar mudam
     return true;
 }
 
@@ -1033,7 +1033,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
         ? `<label class="pago-check" title="Marcar como ${_rotPago.toLowerCase()}${trans.dataIndefinida ? ' (a data passa a ser hoje)' : ''}"><input type="checkbox" name="marcar-pago" data-act="marcar-pago" data-id="${trans.id}"> ${_rotPago}</label>`
         : '';
     const quitadoTag = ehParcela && trans.quitadoEm
-        ? `<span class="quitado-badge">quitado ${typeof mesTri === 'function' ? mesTri(String(trans.quitadoEm).slice(5, 7)) + '/' + String(trans.quitadoEm).slice(2, 4) : ''}</span>`
+        ? `<span class="quitado-badge">quitado ${mesTri(String(trans.quitadoEm).slice(5, 7)) + '/' + String(trans.quitadoEm).slice(2, 4)}</span>`
         : '';
 
     // Selos na margem esquerda, cada um alinhado ao texto da SUA linha: ⏰ (ainda não aconteceu) ou 🏦 (conciliado com o
@@ -1070,7 +1070,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
             // Encolhe em telas estreitas (CSS troca qual span aparece) —
             // "Crédito Bradesco" -> "CC Bradesco" -> "CC Brad.".
             const itemMetodo = ((estadoApp.menus && estadoApp.menus.metodos) || []).find(m => rotuloMetodo(m) === trans.metodo);
-            const niveis = itemMetodo && typeof rotuloMetodoNiveis === 'function' ? rotuloMetodoNiveis(itemMetodo) : null;
+            const niveis = itemMetodo ? rotuloMetodoNiveis(itemMetodo) : null;
             const txtChip = (niveis && niveis.curto !== niveis.full)
                 ? `<span class="met-tier-full">${niveis.full}</span><span class="met-tier-media">${niveis.media}</span><span class="met-tier-curto">${niveis.curto}</span>`
                 : trans.metodo;

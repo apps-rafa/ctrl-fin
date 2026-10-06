@@ -7,7 +7,6 @@
  * Configura todos os event listeners
  */
 function configurarEventListeners() {
-    console.log('⚙️ Configurando event listeners...');
     
     // Navegação de calendário: tira de meses (clique seleciona de verdade),
     // setas laterais andam a janela E mudam a seleção junto — o mês do meio
@@ -123,7 +122,7 @@ function configurarEventListeners() {
         dashboardEl.addEventListener('touchcancel', () => soltar(true), { passive: true });
     }
     window.addEventListener('resize', debounce(() => {
-        if (typeof atualizarCalendarioNav === 'function') atualizarCalendarioNav();
+        atualizarCalendarioNav();
     }, 150));
 
     // Seletor de tipo (Despesa/Receita) do formulário "Novo lançamento" —
@@ -156,25 +155,25 @@ function configurarEventListeners() {
     const modoSaidas = document.getElementById('modoSaidas');
     if (modoSaidas) modoSaidas.addEventListener('click', e => {
         const btn = e.target.closest('.modo-btn');
-        if (btn && typeof definirModoListaSaidas === 'function') definirModoListaSaidas(btn.dataset.modo);
+        if (btn) definirModoListaSaidas(btn.dataset.modo);
     });
 
     // Aba Receitas: alternar "Por recorrência" / "Por categoria"
     const modoEntradas = document.getElementById('modoEntradas');
     if (modoEntradas) modoEntradas.addEventListener('click', e => {
         const btn = e.target.closest('.modo-btn');
-        if (btn && typeof definirModoListaEntradas === 'function') definirModoListaEntradas(btn.dataset.modo);
+        if (btn) definirModoListaEntradas(btn.dataset.modo);
     });
 
     // Ícone do funil: desliga o filtro ativo (se nenhum estiver ligado, não
     // faz nada) — mesmo efeito de clicar de novo no botão já ativo.
     document.getElementById('modoSaidasIcone')?.addEventListener('click', () => {
-        if (modoListaSaidas !== 'cronologica' && typeof definirModoListaSaidas === 'function') {
+        if (modoListaSaidas !== 'cronologica') {
             definirModoListaSaidas(modoListaSaidas);
         }
     });
     document.getElementById('modoEntradasIcone')?.addEventListener('click', () => {
-        if (modoListaEntradas !== 'cronologica' && typeof definirModoListaEntradas === 'function') {
+        if (modoListaEntradas !== 'cronologica') {
             definirModoListaEntradas(modoListaEntradas);
         }
     });
@@ -197,13 +196,13 @@ function configurarEventListeners() {
     if (buscaGlobalEl) buscaGlobalEl.addEventListener('input', () => {
         document.body.classList.remove('aba-por-cima');
         sincronizarBuscaLimpar();
-        if (typeof atualizarBuscaGlobal === 'function') atualizarBuscaGlobal();
+        atualizarBuscaGlobal();
     });
     if (buscaLimparEl) buscaLimparEl.addEventListener('click', () => {
         document.body.classList.remove('aba-por-cima');
         buscaGlobalEl.value = '';
         sincronizarBuscaLimpar();
-        if (typeof atualizarBuscaGlobal === 'function') atualizarBuscaGlobal();
+        atualizarBuscaGlobal();
         buscaGlobalEl.focus();
     });
 
@@ -213,19 +212,6 @@ function configurarEventListeners() {
     if (fecharFormEl) fecharFormEl.addEventListener('click', () => {
         if (estadoApp.editandoId) cancelarEdicaoTransacao(true);
         if (document.getElementById('adicionar')?.classList.contains('active')) fecharAbas();
-    });
-
-    // Aba Próximas: filtro de tipo (Despesa/Receita) + modo de agrupamento
-    // (o conjunto de modos disponíveis muda conforme o tipo escolhido)
-    const tipoProximas = document.getElementById('tipoProximas');
-    if (tipoProximas) tipoProximas.addEventListener('click', e => {
-        const btn = e.target.closest('.tipo-btn');
-        if (btn && typeof definirTipoProximas === 'function') definirTipoProximas(btn.dataset.tipo);
-    });
-    const modoProximas = document.getElementById('modoProximas');
-    if (modoProximas) modoProximas.addEventListener('click', e => {
-        const btn = e.target.closest('.modo-btn');
-        if (btn && typeof definirModoListaProximas === 'function') definirModoListaProximas(btn.dataset.modo);
     });
 
     // Cards de Receitas/Despesas do dashboard abrem/fecham a aba correspondente
@@ -289,7 +275,7 @@ function configurarEventListeners() {
     if (valorInput) {
         valorInput.addEventListener('input', () => {
             mascaraValorMoeda(valorInput);
-            if (typeof atualizarValorTotal === 'function') atualizarValorTotal();
+            atualizarValorTotal();
         });
     }
     // Parcelas: a caixa mostra "à vista"/"Nx" formatado; ao focar, some o
@@ -298,14 +284,14 @@ function configurarEventListeners() {
     const parcInput = document.getElementById('parcelas');
     if (parcInput) {
         parcInput.addEventListener('focus', () => {
-            parcInput.value = String(typeof _parcelasNumero === 'function' ? _parcelasNumero(parcInput) : 1);
+            parcInput.value = String(_parcelasNumero(parcInput));
         });
         parcInput.addEventListener('input', () => {
             soNumeros(parcInput, 2);
-            if (typeof atualizarCampoParcelas === 'function') atualizarCampoParcelas();
+            atualizarCampoParcelas();
         });
         parcInput.addEventListener('blur', () => {
-            if (typeof atualizarCampoParcelas === 'function') atualizarCampoParcelas();
+            atualizarCampoParcelas();
         });
     }
 
@@ -323,7 +309,7 @@ function configurarEventListeners() {
             let v = parseInt(input.value, 10);
             if (Number.isNaN(v)) v = min;
             v = Math.min(max, Math.max(min, v + dir));
-            input.value = (input.id === 'parcelas' && typeof _parcelasTexto === 'function') ? _parcelasTexto(v) : String(v);
+            input.value = (input.id === 'parcelas') ? _parcelasTexto(v) : String(v);
             input.dispatchEvent(new Event('input', { bubbles: true }));
         });
     });
@@ -333,45 +319,40 @@ function configurarEventListeners() {
     if (categoriaInput && categoriaInput.tagName === 'INPUT') {
         categoriaInput.addEventListener('input', mostrarSugestoes);
         categoriaInput.addEventListener('blur', ocultarSugestoes);
-    } else if (categoriaInput && typeof atualizarCampoMetodoReceita === 'function') {
+    } else if (categoriaInput) {
         categoriaInput.addEventListener('change', atualizarCampoMetodoReceita);
     }
     
     // Reavalia labels curtos/longos e campos "sozinhos" quando a largura muda
-    if (typeof atualizarCampoParcelas === 'function') {
-        let rTimer;
-        window.addEventListener('resize', () => {
-            clearTimeout(rTimer);
-            rTimer = setTimeout(() => {
-                if (document.getElementById('adicionar')?.classList.contains('active')) {
-                    atualizarCampoParcelas();
-                }
-            }, 150);
-        });
-    }
+    let rTimer;
+    window.addEventListener('resize', () => {
+        clearTimeout(rTimer);
+        rTimer = setTimeout(() => {
+            if (document.getElementById('adicionar')?.classList.contains('active')) {
+                atualizarCampoParcelas();
+            }
+        }, 150);
+    });
 
     // Idem pros valores do dashboard (Receita/Despesa/Balanço/Gasto diário
     // e o botão "Próximos" do resumo compacto) — a largura do card muda com
     // a tela, então o que cabia pode deixar de caber (ou sobrar espaço).
-    if (typeof ajustarFontesDashboard === 'function') {
-        let dTimer;
-        window.addEventListener('resize', () => {
-            clearTimeout(dTimer);
-            dTimer = setTimeout(ajustarFontesDashboard, 150);
-        });
-        // Reajusta sempre que os cards mudarem de tamanho (ficaram visíveis, mudou o layout, fonte carregou):
-        // só no resize da janela o estouro do Balanço/Gasto diário voltava a cada vez
-        let rafAjuste = 0;
-        const reajustar = () => { cancelAnimationFrame(rafAjuste); rafAjuste = requestAnimationFrame(ajustarFontesDashboard); };
-        if (typeof ResizeObserver === 'function') {
-            const ro = new ResizeObserver(reajustar);
-            document.querySelectorAll('.dashboard .summary-card').forEach(c => ro.observe(c));
-        }
-        if (document.fonts && document.fonts.ready) document.fonts.ready.then(reajustar);
-        window.addEventListener('load', reajustar);
+    let dTimer;
+    window.addEventListener('resize', () => {
+        clearTimeout(dTimer);
+        dTimer = setTimeout(ajustarFontesDashboard, 150);
+    });
+    // Reajusta sempre que os cards mudarem de tamanho (ficaram visíveis, mudou o layout, fonte carregou):
+    // só no resize da janela o estouro do Balanço/Gasto diário voltava a cada vez
+    let rafAjuste = 0;
+    const reajustar = () => { cancelAnimationFrame(rafAjuste); rafAjuste = requestAnimationFrame(ajustarFontesDashboard); };
+    if (typeof ResizeObserver === 'function') {
+        const ro = new ResizeObserver(reajustar);
+        document.querySelectorAll('.dashboard .summary-card').forEach(c => ro.observe(c));
     }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(reajustar);
+    window.addEventListener('load', reajustar);
 
-    console.log('✓ Event listeners configurados');
 }
 
 /**
@@ -386,7 +367,7 @@ function sincronizarMesComFormulario(mes) {
     if (!(mes >= 1 && mes <= 12)) return;
     if (estadoApp.mesAtual.getMonth() + 1 === mes) return;
     estadoApp.mesAtual = new Date(estadoApp.mesAtual.getFullYear(), mes - 1, 1);
-    if (typeof recarregarDados === 'function') recarregarDados();
+    recarregarDados();
 }
 
 /**
@@ -400,7 +381,6 @@ function mudarTipoTransacao(tipo) {
         estadoApp.memoriaDespesa = { metodo: document.querySelector(SELECTORS.metodo)?.value || '', parcelas: document.getElementById('parcelas')?.value || '' };
     }
     estadoApp.tipoAtual = tipo;
-    console.log(`🔄 Tipo alterado para: ${tipo}`);
 
     // Atualizar botões — escopado ao formulário: "Próximas" reusa a mesma
     // classe .tipo-btn pro filtro dela, então um seletor global aqui acaba
@@ -418,9 +398,9 @@ function mudarTipoTransacao(tipo) {
     // Trocar receita <-> despesa NÃO zera o formulário: data, valor, mês, descrição (e a categoria, se existir nos dois tipos)
     // continuam como estavam; a forma de pagamento e as parcelas voltam quando se volta para despesa.
 
-    if (typeof atualizarLabelsPorTipo === 'function') atualizarLabelsPorTipo();
+    atualizarLabelsPorTipo();
     _restaurarMemoriaDespesa(tipo);
-    if (typeof atualizarCampoParcelas === 'function') atualizarCampoParcelas();
+    atualizarCampoParcelas();
 
     // Recarregar menus para o novo tipo — se o usuário trocar de tipo antes
     // dos menus carregarem pela 1a vez (ex.: clicou rápido, "+ Lançamento"
@@ -428,9 +408,9 @@ function mudarTipoTransacao(tipo) {
     // chegarem, pra não ficar com um estado calculado antes de tempo.
     carregarMenus().then(() => {
         if (estadoApp.tipoAtual !== tipo) return; // trocou de novo enquanto carregava
-        if (typeof atualizarLabelsPorTipo === 'function') atualizarLabelsPorTipo();
+        atualizarLabelsPorTipo();
         _restaurarMemoriaDespesa(tipo);
-        if (typeof atualizarCampoParcelas === 'function') atualizarCampoParcelas();
+        atualizarCampoParcelas();
     });
 }
 
@@ -442,7 +422,7 @@ function _restaurarMemoriaDespesa(tipo) {
     if (sel && (!sel.value || sel.value === estadoApp.metodoAutoReceita) && mem.metodo && [...sel.options].some(o => o.value === mem.metodo)) {
         estadoApp.metodoAutoReceita = null;
         sel.value = mem.metodo;
-        if (typeof atualizarCampoCredito === 'function') atualizarCampoCredito();
+        atualizarCampoCredito();
         const p = document.getElementById('parcelas');
         if (p && mem.parcelas) p.value = mem.parcelas;
     }
@@ -468,11 +448,11 @@ function fecharAbas() {
     _abaAnterior = null;
     document.body.classList.remove('aba-por-cima');
     document.body.classList.remove('modo-anual', 'modo-docs');
-    if (typeof _sairDoModoEdicaoSeAtivo === 'function') _sairDoModoEdicaoSeAtivo();
+    _sairDoModoEdicaoSeAtivo();
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('[data-tab], #btnConfig').forEach(b => b.classList.remove('active'));
     document.getElementById('btnConfig')?.setAttribute('aria-pressed', 'false');
-    if (typeof resetarModosListaParaCronologica === 'function') resetarModosListaParaCronologica();
+    resetarModosListaParaCronologica();
     sincronizarBotoesTopo();
 }
 
@@ -480,7 +460,7 @@ function mudarAba(novaAba) {
     const ativa = document.querySelector('.tab-content.active')?.id;
 
     // Saindo do formulário em edição por outra aba: a busca volta ANTES de decidir quem fica na frente
-    if (ativa === 'adicionar' && novaAba !== ativa && typeof _sairDoModoEdicaoSeAtivo === 'function') _sairDoModoEdicaoSeAtivo();
+    if (ativa === 'adicionar' && novaAba !== ativa) _sairDoModoEdicaoSeAtivo();
 
     // Busca / Recentes na tela: a aba pedida abre POR CIMA dela (o resultado fica guardado
     // por baixo e volta quando essa aba for fechada).
@@ -497,7 +477,6 @@ function mudarAba(novaAba) {
         return;
     }
     if (ativa && !sobBusca) _abaAnterior = ativa;
-    console.log(`📑 Mudando para aba: ${novaAba}`);
     // Visão anual é página única: esconde o resto do app; qualquer outra aba a fecha
     document.body.classList.toggle('modo-anual', novaAba === 'anual');
     document.body.classList.toggle('modo-docs', novaAba === 'docs'); // Documentação também é página única
@@ -522,32 +501,32 @@ function mudarAba(novaAba) {
 
     // Receita/Despesa/Próximas sempre abrem no filtro Cronológica, nunca no
     // modo em que a aba ficou da última vez.
-    if (['entradas', 'saidas', 'proximas'].includes(novaAba) && typeof resetarModosListaParaCronologica === 'function') {
+    if (['entradas', 'saidas', 'proximas'].includes(novaAba)) {
         resetarModosListaParaCronologica();
     }
 
     // Ações específicas
     if (novaAba === 'entradas') {
-        if (typeof atualizarEntradasLista === 'function') atualizarEntradasLista();
+        atualizarEntradasLista();
     } else if (novaAba === 'saidas') {
-        if (typeof atualizarSaidasLista === 'function') atualizarSaidasLista();
+        atualizarSaidasLista();
     } else if (novaAba === 'pendencias') {
-        if (typeof renderPendencias === 'function') renderPendencias();
+        renderPendencias();
     } else if (novaAba === 'recorrencias') {
-        if (typeof iniciarRecorrencias === 'function') iniciarRecorrencias();
+        iniciarRecorrencias();
     } else if (novaAba === 'proximas') {
         // Carregar próximas transações
         atualizarProximasTransacoes();
     } else if (novaAba === 'anual') {
-        if (typeof carregarVisaoAnual === 'function') carregarVisaoAnual(true);
+        carregarVisaoAnual(true);
     } else if (novaAba === 'lixeira') {
-        if (typeof carregarLixeira === 'function') carregarLixeira();
+        carregarLixeira();
     } else if (novaAba === 'menus') {
         // Carregar aba de gerenciamento de menus
         carregarAbaMenus();
     } else if (novaAba === 'adicionar' && !estadoApp.editandoId) {
         // Abrir "+ Lançamento" novo: começa sempre limpo e coerente
-        if (typeof limparFormulario === 'function') limparFormulario();
+        limparFormulario();
     }
 }
 
@@ -556,7 +535,6 @@ function mudarAba(novaAba) {
  */
 async function submeterFormulario(e) {
     e.preventDefault();
-    console.log('📝 Submetendo formulário...');
     
     const dados = obterDadosFormulario();
     

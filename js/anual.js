@@ -62,7 +62,7 @@ function _calcularAno(linhas, tipo) {
     const metodos = (estadoApp.menus && estadoApp.menus.metodos) || [];
     const rotulosCredito = new Set(metodos
         .filter(m => m.metodoKind === 'Crédito')
-        .map(m => (typeof rotuloMetodo === 'function' ? rotuloMetodo(m) : m.nome)));
+        .map(m => (rotuloMetodo(m))));
     const mapa = new Map();
     const somar = (nome, mes, valor) => {
         if (!mapa.has(nome)) mapa.set(nome, Array(12).fill(0));
@@ -117,7 +117,7 @@ function _transacoesDoFiltro(ano) {
     const metodos = (estadoApp.menus && estadoApp.menus.metodos) || [];
     const rotulosCredito = new Set(metodos
         .filter(m => m.metodoKind === 'Crédito')
-        .map(m => (typeof rotuloMetodo === 'function' ? rotuloMetodo(m) : m.nome)));
+        .map(m => (rotuloMetodo(m))));
     const itens = [];
     for (const t of estadoAnual.porAno[ano] || []) {
         const mes = parseInt(String(t.competencia).slice(5, 7), 10) - 1;
@@ -163,10 +163,10 @@ function _renderExtratoFiltro(ano) {
 }
 
 function _corDoNomeAnual(nome, tipo) {
-    if (estadoAnual.agrupar === 'categoria' && typeof corDaCategoria === 'function') return corDaCategoria(nome, tipo);
+    if (estadoAnual.agrupar === 'categoria') return corDaCategoria(nome, tipo);
     const cores = (estadoApp.menus && estadoApp.menus.cores) || {};
     const mapa = estadoAnual.agrupar === 'categoria' ? cores.categoria : cores.metodo;
-    return (mapa && mapa[nome]) || (typeof corPadraoChip === 'function' ? corPadraoChip(nome) : '#6366F1');
+    return (mapa && mapa[nome]) || (corPadraoChip(nome));
 }
 
 function _pct(atual, anterior) {
@@ -214,7 +214,7 @@ function _graficoHorizontal(vR, vD, mesesSel) {
     const html = barras.map(b => {
         const segs = b.linhas.map(l => {
             const pct = b.total ? l.meses[b.i] / b.total * 100 : 0;
-            const txt = pct >= 22 ? `${_esc(typeof abreviarCategoria === 'function' ? abreviarCategoria(l.nome) : l.nome)} ${Math.round(pct)}%` : (pct >= 9 ? `${Math.round(pct)}%` : '');
+            const txt = pct >= 22 ? `${_esc(abreviarCategoria(l.nome))} ${Math.round(pct)}%` : (pct >= 9 ? `${Math.round(pct)}%` : '');
             return `<span class="seg" style="flex:${l.meses[b.i]};background:${_corDoNomeAnual(l.nome, b.tipo)}" title="${b.rot} · ${_esc(l.nome)} · ${MESES_ANUAL_LONGO[b.i]}: ${_fmtMoeda(l.meses[b.i])} (${Math.round(pct)}%)">${txt}</span>`;
         }).join('');
         const larg = b.total > 0 ? Math.max(2, b.total / max * 100) : 0;
@@ -225,7 +225,7 @@ function _graficoHorizontal(vR, vD, mesesSel) {
 
 /** Nome de categoria/forma: inteiro no desktop, abreviado no celular (nunca termina em "…"). */
 function _nomeCurto(nome) {
-    const curto = typeof abreviarCategoria === 'function' ? abreviarCategoria(nome) : nome;
+    const curto = abreviarCategoria(nome);
     if (curto === nome || String(nome).length <= 12) return _esc(nome);
     return `<span class="nm-full">${_esc(nome)}</span><span class="nm-curto">${_esc(curto)}</span>`;
 }

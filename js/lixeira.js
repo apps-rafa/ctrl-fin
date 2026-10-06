@@ -106,9 +106,9 @@ async function onCliqueLixeira(e) {
             const { error: e3 } = await sb.from('lixeira').delete().eq('id', id);
             if (e3) throw e3;
             mostrarNotificacao('↩ Lançamento restaurado', 'sucesso');
-            if (typeof recarregarDados === 'function') await recarregarDados();
+            await recarregarDados();
             carregarLixeira();
-            if (typeof atualizarBuscaGlobal === 'function') atualizarBuscaGlobal();
+            atualizarBuscaGlobal();
         } catch (err) {
             console.error('Erro ao restaurar:', err);
             mostrarNotificacao('Erro ao restaurar o lançamento', 'erro');
@@ -119,6 +119,6 @@ async function onCliqueLixeira(e) {
         const { error } = await sb.from('lixeira').delete().eq('id', id);
         if (error) { console.error(error); mostrarNotificacao('Erro ao apagar', 'erro'); return; }
         carregarLixeira();
-        if (typeof atualizarBuscaGlobal === 'function') atualizarBuscaGlobal();
+        atualizarBuscaGlobal();
     }
 }
