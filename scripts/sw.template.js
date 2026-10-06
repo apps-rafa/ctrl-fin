@@ -1,9 +1,9 @@
 // Service worker do app (copiado para dist/sw.js pelo build, com a lista de arquivos e a versão preenchidas).
 // Objetivo: o app abre na hora nas visitas seguintes (JS/CSS vêm do aparelho) e abre até sem internet (os DADOS é que precisam de rede).
 //  - Páginas (index.html, mini app): REDE PRIMEIRO (sempre pega a versão nova quando há internet; com rede lenta, em 3 s abre a guardada).
-//  - app.<hash>.js/css e mod.<hash>.js: nome com hash = nunca muda → CACHE PRIMEIRO.
+//  - app.<hash>.js/css, mod.<hash>.js e vendor.<hash>.js (supabase-js): nome com hash = nunca muda → CACHE PRIMEIRO.
 //  - Imagens e CSS soltos: usa o guardado e atualiza em segundo plano.
-//  - supabase-js do CDN (versão fixa): cache primeiro. Todo o resto (API do Supabase, Telegram, etc.) passa direto, sem cache.
+//  - CDN (Pluggy, versão fixa): cache primeiro. Todo o resto (API do Supabase, Telegram, etc.) passa direto, sem cache.
 const VERSAO = "__VERSAO__";
 const CACHE = "ctrlfin-" + VERSAO;
 const PRECACHE = __PRECACHE__;
@@ -65,7 +65,7 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(req.url);
   if (url.origin === self.location.origin) {
     if (req.mode === "navigate" || url.pathname.endsWith(".html")) return e.respondWith(paginaRedePrimeiro(req));
-    if (/\/(app|mod)\.[^/]+\.(js|css)$/.test(url.pathname)) return e.respondWith(cachePrimeiro(req));
+    if (/\/(app|mod|vendor)\.[^/]+\.(js|css)$/.test(url.pathname)) return e.respondWith(cachePrimeiro(req));
     return e.respondWith(atualizaEmSegundoPlano(req));
   }
   if (url.hostname === "cdn.jsdelivr.net") return e.respondWith(cachePrimeiro(req));
