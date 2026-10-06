@@ -156,3 +156,19 @@ const CONFIG = {
   ANIMACAO_DURACAO: 300,
   DIAS_PROXIMOS: 30
 };
+
+/** Módulos que só são baixados quando alguém usa a tela (Documentação, Visão anual, Dados, Open Finance): o carregamento inicial fica menor.
+ *  No site publicado, window.__modulos (gerado pelo build) diz o arquivo de cada um; no desenvolvimento, é js/<nome>.js. */
+const _modulosCarregados = {};
+function carregarModulo(nome) {
+    if (!_modulosCarregados[nome]) {
+        _modulosCarregados[nome] = new Promise((ok, falhou) => {
+            const s = document.createElement('script');
+            s.src = (window.__modulos && window.__modulos[nome]) || `js/${nome}.js`;
+            s.onload = () => ok();
+            s.onerror = () => { delete _modulosCarregados[nome]; falhou(new Error(`Não consegui carregar o módulo "${nome}"`)); };
+            document.head.appendChild(s);
+        });
+    }
+    return _modulosCarregados[nome];
+}
