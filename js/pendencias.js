@@ -11,20 +11,8 @@ let _pendenciasTimer = null;
 
 const _compDe = t => String(t.competencia || t.data).slice(0, 7);
 
-/** Todas as transações, só com as colunas que a detecção de duplicatas usa (em páginas: a tela só guarda o mês em exibição). */
-async function _transacoesParaDuplicatas() {
-    const TAM = 1000, saida = [];
-    for (let ini = 0; ini < 100000; ini += TAM) {
-        const { data, error } = await sb.from('transacoes')
-            .select('id, tipo, valor, metodo, descricao, data, competencia, duplicata_ok, a_confirmar')
-            .order('id', { ascending: true }).range(ini, ini + TAM - 1);
-        if (error) throw error;
-        saida.push(...(data || []));
-        if (!data || data.length < TAM) break;
-    }
-    return saida.map(r => ({ id: r.id, tipo: r.tipo, valor: Number(r.valor), metodo: r.metodo, descricao: r.descricao || '',
-        data: r.data, competencia: r.competencia, duplicataOk: !!r.duplicata_ok, aConfirmar: !!r.a_confirmar }));
-}
+/** Todas as transações, só com as colunas que a detecção de duplicatas usa (ver transacoesParaDuplicatasAPI em api.js). */
+const _transacoesParaDuplicatas = () => transacoesParaDuplicatasAPI();
 
 /** Busca no banco: TODAS as ocorrências "a confirmar" já vencidas (de qualquer mês anterior) e as duplicatas de TODOS os meses
  *  (mesma regra do grupo Duplicatas: mesmo valor, forma e descrição repetidos dentro do mesmo mês). */
@@ -32,7 +20,7 @@ async function carregarPendencias() {
     const hoje = hojeISO();
     try {
         const [rAc, todas] = await Promise.all([
-            sb.from('transacoes').select('*').eq('a_confirmar', true).lte('data', hoje).order('data', { ascending: true }).limit(2000),
+            ocorrenciasVencidasAPI(hoje),
             _transacoesParaDuplicatas(),
         ]);
         if (rAc.error) throw rAc.error;
@@ -46,7 +34,7 @@ async function carregarPendencias() {
         // só as duplicatas ganham a linha completa (para desenhar o lançamento)
         const completas = [];
         for (let i = 0; i < idsDup.length; i += 150) {
-            const { data, error } = await sb.from('transacoes').select('*').in('id', idsDup.slice(i, i + 150));
+            const { data, error } = await transacoesPorIdsAPI(idsDup.slice(i, i + 150));
             if (error) throw error;
             completas.push(...(data || []).map(mapa));
         }

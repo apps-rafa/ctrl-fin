@@ -80,7 +80,7 @@ async function abrirOriginalDaParcela(parcela) {
         .find(t => t.grupoId && t.grupoId === parcela.grupoId && t.parcelaNum === 1);
     let tipo = original ? tipoDe(original) : tipoDe(parcela);
     if (!original) {
-        const { data, error } = await sb.from('transacoes').select('*').eq('grupo_id', parcela.grupoId).eq('parcela_num', 1).limit(1);
+        const { data, error } = await parcelaOriginalAPI(parcela.grupoId);
         if (error || !data || !data.length) { mostrarNotificacao('Não achei o lançamento original desta parcela', 'erro'); return; }
         original = mapearTransacao(data[0]);
         tipo = data[0].tipo;
@@ -106,8 +106,7 @@ async function mostrarRecemLancados(qtd = 5) {
     document.body.classList.add('buscando');
     sincronizarBotoesTopo();
     if (!box.querySelector('.rec-grupo-itens')) box.innerHTML = '<p class="loading">Carregando...</p>';
-    const { data, error } = await sb.from('transacoes').select('*')
-        .order('criado_em', { ascending: false }).order('id', { ascending: false }).range(0, qtd * 12 - 1);
+    const { data, error } = await ultimasTransacoesAPI(qtd * 12);
     if (box.dataset.modo !== 'ampla') return; // o usuário já mudou de tela/busca
     if (error) { console.error(error); box.innerHTML = '<p class="empty-message">Erro ao carregar</p>'; return; }
     // Parcelas da mesma compra (grupo_id) viram UMA linha: a parcela 1
@@ -194,14 +193,7 @@ async function buscarAmpla(termo) {
     if (_amplaCache && _amplaCache.termo === termo) linhas = _amplaCache.linhas;
     else try {
         box.innerHTML = '<p class="loading">Buscando em todos os meses...</p>';
-        for (let ini = 0; ; ini += 1000) {
-            let consulta = sb.from('transacoes').select('*');
-            if (q.ano != null) consulta = consulta.gte('data', `${q.ano}-01-01`).lt('data', `${q.ano + 1}-01-01`);
-            const { data, error } = await consulta.order('data', { ascending: false }).order('id').range(ini, ini + 999);
-            if (error) throw error;
-            linhas.push(...(data || []));
-            if (!data || data.length < 1000) break;
-        }
+        linhas.push(...await buscarTransacoesAPI(q.ano));
     } catch (e) {
         console.error(e);
         box.innerHTML = '<p class="empty-message">Erro na busca</p>';
@@ -295,12 +287,7 @@ async function _linhasDoMesPorData() {
     const prox = new Date(mes.getFullYear(), mes.getMonth() + 1, 1);
     const fim = `${prox.getFullYear()}-${String(prox.getMonth() + 1).padStart(2, '0')}-01`;
     const linhas = [];
-    for (let de = 0; ; de += 1000) {
-        const { data, error } = await sb.from('transacoes').select('*').gte('data', ini).lt('data', fim).order('id').range(de, de + 999);
-        if (error) throw error;
-        linhas.push(...(data || []));
-        if (!data || data.length < 1000) break;
-    }
+    linhas.push(...await transacoesDoPeriodoAPI(ini, fim));
     const itens = linhas.map(r => ({ ...mapearTransacao(r), tipo: r.tipo }));
     _buscaMesCache = { chave, itens };
     return itens;
