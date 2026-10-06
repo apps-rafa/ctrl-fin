@@ -14,14 +14,15 @@ async function carregarDados() {
         const ano = estadoApp.mesAtual.getFullYear();
 
 
-        // Carregar entradas
-        const entradas = await carregarTransacoes('entradas', mes, ano);
+        // As três leituras são independentes: vão juntas (1 ida e volta em vez de 3)
+        const [entradas, saidas, faturasPagas] = await Promise.all([
+            carregarTransacoes('entradas', mes, ano),
+            carregarTransacoes('saidas', mes, ano),
+            carregarFaturasPagasAPI(),
+        ]);
         estadoApp.transacoes.entradas = entradas;
-        
-        // Carregar saídas
-        const saidas = await carregarTransacoes('saidas', mes, ano);
         estadoApp.transacoes.saidas = saidas;
-        estadoApp.faturasPagas = await carregarFaturasPagasAPI();
+        estadoApp.faturasPagas = faturasPagas;
         
         // Calcular resumo
         calcularResumoMes();

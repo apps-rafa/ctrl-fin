@@ -30,10 +30,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Carregar menus (categorias, métodos, recorrências)
-    await carregarMenus();
-
-    // Feriados (nacionais calculados + do usuário) — usados no cálculo de dia útil
-    try { await carregarFeriados(); } catch (e) { console.warn('Feriados:', e); }
+    // + feriados (nacionais calculados + do usuário, usados no dia útil): independentes, vão juntos
+    await Promise.all([
+        carregarMenus(),
+        carregarFeriados().catch(e => console.warn('Feriados:', e)),
+    ]);
 
     // Estado inicial do formulário
     const dataInput = document.querySelector(SELECTORS.data);
