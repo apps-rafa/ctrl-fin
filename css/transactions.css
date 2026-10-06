@@ -865,3 +865,6 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 .despesa-linha2 > .despesa-desc--vazia { align-self: stretch; }
 /* Próximos: os meses em zebrado (alternando o fundo) */
 #proximas details.fatura-item[data-pend^="mes:"]:nth-of-type(even) { background: color-mix(in srgb, var(--surface-3) 55%, transparent); }
+/* Pendências: meses em zebrado, como em Próximos (e os botões "todas" dos grupos, com o mesmo tamanho dos de Duplicatas/A confirmar) */
+#pendencias details.fatura-item[data-pend^="mes:"]:nth-of-type(even) { background: color-mix(in srgb, var(--surface-3) 55%, transparent); }
+.fatura-item > summary .mini-btn { flex: none; }

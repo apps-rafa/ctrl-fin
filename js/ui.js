@@ -129,6 +129,17 @@ function _detectarDuplicatas(transacoes) {
  *  sozinho conforme o usuário for resolvendo (editando, apagando ou
  *  aprovando) — não precisa "arquivar". Grupo vazio nunca abre (nem é
  *  clicável: não é um <details>, é uma linha estática). */
+/** Botões do cabeçalho do grupo Duplicatas (Home, abas e Pendências): aceitar todas / apagar todas. */
+function _botoesTodasDuplicatas() {
+    return `<span role="button" tabindex="0" class="mini-btn" data-dup-aceitar-todas title="Aceitar todas: marca todas como &quot;não é duplicata&quot; — não avisa de novo sobre elas"><span class="mb-ico">✓</span><span class="mb-txt"> Aceitar todas</span></span>
+        <span role="button" tabindex="0" class="mini-btn armed" data-dup-apagar-todas title="Apagar todas: apaga todos os lançamentos listados aqui"><span class="mb-ico">${ICONE_LIXEIRA}</span><span class="mb-txt"> Apagar todas</span></span>`;
+}
+/** Botões do cabeçalho do grupo A confirmar: confirmar todas / apagar todas. */
+function _botoesTodasAConfirmar() {
+    return `<span role="button" tabindex="0" class="mini-btn" data-ac-confirmar-todas title="Confirmar todas as ocorrências listadas aqui"><span class="mb-ico">✓</span><span class="mb-txt"> Confirmar todas</span></span>
+        <span role="button" tabindex="0" class="mini-btn armed" data-ac-apagar-todas title="Apagar todas: apaga só estas ocorrências (as recorrências continuam ativas)"><span class="mb-ico">${ICONE_LIXEIRA}</span><span class="mb-txt"> Apagar todas</span></span>`;
+}
+
 function _renderGrupoDuplicatas(transacoes, tipoUI, aberto, duplicatasPre, onde = 'home') {
     const duplicatas = duplicatasPre || _detectarDuplicatas(transacoes);
     const tipoDe = typeof tipoUI === 'function' ? tipoUI : () => tipoUI;
@@ -141,8 +152,7 @@ function _renderGrupoDuplicatas(transacoes, tipoUI, aberto, duplicatasPre, onde 
     <details class="rec-grupo cor-rec-despesa" data-nome="__duplicatas__" ${aberto ? 'open' : ''}>
       <summary>
         <span class="rec-grupo-nome">📑 Duplicatas</span>
-        <span role="button" tabindex="0" class="mini-btn" data-dup-aceitar-todas title="Aceitar todas: marca todas como &quot;não é duplicata&quot; — não avisa de novo sobre elas"><span class="mb-ico">✓</span><span class="mb-txt"> Aceitar todas</span></span>
-        <span role="button" tabindex="0" class="mini-btn armed" data-dup-apagar-todas title="Apagar todas: apaga todos os lançamentos listados aqui"><span class="mb-ico">${ICONE_LIXEIRA}</span><span class="mb-txt"> Apagar todas</span></span>
+        ${_botoesTodasDuplicatas()}
         <span class="rec-grupo-espaco"></span>
         <span class="rec-grupo-contagem">${duplicatas.length}</span>
         <span class="rec-grupo-total">${formatarMoeda(total)}</span>
@@ -204,8 +214,7 @@ function _renderGrupoAConfirmar(itens, tipoUI, aberto, onde = 'home') {
     <details class="rec-grupo cor-rec-muted" data-nome="__aconfirmar__" ${aberto ? 'open' : ''}>
       <summary>
         <span class="rec-grupo-nome">🔁 A confirmar</span>
-        <span role="button" tabindex="0" class="mini-btn" data-ac-confirmar-todas title="Confirmar todas as ocorrências listadas aqui"><span class="mb-ico">✓</span><span class="mb-txt"> Confirmar todas</span></span>
-        <span role="button" tabindex="0" class="mini-btn armed" data-ac-apagar-todas title="Apagar todas: apaga só estas ocorrências (as recorrências continuam ativas)"><span class="mb-ico">${ICONE_LIXEIRA}</span><span class="mb-txt"> Apagar todas</span></span>
+        ${_botoesTodasAConfirmar()}
         <span class="rec-grupo-espaco"></span>
         <span class="rec-grupo-contagem">${itens.length}</span>
         <span class="rec-grupo-total">${formatarMoeda(total)}</span>
@@ -242,7 +251,7 @@ function _ligarFilaManual(box, onde) {
 /** Botões "Confirmar/Aceitar todas" e "Apagar todas" (Duplicatas e A confirmar): se o cabeçalho do grupo não comporta o texto (o título nunca quebra
  *  em 2 linhas), ficam só o ✓ e a lixeira. */
 function ajustarBotoesTodas() {
-    document.querySelectorAll('.rec-grupo[data-nome="__duplicatas__"] > summary, .rec-grupo[data-nome="__aconfirmar__"] > summary').forEach(sm => {
+    document.querySelectorAll('.rec-grupo[data-nome="__duplicatas__"] > summary, .rec-grupo[data-nome="__aconfirmar__"] > summary, details[data-pend$=":ac"] > summary, details[data-pend$=":dup"] > summary').forEach(sm => {
         const btns = sm.querySelectorAll('.mini-btn');
         btns.forEach(b => b.classList.remove('so-ico'));
         if (!sm.clientWidth) return; // grupo oculto: mede quando aparecer
@@ -1140,7 +1149,7 @@ function onListaTransacaoClick(e) {
     const aceitarTodas = e.target.closest('[data-dup-aceitar-todas]');
     if (aceitarTodas) {
         e.preventDefault(); // dentro do <summary> — sem isso também abre/fecha o <details>
-        const det = aceitarTodas.closest('details.rec-grupo[data-nome="__duplicatas__"]');
+        const det = aceitarTodas.closest('details');
         const ids = [...det.querySelectorAll('[data-act="aprovar-duplicata"]')].map(b => Number(b.dataset.id)).filter(Number.isFinite);
         ids.forEach(id => _aprovarDuplicata(id));
         atualizarUI();
@@ -1150,7 +1159,7 @@ function onListaTransacaoClick(e) {
     const acApagar = e.target.closest('[data-ac-apagar-todas]');
     if (acConfirmar || acApagar) {
         e.preventDefault();
-        const det = (acConfirmar || acApagar).closest('details.rec-grupo[data-nome="__aconfirmar__"]');
+        const det = (acConfirmar || acApagar).closest('details');
         const ids = [...det.querySelectorAll('[data-act="confirmar-ocorrencia"]')].map(b => Number(b.dataset.id)).filter(Number.isFinite);
         if (!ids.length) return;
         if (acConfirmar) { confirmarOcorrenciasRecorrencia(ids); return; }
@@ -1164,7 +1173,7 @@ function onListaTransacaoClick(e) {
     const apagarTodas = e.target.closest('[data-dup-apagar-todas]');
     if (apagarTodas) {
         e.preventDefault();
-        const det = apagarTodas.closest('details.rec-grupo[data-nome="__duplicatas__"]');
+        const det = apagarTodas.closest('details');
         const ids = [...det.querySelectorAll('[data-act="aprovar-duplicata"]')].map(b => Number(b.dataset.id)).filter(Number.isFinite);
         if (!ids.length) return;
         mostrarDialogo({
@@ -1363,7 +1372,7 @@ function _aplicarLimiteListas(raiz) {
 }
 
 function iniciarLimiteListas() {
-    const raizes = ['entradas', 'saidas', 'proximas'].map(id => document.getElementById(id)).filter(Boolean);
+    const raizes = ['entradas', 'saidas', 'proximas', 'recorrencias', 'pendencias'].map(id => document.getElementById(id)).filter(Boolean);
     if (!raizes.length) return;
     _observadorLimite = new MutationObserver(() => {
         if (_aplicandoLimite) return;
@@ -1385,7 +1394,7 @@ document.addEventListener('toggle', e => {
     const d = e.target;
     if (!d || d.tagName !== 'DETAILS' || d.open) return;
     const aba = d.closest('.tab-content');
-    if (!aba || !['entradas', 'saidas', 'proximas'].includes(aba.id)) return;
+    if (!aba || !['entradas', 'saidas', 'proximas', 'recorrencias', 'pendencias'].includes(aba.id)) return;
     const base = _chaveLista(d);
     let mudou = false;
     Object.keys(_limitesLista).forEach(k => { if (k === base || k.startsWith(base + '>')) { delete _limitesLista[k]; mudou = true; } });
