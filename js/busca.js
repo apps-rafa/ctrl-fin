@@ -104,7 +104,7 @@ async function mostrarRecemLancados(qtd = 5) {
     box.dataset.recentes = '1';
     box.dataset.recentesQtd = String(qtd);
     document.body.classList.add('buscando');
-    if (typeof sincronizarBotoesTopo === 'function') sincronizarBotoesTopo();
+    sincronizarBotoesTopo();
     if (!box.querySelector('.rec-grupo-itens')) box.innerHTML = '<p class="loading">Carregando...</p>';
     const { data, error } = await sb.from('transacoes').select('*')
         .order('criado_em', { ascending: false }).order('id', { ascending: false }).range(0, qtd * 12 - 1);
@@ -275,7 +275,7 @@ function atualizarBuscaGlobal() {
     box.hidden = !termo;
     box.dataset.modo = '';
     box.dataset.recentes = '';
-    if (typeof sincronizarBotoesTopo === 'function') sincronizarBotoesTopo();
+    sincronizarBotoesTopo();
     if (!termo) { box.innerHTML = ''; box.onclick = null; return; }
 
     // Mês ou ano na busca ("uber agosto", "2025") pede outros períodos: vai direto pra todos os meses

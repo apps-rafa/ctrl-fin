@@ -40,8 +40,8 @@ async function gerarOcorrenciasRecorrencias() {
 async function _recAtualizarTudo() {
     await gerarOcorrenciasRecorrencias();
     await carregarRecorrencias();
-    if (typeof recarregarDados === 'function') await recarregarDados();
-    if (typeof atualizarUI === 'function') atualizarUI();
+    await recarregarDados();
+    atualizarUI();
     renderListaRecorrencias();
 }
 
@@ -51,7 +51,7 @@ async function garantirOcorrenciasDoDia() {
     try { if (localStorage.getItem('recorrenciasGeradasEm') === hoje) return; } catch (_) {}
     const criadas = await gerarOcorrenciasRecorrencias();
     try { localStorage.setItem('recorrenciasGeradasEm', hoje); } catch (_) {}
-    if (criadas > 0 && typeof recarregarDados === 'function') { await recarregarDados(); if (typeof atualizarUI === 'function') atualizarUI(); }
+    if (criadas > 0) { await recarregarDados(); atualizarUI(); }
 }
 
 /** ✓ no bloco "A confirmar": a ocorrência vira lançamento normal (continua com o selo 🔁 enquanto não passa). */
@@ -104,7 +104,7 @@ function perguntarExcluirRecorrente(trans) {
 /** "Editar recorrência" no formulário do lançamento: abre a página Recorrências já com a edição. */
 async function abrirRecorrenciaDoLancamento(recId) {
     if (!recId) return;
-    if (typeof cancelarEdicaoTransacao === 'function') cancelarEdicaoTransacao(false);
+    cancelarEdicaoTransacao(false);
     mudarAba('recorrencias');
     await carregarRecorrencias();
     const rec = _recorrencias.find(r => r.id === recId);
@@ -253,7 +253,7 @@ function _recDatas(r, ate) {
             const d = iso(base);
             if (d < r.inicio) continue;
             if (d > ate || (fim && d >= fim)) break;
-            out.push(!variavel && !r.semDiaUtil && typeof proximoDiaUtil === 'function' ? iso(proximoDiaUtil(base)) : d); // cartão de crédito: qualquer dia
+            out.push(!variavel && !r.semDiaUtil && typeof proximoDiaUtil === 'function' ? iso(proximoDiaUtil(base)) : d); // (guarda mantida: os testes carregam este arquivo sozinho) // cartão de crédito: qualquer dia
         }
         return out;
     }

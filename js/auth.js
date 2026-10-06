@@ -225,7 +225,7 @@ async function initAuth() {
     sb.auth.onAuthStateChange((event) => {
         if (event === 'SIGNED_IN') {
             esconderTelaLogin();
-            if (typeof carregarMenus === 'function') carregarMenus();
+            carregarMenus();
             if (typeof window.recarregarApp === 'function') window.recarregarApp();
         } else if (event === 'SIGNED_OUT') {
             mostrarTelaLogin();

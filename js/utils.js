@@ -191,8 +191,8 @@ function aplicarDataPadrao(force) {
     el.dataset.padrao = nova;
     el.dataset.qtdDigitos = String((nova.match(/\d/g) || []).length);
     delete el.dataset.userVal;
-    if (typeof recalcularCompetencia === 'function') recalcularCompetencia();
-    if (typeof atualizarCampoParcelas === 'function') atualizarCampoParcelas();
+    recalcularCompetencia();
+    atualizarCampoParcelas();
 }
 
 /** Liga a máscara de data num input: keydown (backspace na "/") + sincroniza o
@@ -469,9 +469,9 @@ function limparFormulario() {
         if (dataEl) delete dataEl.dataset.userVal;
         const btnSub = document.querySelector('.btn-submit');
         if (btnSub && !estadoApp.editandoId) btnSub.textContent = 'Adicionar';
-        if (typeof atualizarCampoParcelas === 'function') atualizarCampoParcelas();
-        if (typeof atualizarLabelsPorTipo === 'function') atualizarLabelsPorTipo();
-        if (typeof atualizarCampoCredito === 'function') atualizarCampoCredito();
+        atualizarCampoParcelas();
+        atualizarLabelsPorTipo();
+        atualizarCampoCredito();
     }
 }
 
@@ -485,7 +485,7 @@ function limparFormulario() {
  */
 function obterDadosFormulario() {
     // Despesa > categoria "Estorno" grava como entrada no cartão (abate a fatura)
-    const ehEstorno = typeof _formEhEstorno === 'function' && _formEhEstorno();
+    const ehEstorno = _formEhEstorno();
     const ehEntrada = ehEstorno || document.querySelector(SELECTORS.tipoTransacao).value === 'entradas';
     const mesExib = (typeof estadoApp !== 'undefined' && estadoApp.mesAtual)
         ? formatarDataISO(estadoApp.mesAtual) : hojeISO();
@@ -494,7 +494,7 @@ function obterDadosFormulario() {
     let dataISO = dataCampoParaISO(dataTxt);
     const parcelas = parseInt(document.getElementById('parcelas')?.value, 10) || 1;
 
-    const _met = typeof metodoSelecionado === 'function' ? metodoSelecionado() : null;
+    const _met = metodoSelecionado();
     // Estorno (gravado como entrada no cartão) também tem mês da fatura, mas nunca parcelas
     const ehMetodoCredito = (!ehEntrada || ehEstorno) && !!_met && _met.metodoKind === 'Crédito';
     const tipoRecorrencia = (ehMetodoCredito && !ehEstorno && parcelas > 1) ? 'Parcelada' : 'Pontual';

@@ -235,7 +235,7 @@ async function _marcarDuplicatasPluggy(itens) {
     const casa = (t, item, rot) =>
         t.tipo === item.tipo &&
         Math.abs(Math.abs(parseFloat(t.valor)) - Math.abs(parseFloat(item.valor))) < 0.005 &&
-        typeof _diffDias === 'function' && dif(t, item) <= 2 &&
+        dif(t, item) <= 2 &&
         (!rot || !t.metodo || _mesmaFormaPgto(t.metodo, rot));
     const ordenados = [...itens].sort((a, b) => String(a.data).localeCompare(String(b.data)) || a.id - b.id);
     const candidatoPorItem = new Map();
@@ -820,8 +820,8 @@ async function importarProntasPluggy() {
     );
     await carregarConciliadas();
     await carregarRevisaoPluggy();
-    if (typeof recarregarDados === 'function') await recarregarDados();
-    if (typeof atualizarUI === 'function') atualizarUI();
+    await recarregarDados();
+    atualizarUI();
 }
 
 /** "Cancelar": desfaz as categorias escolhidas ainda não importadas —

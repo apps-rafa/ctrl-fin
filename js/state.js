@@ -60,7 +60,6 @@ let estadoApp = {
  */
 function atualizarEstado(chave, valor) {
     estadoApp[chave] = valor;
-    console.log('Estado atualizado:', chave, valor);
 }
 
 /**

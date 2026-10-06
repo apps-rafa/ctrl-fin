@@ -102,7 +102,7 @@ function iniciarEdicaoTransacao(trans, tipoTransacao) {
     document.querySelector(SELECTORS.descricao).value = trans.descricao || '';
     // Precisa vir depois de setar a categoria: é ela que decide se o campo
     // Método aparece pra receita (categorias "Estorno"/"Reembolso").
-    if (typeof atualizarCampoMetodoReceita === 'function') atualizarCampoMetodoReceita();
+    atualizarCampoMetodoReceita();
     document.querySelector(SELECTORS.metodo).value = trans.metodo || (tipoTransacao === 'entradas' ? rotuloPixPadrao() : ''); // receita sem forma: PIX
 
     const parc = document.getElementById('parcelas');
@@ -170,8 +170,8 @@ function voltarTelaAposEdicao(origem) {
     const snap = estadoApp.telaPendente;
     estadoApp.telaPendente = null;
     estadoApp.voltandoDaEdicao = false;
-    if (origem && typeof mudarAba === 'function') mudarAba(origem);
-    else if (typeof fecharAbas === 'function') fecharAbas();
+    if (origem) mudarAba(origem);
+    else fecharAbas();
     if (snap) _aplicarTelaBusca(snap, true);
 }
 

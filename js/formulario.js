@@ -109,7 +109,7 @@ function posicionarCompetencia() {
  */
 function atualizarCampoParcelas() {
     const ehReceita = document.querySelector(SELECTORS.tipoTransacao)?.value === 'entradas';
-    const metodoAtual = typeof metodoSelecionado === 'function' ? metodoSelecionado() : null;
+    const metodoAtual = metodoSelecionado();
     const ehCredito = !ehReceita && !_formEhEstorno() && !!metodoAtual && metodoAtual.metodoKind === 'Crédito';
 
     const set = (id, mostrar) => { const el = document.getElementById(id); if (el) el.hidden = !mostrar; };
@@ -131,7 +131,7 @@ function atualizarCampoParcelas() {
     set('valorTotalGroup', parcelas > 1);
     atualizarValorTotal();
 
-    if (typeof recalcularCompetencia === 'function') recalcularCompetencia();
+    recalcularCompetencia();
 
     ajustarCamposSozinhos();
 }
@@ -143,7 +143,7 @@ function atualizarValorTotal() {
     const tot = document.getElementById('valorTotal');
     if (!tot) return;
     const v = valorCampoParaNumero(document.querySelector(SELECTORS.valor));
-    const mult = typeof _parcelasNumero === 'function' ? _parcelasNumero(document.getElementById('parcelas')) : 1;
+    const mult = _parcelasNumero(document.getElementById('parcelas'));
     tot.value = formatarMoeda(v * mult);
 }
 
@@ -166,13 +166,13 @@ function atualizarLabelsPorTipo() {
         if (metodoSel) metodoSel.required = true;
         // A lista pode ter ficado restrita a Crédito/PIX-Débito (Estorno/
         // Reembolso na receita) — repõe a lista completa pra despesa.
-        if (typeof preencherDropdownMetodos === 'function') preencherDropdownMetodos();
-        if (typeof atualizarCampoCredito === 'function') atualizarCampoCredito();
+        preencherDropdownMetodos();
+        atualizarCampoCredito();
         if (metodoSel) delete metodoSel.dataset.restrito;
     }
 
     // Categorias são específicas de receita x despesa
-    if (typeof preencherDropdownCategorias === 'function') preencherDropdownCategorias();
+    preencherDropdownCategorias();
 
     ajustarCamposSozinhos();
 }
@@ -231,7 +231,7 @@ function abrirNovaCategoria(catTipo) {
                 // estadoApp.menus.categoriasReceita/Despesa são só listas de NOMES
                 // (o que o dropdown do formulário precisa) — a ordenação alfabética
                 // exige os itens completos (ordem/linha), então busca fresco aqui.
-                const todasCategorias = typeof obterItensPorTipo === 'function' ? await obterItensPorTipo('Categoria') : [];
+                const todasCategorias = await obterItensPorTipo('Categoria');
                 const listaAtual = (todasCategorias || []).filter(c => (c.categoriaTipo || 'saidas') === tipo);
                 const ok = await _inserirCategoriaAlfabetica(listaAtual, nome, {
                     descricao: ov.querySelector('#dlgCatDesc').value.trim(),
@@ -303,7 +303,7 @@ function abrirNovoMetodo() {
                 // ficava muda (voltava pra "Selecione...", parecendo que o botão
                 // "Adicionar" não tinha feito nada).
                 if (sel) sel.value = banco ? `${kind} ${banco}` : kind;
-                if (typeof atualizarCampoCredito === 'function') atualizarCampoCredito();
+                atualizarCampoCredito();
             } }
         ]
     });
@@ -320,7 +320,7 @@ function abrirNovoMetodo() {
     // "Melhor dia" sugerido automaticamente a partir do Fechamento
     const fechInp = ov.querySelector('#dlgMetFech');
     const melhorInp = ov.querySelector('#dlgMetMelhor');
-    if (fechInp && melhorInp && typeof sugerirMelhorDiaCompra === 'function') {
+    if (fechInp && melhorInp) {
         fechInp.addEventListener('input', () => {
             const f = parseInt(fechInp.value, 10);
             if (f >= 1 && f <= 31 && (!melhorInp.value || melhorInp.dataset.auto)) {
@@ -339,7 +339,7 @@ function abrirNovoMetodo() {
  * Competência dependem do método escolhido.
  */
 function atualizarCampoCredito() {
-    if (typeof atualizarCampoParcelas === 'function') atualizarCampoParcelas();
+    atualizarCampoParcelas();
 }
 
 /**
@@ -358,7 +358,7 @@ function atualizarCampoMetodoReceita() {
         if (blocoMetodo) blocoMetodo.hidden = false;
         if (metodoSel) {
             metodoSel.required = false;
-            if (typeof preencherDropdownMetodos === 'function') preencherDropdownMetodos();
+            preencherDropdownMetodos();
             const op = [...metodoSel.options].find(o => o.value === metodoSel.value);
             if (op && op.disabled) metodoSel.value = '';
             // novo lançamento: já vem com o primeiro PIX (não mexe em quem está editando)
@@ -393,7 +393,7 @@ function atualizarCampoMetodoReceita() {
             if (ehEstorno) metodoSel.dataset.restrito = '1'; else delete metodoSel.dataset.restrito;
         }
     }
-    if (typeof atualizarCampoParcelas === 'function') atualizarCampoParcelas();
+    atualizarCampoParcelas();
     ajustarCamposSozinhos();
 }
 
@@ -420,7 +420,7 @@ function recalcularCompetencia() {
         return;
     }
 
-    const metodo = typeof metodoSelecionado === 'function' ? metodoSelecionado() : null;
+    const metodo = metodoSelecionado();
     if (!metodo || metodo.metodoKind !== 'Crédito') { // fora do Crédito: o mês em exibição, não o da data digitada
         if (estadoApp.mesAtual) campo.value = mesDeCompetencia(formatarDataISO(estadoApp.mesAtual));
         return;

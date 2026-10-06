@@ -7,9 +7,6 @@
  * Inicializa a aplicação quando o DOM está pronto
  */
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🚀 Inicializando aplicação...');
-    console.log('Versão: 2.0 (Modular)');
-    console.log('Data:', new Date().toLocaleString('pt-BR'));
     
     // Adicionar CSS das animações
     adicionarEstilosDinamicos();
@@ -29,18 +26,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Exigir login (magic link). Sem sessão, mostra a tela de acesso e para aqui.
     const autenticado = await initAuth();
     if (!autenticado) {
-        console.log('🔒 Aguardando login...');
         return;
     }
 
     // Carregar menus (categorias, métodos, recorrências)
-    console.log('📑 Carregando menus...');
     await carregarMenus();
 
     // Feriados (nacionais calculados + do usuário) — usados no cálculo de dia útil
-    if (typeof carregarFeriados === 'function') {
-        try { await carregarFeriados(); } catch (e) { console.warn('Feriados:', e); }
-    }
+    try { await carregarFeriados(); } catch (e) { console.warn('Feriados:', e); }
 
     // Estado inicial do formulário
     const dataInput = document.querySelector(SELECTORS.data);
@@ -50,21 +43,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     atualizarLabelsPorTipo();
 
     // Carregar dados iniciais
-    console.log('📊 Carregando dados...');
     await carregarDados();
-    if (typeof sincronizarDuplicatasAprovadasLocais === 'function') sincronizarDuplicatasAprovadasLocais();
-    if (typeof garantirOcorrenciasDoDia === 'function') garantirOcorrenciasDoDia();
-    if (typeof iniciarVisaoAnual === 'function' && !window._anualIniciado) { window._anualIniciado = true; iniciarVisaoAnual(); }
-    if (typeof carregarSaldoContas === 'function') carregarSaldoContas();
-    if (typeof carregarFaturasBanco === 'function') carregarFaturasBanco();
+    sincronizarDuplicatasAprovadasLocais();
+    garantirOcorrenciasDoDia();
+    if (!window._anualIniciado) { window._anualIniciado = true; iniciarVisaoAnual(); }
+    carregarSaldoContas();
+    carregarFaturasBanco();
     // Já mostra o último saldo guardado e, em seguida, busca o atual na Pluggy
-    if (typeof atualizarSaldosPluggy === 'function') {
-        atualizarSaldosPluggy(true);
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') atualizarSaldosPluggy();
-        });
-    }
-    if (typeof carregarConciliadas === 'function') carregarConciliadas().then(() => atualizarUI());
+    atualizarSaldosPluggy(true);
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') atualizarSaldosPluggy();
+    });
+    carregarConciliadas().then(() => atualizarUI());
 
     // Atualizar UI
     atualizarUI();
@@ -72,8 +62,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Resumo compacto fixo (aparece ao rolar além do dashboard)
     configurarMiniResumo();
 
-    console.log('✓ Aplicação iniciada com sucesso!');
-    console.log('Estado:', estadoApp);
 });
 
 /**
@@ -117,15 +105,15 @@ function configurarMiniResumo() {
 
     // Caixas de Receita/Despesa: mesmo toggle dos cards do dashboard
     if (miniEntradas) miniEntradas.addEventListener('click', () => {
-        if (typeof mudarAba === 'function') mudarAba('entradas');
+        mudarAba('entradas');
     });
     if (miniSaidas) miniSaidas.addEventListener('click', () => {
-        if (typeof mudarAba === 'function') mudarAba('saidas');
+        mudarAba('saidas');
     });
 
     // "+ Lançamento" na 2ª linha da barra: abre o formulário
     if (miniLanc) miniLanc.addEventListener('click', () => {
-        if (typeof mudarAba === 'function') mudarAba('adicionar');
+        mudarAba('adicionar');
         const form = document.getElementById('adicionar');
         if (form) {
             form.scrollIntoView({ block: 'start' });
@@ -136,14 +124,14 @@ function configurarMiniResumo() {
 
     // "Próximos" na 2ª linha da barra: abre a aba de próximos lançamentos
     if (miniProximos) miniProximos.addEventListener('click', () => {
-        if (typeof mudarAba === 'function') mudarAba('proximas');
+        mudarAba('proximas');
     });
     // Recorrências e Recentes: mesmos botões do topo, só o ícone
-    document.getElementById('miniRecorrencias')?.addEventListener('click', () => { if (typeof mudarAba === 'function') mudarAba('recorrencias'); });
+    document.getElementById('miniRecorrencias')?.addEventListener('click', () => { mudarAba('recorrencias'); });
     document.getElementById('miniRecentes')?.addEventListener('click', () => document.getElementById('btnRecentes')?.click());
     // Lixeira — divide com os outros três a coluna do "Gasto diário"
     document.getElementById('miniLixeira')?.addEventListener('click', () => {
-        if (typeof mudarAba === 'function') mudarAba('lixeira');
+        mudarAba('lixeira');
     });
 
     // Limite em scrollY (não em getBoundingClientRect ao vivo) — mostrar o
@@ -233,8 +221,8 @@ function alternarValoresOcultos() {
     valoresOcultos = !valoresOcultos;
     try { localStorage.setItem('valoresOcultos', valoresOcultos ? '1' : '0'); } catch (_) {}
     atualizarIconesOlho();
-    if (typeof atualizarResumo === 'function') atualizarResumo();
-    if (typeof _renderVisaoAnual === 'function' && document.getElementById('anualConteudo')?.children.length) _renderVisaoAnual();
+    atualizarResumo();
+    if (document.getElementById('anualConteudo')?.children.length) _renderVisaoAnual();
 }
 
 function configurarOlhoValores() {
@@ -289,18 +277,15 @@ function adicionarEstilosDinamicos() {
     `;
     
     adicionarCSSDinamico(css);
-    console.log('✓ Estilos dinâmicos adicionados');
 }
 
 /**
  * Função global para recarregar aplicação (útil no console)
  */
 window.recarregarApp = async function() {
-    console.log('🔄 Recarregando aplicação...');
     resetarEstado();
     await carregarDados();
     atualizarUI();
-    console.log('✓ Aplicação recarregada');
 };
 
 /**
@@ -308,9 +293,6 @@ window.recarregarApp = async function() {
  */
 window.debug = function() {
     console.table(estadoApp);
-    console.log('Transações entrada:', estadoApp.transacoes.entradas.length);
-    console.log('Transações saída:', estadoApp.transacoes.saidas.length);
-    console.log('Resumo:', estadoApp.resumo);
 };
 
 /**

@@ -13,7 +13,6 @@ async function carregarDados() {
         const mes = estadoApp.mesAtual.getMonth() + 1;
         const ano = estadoApp.mesAtual.getFullYear();
 
-        console.log(`📊 Carregando dados de ${mes}/${ano}...`);
 
         // Carregar entradas
         const entradas = await carregarTransacoes('entradas', mes, ano);
@@ -27,13 +26,11 @@ async function carregarDados() {
         // Calcular resumo
         calcularResumoMes();
         
-        console.log('✓ Dados carregados com sucesso');
         estadoApp.carregando = false;
         
         return true;
     } catch (error) {
         console.error('Erro ao carregar dados:', error);
-        console.log('Usando dados simulados...');
         carregarDadosSimulados();
         estadoApp.carregando = false;
         
@@ -99,7 +96,6 @@ function carregarDadosSimulados() {
     };
     
     calcularResumoMes();
-    console.log('⚠️ Usando dados simulados');
 }
 
 /**
@@ -107,11 +103,8 @@ function carregarDadosSimulados() {
  */
 async function carregarMenus() {
     try {
-        console.log('📑 Carregando menus...');
 
-        if (typeof semearMenusPadraoSeVazio === 'function') {
-            await semearMenusPadraoSeVazio();
-        }
+        await semearMenusPadraoSeVazio();
 
         const menus = await carregarMenusAPI();
         
@@ -122,7 +115,6 @@ async function carregarMenus() {
         estadoApp.menus.metodosTodos = menus.metodosTodos || menus.metodos || [];
         estadoApp.menus.cores = menus.cores || { categoria: {}, metodo: {} };
 
-        console.log('✓ Menus carregados:', estadoApp.menus);
 
         // Preencher dropdowns
         preencherDropdownCategorias();
@@ -131,7 +123,6 @@ async function carregarMenus() {
         return true;
     } catch (error) {
         console.error('Erro ao carregar menus:', error);
-        console.log('Usando categorias padrão...');
         
         // Usar fallback
         estadoApp.menus.categoriasDespesa = CATEGORIAS_PADRAO.saidas || [];
@@ -192,7 +183,7 @@ function preencherDropdownMetodos() {
         sel.appendChild(o);
     });
     sel.value = atual;
-    if (typeof atualizarCampoCredito === 'function') atualizarCampoCredito();
+    atualizarCampoCredito();
 }
 
 /** Método selecionado no formulário (objeto do menu) ou null */
@@ -213,7 +204,7 @@ function calcularResumoMes() {
     const metodosCredito = new Map(
         ((estadoApp.menus && (estadoApp.menus.metodosTodos || estadoApp.menus.metodos)) || [])
             .filter(m => m.metodoKind === 'Crédito')
-            .map(m => [(typeof rotuloMetodo === 'function' ? rotuloMetodo(m) : m.nome), m])
+            .map(m => [(rotuloMetodo(m)), m])
     );
 
     // Para cada transação: total (Semanal usa valorMes/Y) e "atual" (já realizado)
@@ -298,18 +289,16 @@ function calcularResumoMes() {
         saidasPagoPix: r2(pago - pagoCredito)      // o resto do "pago" (PIX, dinheiro...)
     };
 
-    console.log('📈 Resumo calculado:', estadoApp.resumo);
 }
 
 /**
  * Recarrega dados e atualiza UI
  */
 async function recarregarDados() {
-    console.log('🔄 Recarregando dados...');
     await carregarDados();
     atualizarUI();
     // Navegou de mês: o campo Data acompanha o mês em exibição (se intocado)
-    if (typeof aplicarDataPadrao === 'function') aplicarDataPadrao(false);
+    aplicarDataPadrao(false);
 }
 
 /** Escolhas do usuário sobre faturas de cartão ("metodo|YYYY-MM-01" -> pago true/false); sem escolha vale a data de vencimento. */

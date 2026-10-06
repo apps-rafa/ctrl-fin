@@ -123,7 +123,7 @@ function calcularFeriadosNacionais(anoIni, anoFim) {
 
 /** Estaduais calculados da UF em `feriadosUF()` para uma janela de anos */
 function calcularFeriadosEstaduais(anoIni, anoFim) {
-  const uf = (typeof feriadosUF === 'function') ? feriadosUF() : '';
+  const uf = feriadosUF();
   if (feriadosState.estadualUF !== uf) {
     feriadosState.estadualCalc.clear();
     feriadosState.estadualUF = uf;

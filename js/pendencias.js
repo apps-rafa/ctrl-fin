@@ -134,7 +134,7 @@ function renderPendencias() {
     _transacoesExtra = todos; // editar/confirmar/aprovar precisam achar o lançamento (ele pode ser de outro mês)
     container.innerHTML = html || '<p class="empty-message">Nenhuma pendência 🎉</p>';
     container.onclick = onListaTransacaoClick;
-    if (typeof ajustarBotoesTodas === 'function') ajustarBotoesTodas();
+    ajustarBotoesTodas();
 }
 
 function iniciarPendencias() {
