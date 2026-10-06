@@ -27,6 +27,7 @@ const estadoAnual = {
     porAno: {},           // ano -> transações
     foco: null,           // mês (0-11) em foco ao tocar no cabeçalho; null = ano todo
     carregando: false,
+    rolarPara: null,      // rolagem a devolver depois de editar um lançamento daqui
 };
 
 /** Todas as transações do ano (ver transacoesDoAnoAPI em api.js). */
@@ -150,7 +151,8 @@ function _renderExtratoFiltro(ano) {
     const periodo = foco !== null && foco !== undefined ? MESES_ANUAL_LONGO[foco] : String(ano);
     const totalAbs = itens.reduce((a, t) => a + Math.abs(Number(t.valor) || 0), 0);
     const cor = _corDoNomeAnual(estadoAnual.filtro, itens[0].tipoUI === 'entrada' ? 'entradas' : 'saidas');
-    const opts = agrupar === 'categoria' ? { semCategoriaChip: true, semAcoes: true } : { semMetodoChip: true, semAcoes: true };
+    const opts = agrupar === 'categoria' ? { semCategoriaChip: true } : { semMetodoChip: true };
+    _transacoesExtra = itens; // editar/excluir (js/ui.js) procuram o lançamento aqui, pois ele pode ser de qualquer mês
     // Vários meses: um subgrupo por mês (mais recente primeiro), fechados, cada um mostrando 5 por vez ("Carregar mais N");
     // um mês só: a lista direta (também 5 por vez). O estado aberto/fechado sobrevive ao redesenho.
     const abertos = {};
@@ -419,6 +421,10 @@ function _renderVisaoAnual() {
         ${extrato}
         <p class="menu-hint anual-nota">Valores em R$ (sem centavos), pelo mês da competência${(vD.temEstorno) ? '; estornos/reembolsos no cartão abatem a despesa' : ''}. No gráfico, a barra da esquerda é a receita e a da direita a despesa do mês, coloridas pela proporção de cada ${agrupar === 'categoria' ? 'categoria' : 'forma de pagamento'}. Meses passados sem lançamento não aparecem. Toque no nome de um mês para focar nele (toque de novo para voltar ao ano) e no nome de uma ${agrupar === 'categoria' ? 'categoria' : 'forma'} para filtrá-la.</p>`
         : `<p class="empty-message">Nada lançado em ${ano}${estadoAnual.filtro ? ` para “${_esc(estadoAnual.filtro)}”` : ''}.</p>${extrato}`}`;
+    if (estadoAnual.rolarPara !== null) { // voltou de uma edição: a página volta ao ponto em que estava
+        const y = estadoAnual.rolarPara; estadoAnual.rolarPara = null;
+        requestAnimationFrame(() => window.scrollTo(0, y));
+    }
 }
 
 /** Abre a página, carrega o ano e desenha. */
@@ -429,7 +435,7 @@ async function carregarVisaoAnual(forcar = false) {
     document.querySelectorAll('#anual [data-anual-agrupar]').forEach(b => b.classList.toggle('active', b.dataset.anualAgrupar === estadoAnual.agrupar));
     if (forcar || !estadoAnual.porAno[estadoAnual.ano]) {
         estadoAnual.carregando = true;
-        cont.innerHTML = '<p class="loading">Carregando...</p>';
+        if (!estadoAnual.porAno[estadoAnual.ano]) cont.innerHTML = '<p class="loading">Carregando...</p>'; // já tem a tela desenhada: atualiza por cima, sem piscar
         try {
             estadoAnual.porAno[estadoAnual.ano] = await _buscarTransacoesDoAno(estadoAnual.ano);
         } catch (e) {
@@ -449,6 +455,8 @@ function iniciarVisaoAnual() {
     const aba = document.getElementById('anual');
     if (!aba) return;
     aba.addEventListener('click', async e => {
+        // Editar/excluir/marcar pago nos lançamentos do extrato: mesma lógica das outras listas
+        if (e.target.closest('[data-act]')) { onListaTransacaoClick(e); return; }
         if (e.target.closest('[data-anual-olho]')) { alternarValoresOcultos(); return; }
         const btnAgr = e.target.closest('[data-anual-agrupar]');
         const btnAno = e.target.closest('[data-anual-ano]');
@@ -468,4 +476,14 @@ function iniciarVisaoAnual() {
         else if (e.target.id === 'anualCmpA') { estadoAnual.cmp.a = Number(e.target.value); _renderVisaoAnual(); }
         else if (e.target.id === 'anualCmpB') { estadoAnual.cmp.b = Number(e.target.value); _renderVisaoAnual(); }
     });
+}
+
+/** Depois de excluir/alterar um lançamento estando nesta página: rebusca o ano e redesenha no mesmo lugar. */
+async function atualizarVisaoAnualAberta() {
+    if (!document.getElementById('anual')?.classList.contains('active')) return;
+    try {
+        estadoAnual.porAno[estadoAnual.ano] = await _buscarTransacoesDoAno(estadoAnual.ano);
+        estadoAnual.rolarPara = window.scrollY;
+        _renderVisaoAnual();
+    } catch (e) { console.error(e); }
 }

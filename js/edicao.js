@@ -81,6 +81,7 @@ function iniciarEdicaoTransacao(trans, tipoTransacao) {
     sincronizarModoEdicao();
     // Guarda a tela de origem para voltar depois de salvar/cancelar
     estadoApp.abaOrigemEdicao = document.querySelector('.tab-content.active')?.id || null;
+    estadoApp.rolagemAntesEdicao = window.scrollY; // a Visão anual devolve a página nesse ponto
 
     mudarAba('adicionar');
 
@@ -170,6 +171,7 @@ function voltarTelaAposEdicao(origem) {
     const snap = estadoApp.telaPendente;
     estadoApp.telaPendente = null;
     estadoApp.voltandoDaEdicao = false;
+    if (origem === 'anual' && typeof estadoAnual !== 'undefined') estadoAnual.rolarPara = estadoApp.rolagemAntesEdicao || 0;
     if (origem) mudarAba(origem);
     else fecharAbas();
     if (snap) _aplicarTelaBusca(snap, true);
