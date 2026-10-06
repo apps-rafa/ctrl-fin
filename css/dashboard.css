@@ -82,7 +82,7 @@
 }
 .card-linhas-topo .linha i {
     min-width: 0;
-    font-style: italic;
+    font-style: normal;
     opacity: 0.7;
     text-align: left;
     font-size: clamp(0.65rem, 6cqw, 1rem);
@@ -103,7 +103,7 @@
     gap: .4rem;
 }
 /* "total" à esquerda do valor total (some se não couber, ver ajustarFontesDashboard) */
-.card-linhas .linha.total .rot-total { flex: none; font-style: italic; opacity: .7; font-size: clamp(.65rem, 6cqw, 1rem); }
+.card-linhas .linha.total .rot-total { flex: none; font-style: normal; opacity: .7; font-size: clamp(.65rem, 6cqw, 1rem); }
 .card-linhas .linha.total .rot-total[hidden] { display: none; }
 .card-linhas .linha.total .amount { flex: 0 1 auto; min-width: 0; }
 .card-linhas .linha.total .amount {
@@ -449,6 +449,6 @@
 /* sobrou espaço (o rótulo virou emoji): o valor cresce */
 .card-linhas-topo.rot-emoji .linha b { font-size: clamp(.7rem, 10.5cqw, 1.25rem); } /* (no celular o JS aumenta: ver ajustarRotulosCards) */
 /* pix / crédito / pendentes: sempre em itálico (e menores que os rótulos, ver _unificarDetalhes) */
-.card-linhas-topo .linha-detalhe i { font-style: italic; }
+.card-linhas-topo .linha-detalhe i { font-style: normal; }
 /* emojis dos detalhes ("⚡ 37 + 💳 0") não ficam em itálico */
 .card-linhas-topo .linha-detalhe i .emo { font-style: normal; }
