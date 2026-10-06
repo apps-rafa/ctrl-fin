@@ -359,13 +359,15 @@ function _unificarDetalhes() {
     const ref = document.querySelector('.card-linhas-topo .linha:not(.linha-detalhe) > b');
     const refPx = ref ? parseFloat(getComputedStyle(ref).fontSize) : 0;
     if (refPx > 0) menor = Math.min(menor, refPx * 0.7);
-    els.forEach(x => { x.style.fontSize = menor + 'px'; });
+    // As linhas de detalhe VAZIAS (ex.: Receita) levam o mesmo tamanho, para os dois cards terem exatamente a mesma altura de linha
+    // (valores e divisória do total alinhados entre Receita e Despesa).
+    document.querySelectorAll('.linha-detalhe i').forEach(x => { x.style.fontSize = menor + 'px'; });
     // Conferência final com o texto já na tela (fontes do aparelho, itálico...): se ainda passar da linha, encolhe todos juntos até caber
     for (let i = 0; i < 25; i++) {
         const estoura = els.some(x => { const l = x.closest('.linha') || x.parentElement; return l.clientWidth && x.getBoundingClientRect().width > l.clientWidth - 2; });
         if (!estoura || menor <= 6) break;
         menor *= 0.96;
-        els.forEach(x => { x.style.fontSize = menor + 'px'; });
+        document.querySelectorAll('.linha-detalhe i').forEach(x => { x.style.fontSize = menor + 'px'; });
     }
 }
 
