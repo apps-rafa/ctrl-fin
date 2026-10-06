@@ -217,9 +217,7 @@ async function _marcarDuplicatasPluggy(itens) {
     if (!itens.length) return [];
     const datas = itens.map(i => String(i.data).slice(0, 10)).sort();
     const ampliar = (iso, d) => { const x = new Date(iso + 'T12:00:00'); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10); };
-    const { data: existentes, error } = await sb.from('transacoes')
-        .select('id, tipo, valor, data, metodo, origem')
-        .gte('data', ampliar(datas[0], -2)).lte('data', ampliar(datas[datas.length - 1], 2));
+    const { data: existentes, error } = await transacoesNaJanelaAPI(ampliar(datas[0], -2), ampliar(datas[datas.length - 1], 2));
     if (error) console.error(error);
     const pool = existentes || [];
     const metodos = (estadoApp.menus && estadoApp.menus.metodos) || [];
@@ -278,8 +276,7 @@ function _chaveDescricaoBancoPluggy(d) {
  *  corrigiu a categoria, sugere essa categoria (a mais recente) no lugar da automática. */
 async function _aplicarCategoriasAprendidasPluggy(itens) {
     if (!itens.length) return;
-    const { data, error } = await sb.from('transacoes').select('categoria, dados_originais, data')
-        .eq('origem', 'pluggy').order('data', { ascending: false }).limit(3000);
+    const { data, error } = await transacoesImportadasPluggyAPI();
     if (error) { console.warn('Aprendizado de categorias indisponível:', error.message); return; }
     const mapa = new Map();
     for (const t of data || []) {

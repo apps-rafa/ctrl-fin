@@ -27,20 +27,8 @@ const estadoAnual = {
     carregando: false,
 };
 
-/** Todas as transações do ano (a API devolve no máximo 1000 por chamada). */
-async function _buscarTransacoesDoAno(ano) {
-    const todas = [];
-    for (let ini = 0; ; ini += 1000) {
-        const { data, error } = await sb.from('transacoes')
-            .select('id, tipo, valor, categoria, metodo, competencia, data, descricao')
-            .gte('competencia', `${ano}-01-01`).lt('competencia', `${ano + 1}-01-01`)
-            .order('id').range(ini, ini + 999);
-        if (error) throw error;
-        todas.push(...(data || []));
-        if (!data || data.length < 1000) break;
-    }
-    return todas;
-}
+/** Todas as transações do ano (ver transacoesDoAnoAPI em api.js). */
+const _buscarTransacoesDoAno = ano => transacoesDoAnoAPI(ano);
 
 const _brl0 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
 const _brl2 = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });

@@ -99,14 +99,14 @@ test("rotuloPixPadrao: primeiro PIX do cadastro (com ou sem banco); vazio se nã
 });
 
 // ---- Camada de dados: as telas não escrevem direto em `transacoes` ----
-test("escritas em transacoes ficam em api.js/dados.js (as telas chamam funções nomeadas)", () => {
+test("leituras e escritas de transacoes/recorrencias ficam em api.js/dados.js (as telas chamam funções nomeadas)", () => {
   const diretos = [];
   for (const arq of fs.readdirSync(new URL("../js/", import.meta.url))) {
     if (!arq.endsWith(".js") || ["api.js", "dados.js"].includes(arq)) continue;
     const linhas = fs.readFileSync(new URL(`../js/${arq}`, import.meta.url), "utf8").split("\n");
-    linhas.forEach((l, i) => { if (/sb\s*\.from\(['"]transacoes['"]\)\s*\.(insert|update|delete|upsert)\b/.test(l)) diretos.push(`${arq}:${i + 1}`); });
+    linhas.forEach((l, i) => { if (/sb\s*\.from\(['"](transacoes|recorrencias)['"]\)/.test(l)) diretos.push(`${arq}:${i + 1}`); });
   }
-  assert.deepEqual(diretos, [], "use as funções de api.js (confirmarOcorrenciasAPI, marcarPagoAPI, ...) em vez de sb.from('transacoes').escrita");
+  assert.deepEqual(diretos, [], "use as funções de api.js (confirmarOcorrenciasAPI, marcarPagoAPI, transacoesDoAnoAPI, ...) em vez de sb.from(...) direto");
 });
 
 test("api.js: operações nomeadas montam as consultas certas", async () => {

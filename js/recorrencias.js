@@ -22,7 +22,7 @@ function mapearRecorrencia(r) {
 }
 
 async function carregarRecorrencias() {
-    const { data, error } = await sb.from('recorrencias').select('*').order('id');
+    const { data, error } = await listarRecorrenciasAPI();
     if (error) { console.error('Erro ao carregar recorrências:', error); return; }
     _recorrencias = (data || []).map(mapearRecorrencia);
 }
@@ -443,7 +443,7 @@ async function salvarRecorrencia(ev) {
         } else {
             const inicio = await _recResolverInicio(freq, campos, e.inicio.value || hojeISO().slice(0, 7));
             if (inicio === null) { btn.disabled = false; return; } // cancelou: segue no formulário
-            const { error } = await sb.from('recorrencias').insert({ ...campos, inicio, ativa_desde: inicio });
+            const { error } = await criarRecorrenciaAPI(campos, inicio);
             if (error) throw error;
         }
         fecharFormRecorrencia();
@@ -459,20 +459,20 @@ async function _recSalvarEdicao(id, campos, novoInicio = null) {
     const atual = _recorrencias.find(r => r.id === id);
     const hoje = hojeISO();
     if (novoInicio) { // mudou o início: recomeça a geração do zero (as ocorrências JÁ confirmadas ficam como estão)
-        const { error: erroI } = await sb.from('recorrencias').update({ ...campos, inicio: novoInicio, ativa_desde: novoInicio, gerado_ate: null }).eq('id', id);
+        const { error: erroI } = await reiniciarRecorrenciaAPI(id, campos, novoInicio);
         if (erroI) throw erroI;
         await apagarOcorrenciasDaRecorrenciaAPI(id);
         return;
     }
     const mudouAgenda = atual.frequencia !== campos.frequencia || (atual.diaSemana ?? null) !== campos.dia_semana || (atual.diaMes ?? null) !== campos.dia_mes || (atual.meses || null) !== campos.meses || (atual.competenciaOffset || 0) !== campos.competencia_offset;
-    const { error } = await sb.from('recorrencias').update(campos).eq('id', id);
+    const { error } = await atualizarRecorrenciaAPI(id, campos);
     if (error) throw error;
     const comuns = { valor: campos.valor, metodo: campos.metodo, categoria: campos.categoria, descricao: campos.descricao };
     await atualizarOcorrenciasDaRecorrenciaAPI(id, comuns, hoje);
     if (mudouAgenda) { // novo ritmo/duração: apaga as futuras a confirmar e recomeça a geração de hoje em diante
         await apagarOcorrenciasDaRecorrenciaAPI(id, hoje);
         const ontem = new Date(); ontem.setDate(ontem.getDate() - 1);
-        await sb.from('recorrencias').update({ gerado_ate: formatarDataISO(ontem) }).eq('id', id);
+        await definirGeradoAteAPI(id, formatarDataISO(ontem));
     }
 }
 
@@ -480,21 +480,21 @@ async function _recSalvarEdicao(id, campos, novoInicio = null) {
 async function encerrarRecorrencia(id) {
     const hoje = hojeISO();
     await apagarOcorrenciasDaRecorrenciaAPI(id, hoje);
-    const { error } = await sb.from('recorrencias').update({ status: 'encerrada', encerrada_em: hoje }).eq('id', id);
+    const { error } = await encerrarRecorrenciaAPI(id, hoje);
     if (error) throw error;
 }
 
 /** Volta uma recorrência encerrada: reativa e gera de hoje em diante. */
 async function reativarRecorrencia(id) {
     const ontem = new Date(); ontem.setDate(ontem.getDate() - 1);
-    const { error } = await sb.from('recorrencias').update({ status: 'ativa', encerrada_em: null, ativa_desde: hojeISO(), gerado_ate: formatarDataISO(ontem) }).eq('id', id);
+    const { error } = await reativarRecorrenciaAPI(id, hojeISO(), formatarDataISO(ontem));
     if (error) throw error;
 }
 
 /** Exclui a recorrência de vez: as futuras a confirmar somem; o que já foi confirmado continua como lançamento normal. */
 async function excluirRecorrencia(id) {
     await apagarOcorrenciasDaRecorrenciaAPI(id, hojeISO());
-    const { error } = await sb.from('recorrencias').delete().eq('id', id);
+    const { error } = await excluirRecorrenciaAPI(id);
     if (error) throw error;
 }
 

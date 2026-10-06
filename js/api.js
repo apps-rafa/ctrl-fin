@@ -488,3 +488,94 @@ function renomearCategoriaNasTransacoesAPI(antiga, nova) {
 function apagarTodasTransacoesAPI() {
     return sb.from('transacoes').delete().gte('id', 0);
 }
+
+// ---------------------------------------------------------------------------
+// Leituras de `transacoes` e operações em `recorrencias` com nome (mesma ideia das escritas acima).
+// ---------------------------------------------------------------------------
+
+/** A API devolve no máximo 1000 linhas por chamada: lê em páginas até acabar. `montar(de, ate)` devolve a consulta já com .range(). */
+async function _lerEmPaginas(montar, tam = 1000) {
+    const todas = [];
+    for (let ini = 0; ini < 1000000; ini += tam) {
+        const { data, error } = await montar(ini, ini + tam - 1);
+        if (error) throw error;
+        todas.push(...(data || []));
+        if (!data || data.length < tam) break;
+    }
+    return todas;
+}
+
+/** Visão anual: as transações do ano (por competência), só com as colunas que a tabela usa. */
+function transacoesDoAnoAPI(ano) {
+    return _lerEmPaginas((a, b) => sb.from('transacoes')
+        .select('id, tipo, valor, categoria, metodo, competencia, data, descricao')
+        .gte('competencia', `${ano}-01-01`).lt('competencia', `${ano + 1}-01-01`)
+        .order('id').range(a, b));
+}
+
+/** Busca em todos os meses: tudo (ou só um ano), da data mais recente para a mais antiga. */
+function buscarTransacoesAPI(ano = null) {
+    return _lerEmPaginas((a, b) => {
+        let q = sb.from('transacoes').select('*');
+        if (ano != null) q = q.gte('data', `${ano}-01-01`).lt('data', `${ano + 1}-01-01`);
+        return q.order('data', { ascending: false }).order('id').range(a, b);
+    });
+}
+
+/** As transações com data em [ini, fim). */
+function transacoesDoPeriodoAPI(ini, fim) {
+    return _lerEmPaginas((a, b) => sb.from('transacoes').select('*').gte('data', ini).lt('data', fim).order('id').range(a, b));
+}
+
+/** Todas as transações, só com as colunas da detecção de duplicatas. */
+function transacoesParaDuplicatasAPI() {
+    return _lerEmPaginas((a, b) => sb.from('transacoes')
+        .select('id, tipo, valor, metodo, descricao, data, competencia, duplicata_ok, a_confirmar')
+        .order('id', { ascending: true }).range(a, b));
+}
+
+/** Linhas completas de alguns ids (quem chama divide em lotes). */
+function transacoesPorIdsAPI(ids) {
+    return sb.from('transacoes').select('*').in('id', ids);
+}
+
+/** Ocorrências "a confirmar" que já venceram. */
+function ocorrenciasVencidasAPI(hoje) {
+    return sb.from('transacoes').select('*').eq('a_confirmar', true).lte('data', hoje).order('data', { ascending: true }).limit(2000);
+}
+
+/** A parcela 1 de um parcelamento. */
+function parcelaOriginalAPI(grupoId) {
+    return sb.from('transacoes').select('*').eq('grupo_id', grupoId).eq('parcela_num', 1).limit(1);
+}
+
+/** Os últimos lançamentos CRIADOS (de qualquer mês). */
+function ultimasTransacoesAPI(limite) {
+    return sb.from('transacoes').select('*').order('criado_em', { ascending: false }).order('id', { ascending: false }).range(0, limite - 1);
+}
+
+/** Próximos: o que tem competência de `ini` em diante e ainda não aconteceu (data futura ou pendente). */
+function transacoesFuturasAPI(ini, hoje) {
+    return sb.from('transacoes').select('*').gte('competencia', ini).or(`data.gt.${hoje},pendente.eq.true`).order('data', { ascending: true }).limit(2000);
+}
+
+/** Pluggy: lançamentos que não vieram do banco, com data perto das do banco (para conciliar). */
+function transacoesNaJanelaAPI(de, ate) {
+    return sb.from('transacoes').select('id, tipo, valor, data, metodo, origem').gte('data', de).lte('data', ate);
+}
+
+/** Pluggy: o que já foi importado (para aprender a categoria de cada descrição). */
+function transacoesImportadasPluggyAPI() {
+    return sb.from('transacoes').select('categoria, dados_originais, data').eq('origem', 'pluggy').order('data', { ascending: false }).limit(3000);
+}
+
+// ---- recorrencias ----
+function listarRecorrenciasAPI() { return sb.from('recorrencias').select('*').order('id'); }
+function criarRecorrenciaAPI(campos, inicio) { return sb.from('recorrencias').insert({ ...campos, inicio, ativa_desde: inicio }); }
+function atualizarRecorrenciaAPI(id, campos) { return sb.from('recorrencias').update(campos).eq('id', id); }
+/** Muda o início: a geração recomeça do zero. */
+function reiniciarRecorrenciaAPI(id, campos, inicio) { return atualizarRecorrenciaAPI(id, { ...campos, inicio, ativa_desde: inicio, gerado_ate: null }); }
+function definirGeradoAteAPI(id, dataISO) { return atualizarRecorrenciaAPI(id, { gerado_ate: dataISO }); }
+function encerrarRecorrenciaAPI(id, hoje) { return atualizarRecorrenciaAPI(id, { status: 'encerrada', encerrada_em: hoje }); }
+function reativarRecorrenciaAPI(id, hoje, ontem) { return atualizarRecorrenciaAPI(id, { status: 'ativa', encerrada_em: null, ativa_desde: hoje, gerado_ate: ontem }); }
+function excluirRecorrenciaAPI(id) { return sb.from('recorrencias').delete().eq('id', id); }

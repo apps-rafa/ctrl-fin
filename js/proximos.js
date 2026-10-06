@@ -84,8 +84,7 @@ async function _carregarProximosMesesFuturos() {
     const prox = new Date(mes.getFullYear(), mes.getMonth() + 1, 1);
     const ini = `${prox.getFullYear()}-${String(prox.getMonth() + 1).padStart(2, '0')}-01`;
     try {
-        const { data, error } = await sb.from('transacoes').select('*').gte('competencia', ini)
-            .or(`data.gt.${hojeISO()},pendente.eq.true`).order('data', { ascending: true }).limit(2000);
+        const { data, error } = await transacoesFuturasAPI(ini, hojeISO());
         if (error) throw error;
         const porMes = new Map();
         (data || []).map(r => ({ ...mapearTransacao(r), tipo: r.tipo })).filter(t => !_transacaoRealizada(t) && !t.aConfirmar).forEach(t => {
