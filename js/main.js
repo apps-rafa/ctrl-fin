@@ -226,7 +226,6 @@ function atualizarIconesOlho() {
 /** Liga/desliga a exibição dos valores (vale pro dashboard e pra visão anual). */
 function alternarValoresOcultos() {
     valoresOcultos = !valoresOcultos;
-    try { localStorage.setItem('valoresOcultos', valoresOcultos ? '1' : '0'); } catch (_) {}
     atualizarIconesOlho();
     atualizarResumo();
     if (document.getElementById('anualConteudo')?.children.length) _renderVisaoAnual();

@@ -46,7 +46,16 @@ for (const nome of LAZY) {
 let primeiraCss = true, primeiraJs = true;
 html = html.replace(reCss, () => (primeiraCss ? ((primeiraCss = false), `    <link rel="stylesheet" href="${nomeCss}">\n`) : ""));
 html = html.replace(reJs, () => (primeiraJs ? ((primeiraJs = false), `    <script>window.__modulos=${JSON.stringify(modulos)};</script>\n    <script src="${nomeJs}"></script>\n`) : ""));
+// registra o service worker só no site publicado (no dev não há cache nenhum)
+html = html.replace("</body>", `    <script>if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));</script>
+</body>`);
 fs.writeFileSync(path.join(dist, "index.html"), html);
+
+// --- service worker: lista dos arquivos do núcleo + versão (muda quando qualquer arquivo muda → o aparelho instala o novo e limpa o antigo)
+const precache = [nomeJs, nomeCss, "img/icon-192.png", "img/favicon.svg"];
+const versao = hash([nomeJs, nomeCss, ...Object.values(modulos)].join("|"));
+fs.writeFileSync(path.join(dist, "sw.js"), fs.readFileSync(new URL("./sw.template.js", import.meta.url), "utf8")
+    .replace("__VERSAO__", versao).replace("__PRECACHE__", JSON.stringify(precache)));
 
 // --- o resto do site
 for (const pasta of ["img", "css"]) fs.cpSync(path.join(raiz, pasta), path.join(dist, pasta), { recursive: true }); // css/ fica: o mini app usa os arquivos soltos

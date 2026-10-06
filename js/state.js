@@ -6,19 +6,15 @@
 /** true = valores do dashboard (cards + resumo compacto) aparecem mascarados
  *  ("••••") em vez do número — padrão dos apps de banco, útil pra não
  *  mostrar saldo com alguém do lado (ver configurarOlhoValores em main.js e
- *  a máscara em atualizarResumo, js/ui.js). Lido de localStorage; por
- *  padrão vem ESCONDIDO (primeira vez que o app abre num aparelho).
+ *  a máscara em atualizarResumo, js/ui.js). Não é guardado:
+ *  SEMPRE vem ESCONDIDO ao abrir o app (não se lembra do "olho aberto").
  *  Declarado aqui (um dos primeiros scripts a carregar), não em main.js (o
  *  último) — main.js é o único que EXECUTA depois do DOMContentLoaded, mas
  *  um callback assíncrono de outro script (ex.: auth.js) pode chamar
  *  atualizarUI() enquanto a página ainda está carregando os scripts
  *  seguintes; se essa variável só existisse lá no fim, essa leitura
  *  antecipada cairia na "temporal dead zone" do let e quebraria a função. */
-let valoresOcultos = true;
-try {
-    const v = localStorage.getItem('valoresOcultos');
-    valoresOcultos = v === null ? true : v === '1';
-} catch (_) {}
+let valoresOcultos = true; // SEMPRE abre escondido ("olho fechado"); mostrar vale só até fechar/recarregar o app
 
 let estadoApp = {
     // Navegação

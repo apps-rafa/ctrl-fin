@@ -145,3 +145,9 @@ test("transacoesParaDuplicatasAPI devolve as linhas no formato da tela (aprovada
   assert.equal(r[1].recorrenciaId, 14, "recorrencia_id vira recorrenciaId");
   assert.equal(r[1].aConfirmar, false);
 });
+
+test("o app sempre abre com os valores escondidos (olho fechado), mesmo que o aparelho tenha guardado outra coisa", () => {
+  const c = vm.createContext({ console, Date, localStorage: { getItem: () => "0", setItem: () => {} } });
+  vm.runInContext(fs.readFileSync(new URL("../js/state.js", import.meta.url), "utf8") + "\nglobalThis.__oculto = valoresOcultos;", c);
+  assert.equal(c.__oculto, true);
+});
