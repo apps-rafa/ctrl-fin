@@ -1,0 +1,41 @@
+# Publica o site no GitHub Pages: a cada push no main (ou manualmente) roda as checagens e os testes, gera a pasta dist/ (JS e CSS juntos e
+# minificados, com hash no nome — o navegador nunca fica com arquivo velho em cache) e publica. Se algo falhar, o site anterior continua no ar.
+# Precisa de Settings > Pages > Source = "GitHub Actions".
+name: Publicar site
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["supabase/**", "tests/**", "md/**", "*.md"]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npm run check   # inclui conferir que o bundle de dist/ carrega e expõe as funções globais
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
