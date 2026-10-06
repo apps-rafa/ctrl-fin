@@ -652,8 +652,8 @@
 }
 
 /* Lixeiras (botão só com o ícone SVG): sem contorno nem fundo; acendem em vermelho ao passar o mouse */
-button:has(> .ico-lixeira:only-child) { border: 0 !important; background: transparent !important; box-shadow: none !important; color: var(--text-muted); }
-button:has(> .ico-lixeira:only-child):hover { color: var(--danger, #DC2626); background: transparent !important; }
+button:not(.dados-btn):has(> .ico-lixeira:only-child) { border: 0 !important; background: transparent !important; box-shadow: none !important; color: var(--text-muted); }
+button:not(.dados-btn):has(> .ico-lixeira:only-child):hover { color: var(--danger, #DC2626); background: transparent !important; }
 .ico-lixeira { display: inline-block; vertical-align: -.15em; }
 .btn-excluir-lancamento { border: 0 !important; background: transparent !important; color: var(--text-muted); }
 .btn-excluir-lancamento:hover { background: transparent !important; color: var(--danger, #DC2626); }
