@@ -18,6 +18,9 @@ if(fs.existsSync(dist)){
   if(!js){ console.log("✖ dist/ sem app.*.js"); process.exit(1); }
   const c2=novoCtx(); let ruim=0;
   try{ vm.runInContext(fs.readFileSync(dist+"/"+js,"utf8"),c2,{filename:js}); }catch(e){ if(e.name==='ReferenceError'){ruim++;console.log("✖ bundle",e.message);} else console.log("· (ignorado) bundle",e.name+": "+e.message); }
+  const sw=dist+"/sw.js";
+  if(!fs.existsSync(sw)){ ruim++; console.log("✖ dist/ sem sw.js"); }
+  else { try{ new vm.Script(fs.readFileSync(sw,"utf8")); if(/__VERSAO__|__PRECACHE__/.test(fs.readFileSync(sw,"utf8"))){ ruim++; console.log("✖ sw.js com marcador sem preencher"); } }catch(e){ ruim++; console.log("✖ sw.js inválido:",e.message); } }
   const funcoes=["mudarAba","atualizarUI","abrirNovaCategoria","carregarDados","configurarEventListeners"];
   const faltam=funcoes.filter(f=>typeof c2[f]!=='function');
   if(faltam.length){ ruim++; console.log("✖ bundle sem as funções globais:",faltam.join(", ")); }
