@@ -1372,7 +1372,7 @@ function _aplicarLimiteListas(raiz) {
 }
 
 function iniciarLimiteListas() {
-    const raizes = ['entradas', 'saidas', 'proximas', 'recorrencias', 'pendencias'].map(id => document.getElementById(id)).filter(Boolean);
+    const raizes = ['entradas', 'saidas', 'proximas', 'recorrencias', 'pendencias', 'anual'].map(id => document.getElementById(id)).filter(Boolean);
     if (!raizes.length) return;
     _observadorLimite = new MutationObserver(() => {
         if (_aplicandoLimite) return;
@@ -1394,7 +1394,7 @@ document.addEventListener('toggle', e => {
     const d = e.target;
     if (!d || d.tagName !== 'DETAILS' || d.open) return;
     const aba = d.closest('.tab-content');
-    if (!aba || !['entradas', 'saidas', 'proximas', 'recorrencias', 'pendencias'].includes(aba.id)) return;
+    if (!aba || !['entradas', 'saidas', 'proximas', 'recorrencias', 'pendencias', 'anual'].includes(aba.id)) return;
     const base = _chaveLista(d);
     let mudou = false;
     Object.keys(_limitesLista).forEach(k => { if (k === base || k.startsWith(base + '>')) { delete _limitesLista[k]; mudou = true; } });
