@@ -97,7 +97,7 @@ function renderPendencias() {
     const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
     const tipoUI = t => (t.tipo === 'entradas' ? 'entrada' : 'saida');
     const todos = [];
-    const grupo = (chave, nome, cor, itens, opts, abrir) => {
+    const grupo = (chave, nome, cor, itens, opts, abrir, botoes = '') => {
         if (!itens.length) return '';
         itens.forEach(t => todos.push(t));
         const total = itens.reduce((acc, t) => acc + valorDe(t), 0);
@@ -106,6 +106,7 @@ function renderPendencias() {
           <summary>
             <span class="fatura-nome">${nome}</span>
             <span class="fatura-contagem">${itens.length}</span>
+            ${botoes}
             <span class="fatura-espaco"></span>
             <span class="fatura-total">${formatarMoeda(total)}</span>
           </summary>
@@ -113,8 +114,8 @@ function renderPendencias() {
         </details>`;
     };
     const html = [..._pendencias.meses.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([comp, m]) => {
-        const corpo = grupo(`pend:${comp}:ac`, '🔁 A confirmar', 'var(--balanco-text)', m.ac.slice().sort((x, y) => String(x.data).localeCompare(String(y.data))), { comConfirmarOcorrencia: true }, comp === compSel)
-            + grupo(`pend:${comp}:dup`, '📑 Duplicatas', 'var(--despesa-text)', m.dups, { comAprovarDuplicata: true }, comp === compSel);
+        const corpo = grupo(`pend:${comp}:ac`, '🔁 A confirmar', 'var(--balanco-text)', m.ac.slice().sort((x, y) => String(x.data).localeCompare(String(y.data))), { comConfirmarOcorrencia: true }, comp === compSel, _botoesTodasAConfirmar())
+            + grupo(`pend:${comp}:dup`, '📑 Duplicatas', 'var(--despesa-text)', m.dups, { comAprovarDuplicata: true }, comp === compSel, _botoesTodasDuplicatas());
         if (!corpo) return '';
         return `
         <details class="fatura-item" data-pend="mes:${comp}" ${aberto('mes:' + comp, comp === compSel) ? 'open' : ''}>
