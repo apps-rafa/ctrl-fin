@@ -47,7 +47,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     await carregarDados();
     sincronizarDuplicatasAprovadasLocais();
     garantirOcorrenciasDoDia();
-    if (!window._anualIniciado) { window._anualIniciado = true; iniciarVisaoAnual(); }
     carregarSaldoContas();
     carregarFaturasBanco();
     // Já mostra o último saldo guardado e, em seguida, busca o atual na Pluggy
@@ -59,6 +58,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Atualizar UI
     atualizarUI();
+
+    // Documentação: o módulo só é baixado no primeiro clique (e o clique é repetido quando ele chega)
+    const linkDocs = document.getElementById('linkDocs');
+    if (linkDocs) linkDocs.addEventListener('click', e => {
+        e.preventDefault();
+        carregarModulo('docs').then(() => linkDocs.click()).catch(err => mostrarNotificacao(err.message, 'erro'));
+    }, { once: true });
 
     // Resumo compacto fixo (aparece ao rolar além do dashboard)
     configurarMiniResumo();

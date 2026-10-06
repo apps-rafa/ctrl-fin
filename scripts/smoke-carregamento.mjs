@@ -8,6 +8,8 @@ const html=fs.readFileSync("index.html","utf8");
 const files=[...html.matchAll(/<script src="(js\/[^"?]+)/g)].map(m=>m[1]);
 let bad=0;
 for(const f of files){ try{ vm.runInContext(fs.readFileSync(f,"utf8"),ctx,{filename:f}); }catch(e){ if(e instanceof ReferenceError||e.name==='ReferenceError'){bad++;console.log("✖",f,e.message);} else console.log("· (ignorado)",f,e.name+": "+e.message); } }
+const lazy=JSON.parse(fs.readFileSync("scripts/modulos-lazy.json","utf8"));
+for(const n of lazy){ const f=`js/${n}.js`; try{ vm.runInContext(fs.readFileSync(f,"utf8"),ctx,{filename:f}); }catch(e){ if(e.name==='ReferenceError'){bad++;console.log("✖ (lazy)",f,e.message);} else console.log("· (ignorado)",f,e.name+": "+e.message); } }
 console.log(bad?`${bad} ReferenceError(s)`:"sem ReferenceError no carregamento");
 // Se existe dist/ (npm run build), o bundle minificado também tem que carregar sem ReferenceError e expor as mesmas funções globais
 const dist="dist";

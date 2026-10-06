@@ -6,6 +6,8 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { transformSync } from "esbuild";
 
+const LAZY = JSON.parse(fs.readFileSync(new URL("./modulos-lazy.json", import.meta.url), "utf8")); // módulos baixados só quando a tela é usada
+
 const raiz = new URL("../", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
 const dist = path.join(raiz, "dist");
 const ler = (f) => fs.readFileSync(path.join(raiz, f), "utf8");
@@ -32,10 +34,18 @@ const js = transformSync(arquivosJs.map((f) => `// ${f}\n${ler(f)}`).join("\n;\n
 const nomeJs = `app.${hash(js)}.js`;
 fs.writeFileSync(path.join(dist, nomeJs), js);
 
+// --- Módulos lazy: um arquivo minificado cada (js/<nome>.js), carregados por carregarModulo() (js/config.js)
+const modulos = {};
+for (const nome of LAZY) {
+    const codigo = transformSync(ler(`js/${nome}.js`), { loader: "js", minify: true, target: "es2020", legalComments: "none" }).code;
+    modulos[nome] = `mod.${nome}.${hash(codigo)}.js`;
+    fs.writeFileSync(path.join(dist, modulos[nome]), codigo);
+}
+
 // --- HTML: uma tag de cada, no lugar da primeira de cada tipo
 let primeiraCss = true, primeiraJs = true;
 html = html.replace(reCss, () => (primeiraCss ? ((primeiraCss = false), `    <link rel="stylesheet" href="${nomeCss}">\n`) : ""));
-html = html.replace(reJs, () => (primeiraJs ? ((primeiraJs = false), `    <script src="${nomeJs}"></script>\n`) : ""));
+html = html.replace(reJs, () => (primeiraJs ? ((primeiraJs = false), `    <script>window.__modulos=${JSON.stringify(modulos)};</script>\n    <script src="${nomeJs}"></script>\n`) : ""));
 fs.writeFileSync(path.join(dist, "index.html"), html);
 
 // --- o resto do site
@@ -45,4 +55,4 @@ fs.writeFileSync(path.join(dist, ".nojekyll"), "");
 
 const kb = (n) => (n / 1024).toFixed(0) + " KB";
 const bruto = arquivosJs.concat(arquivosCss).reduce((a, f) => a + fs.statSync(path.join(raiz, f)).size, 0);
-console.log(`dist/ pronto: ${nomeJs} (${kb(js.length)}) + ${nomeCss} (${kb(css.length)}) — antes ${kb(bruto)} em ${arquivosJs.length + arquivosCss.length} arquivos`);
+console.log(`dist/ pronto: ${nomeJs} (${kb(js.length)}) + ${nomeCss} (${kb(css.length)}) + ${LAZY.length} módulos sob demanda — antes ${kb(bruto)} em ${arquivosJs.length + arquivosCss.length} arquivos`);

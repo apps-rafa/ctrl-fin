@@ -537,7 +537,11 @@ function mudarAba(novaAba) {
         // Carregar próximas transações
         atualizarProximasTransacoes();
     } else if (novaAba === 'anual') {
-        carregarVisaoAnual(true);
+        // Visão anual: o módulo é baixado na 1ª vez; iniciarVisaoAnual (liga os cliques da página) roda uma vez só
+        carregarModulo('anual').then(() => {
+            if (!window._anualIniciado) { window._anualIniciado = true; iniciarVisaoAnual(); }
+            carregarVisaoAnual(true);
+        }).catch(err => mostrarNotificacao(err.message, 'erro'));
     } else if (novaAba === 'lixeira') {
         carregarLixeira();
     } else if (novaAba === 'menus') {

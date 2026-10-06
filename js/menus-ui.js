@@ -304,7 +304,7 @@ async function carregarAbaMenus() {
   }
 
   iniciarPluggy();
-  iniciarDados();
+  carregarModulo('dados').then(() => iniciarDados()).catch(err => mostrarNotificacao(err.message, 'erro'));
 }
 
 let feriadosAnoView = new Date().getFullYear();

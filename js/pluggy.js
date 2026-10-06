@@ -580,7 +580,10 @@ function onClickTelegramBox(e) {
 }
 
 /** Chamado ao entrar na sub-aba "Pluggy" de Importar (ver menus-ui.js). */
-function iniciarPluggy() {
+async function iniciarPluggy() {
+    // A revisão e os dados cadastrais da Pluggy são módulos à parte (só baixados ao abrir Open Finance)
+    try { await Promise.all([carregarModulo('pluggy-credenciais'), carregarModulo('pluggy-revisao')]); }
+    catch (err) { mostrarNotificacao(err.message, 'erro'); return; }
     document.getElementById('btnPluggyCred')?.addEventListener('click', () => { alternarPluggyCredPainel(); });
     iniciarPluggyCredenciais();
     carregarPluggyCredStatus();
