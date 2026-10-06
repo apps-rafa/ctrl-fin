@@ -323,26 +323,10 @@ function _filtrarRevisaoPluggy(termoBruto) {
     });
 }
 
-/** Carrega e renderiza a fila de revisão (Importar > Pluggy): pendentes
- *  (divididos em duplicatas/a revisar/prontas, como nos outros grupos) + um
- *  histórico do que já foi confirmado (revisável, não editável aqui). */
-async function carregarRevisaoPluggy() {
-    const container = document.getElementById('pluggyRevisaoLista');
-    if (!container) return;
-
-    if (_telaLimpaPluggy) {
-        const btnL = document.getElementById('btnLimparRevisaoPluggy');
-        if (btnL) btnL.disabled = true;
-        const tOrig = document.getElementById('pluggyOrigemTitulo');
-        if (tOrig) tOrig.hidden = true;
-        container.innerHTML = '<p class="empty-message">Tela limpa — toque em "Sincronizar agora" pra ver tudo de novo</p>';
-        container.onclick = null;
-        container.onchange = null;
-        _revisaoPluggyCache = {};
-        _atualizarTotalMesPluggy();
-        return;
-    }
-
+/** Busca no banco tudo que a tela precisa (fila pendente, histórico, contas e descartadas) e já recorta o histórico e as
+ *  descartadas ao mês escolhido e às contas marcadas pra sincronizar (senão sincronizar outubro na conta corrente
+ *  mostrava o cartão de setembro). */
+async function _buscarRevisaoPluggy() {
     const [{ data, error }, { data: historico }, { data: contasRows }, { data: jaIgnoradasBrutas }] = await Promise.all([
         sb.from('transacoes_importadas').select('*').eq('status', 'pendente').order('data', { ascending: false }),
         // Junta com a transação de verdade — categoria/descrição podem ter
@@ -360,19 +344,14 @@ async function carregarRevisaoPluggy() {
         sb.from('transacoes_importadas').select('*').eq('status', 'ignorada').order('data', { ascending: false }).limit(100),
     ]);
     const contasPorId = Object.fromEntries((contasRows || []).map(c => [c.id, c]));
-    // Histórico e já ignoradas só do mês escolhido e das contas marcadas pra sincronizar
-    // (senão sincronizar outubro na conta corrente mostrava o cartão de setembro).
     const compEscopo = `${_syncPluggy.ano}-${String(_syncPluggy.mes).padStart(2, '0')}`;
     const noEscopo = (contaId, ref) => !!(contasPorId[contaId] && contasPorId[contaId].sincronizar) && String(ref || '').startsWith(compEscopo);
     const jaIgnoradas = (jaIgnoradasBrutas || []).filter(i => noEscopo(i.conta_id, i.competencia_fatura || i.data));
+    return { error, pendentes: data || [], historico: historico || [], contasPorId, noEscopo, jaIgnoradas };
+}
 
-    if (error) {
-        console.error(error);
-        container.innerHTML = '<p class="empty-message">Erro ao carregar a fila de revisão</p>';
-        return;
-    }
-
-    const pendentesBrutos = data || [];
+/** Aplica categorias aprendidas, marca as duplicatas suspeitas, guarda o cache da fila e atualiza o título de origem e o total do mês. */
+async function _prepararFilaPluggy(pendentesBrutos, contasPorId) {
     await _aplicarCategoriasAprendidasPluggy(pendentesBrutos);
     const marcados = await _marcarDuplicatasPluggy(pendentesBrutos);
     _revisaoPluggyCache = Object.fromEntries(marcados.map(item => [item.id, item]));
@@ -385,23 +364,25 @@ async function carregarRevisaoPluggy() {
         tituloOrigem.hidden = !nomesOrigem.length;
     }
     _atualizarTotalMesPluggy();
+    return marcados;
+}
 
-    // "confirmada" com transacao_id apontando pra um lançamento que não
-    // existe mais (apagado no app, via FK on-delete-set-null) não deveria
-    // continuar ocupando o histórico como um "Lançamento apagado" — isso é
-    // lixo da revisão, não histórico de verdade. Apaga esse resíduo e
-    // segue só com o que ainda tem o lançamento de verdade por trás.
-    const historicoValido = (historico || []).filter(item => item.transacao && noEscopo(item.conta_id, item.transacao.competencia || item.transacao.data));
-    const historicoOrfao = (historico || []).filter(item => !item.transacao);
+/** "confirmada" com transacao_id apontando pra um lançamento que não existe mais (apagado no app, via FK on-delete-set-null)
+ *  é lixo da revisão, não histórico de verdade: apaga esse resíduo e segue só com o que ainda tem o lançamento por trás. */
+function _historicoValidoPluggy(historico, noEscopo) {
+    const historicoValido = historico.filter(item => item.transacao && noEscopo(item.conta_id, item.transacao.competencia || item.transacao.data));
+    const historicoOrfao = historico.filter(item => !item.transacao);
     if (historicoOrfao.length) {
         sb.from('transacoes_importadas').delete().in('id', historicoOrfao.map(item => item.id))
             .then(({ error }) => { if (error) console.error('Erro ao limpar histórico órfão do Pluggy:', error); });
     }
     _historicoPluggyCache = Object.fromEntries(historicoValido.map(item => [item.id, item]));
+    return historicoValido;
+}
 
-    // Em qual grupo cada linha cai é CONGELADO na 1ª vez que ela aparece
-    // : resolver a categoria de uma linha "para revisar"
-    // só tira o destaque vermelho, NÃO muda ela de grupo.
+/** Em qual grupo cada linha cai é CONGELADO na 1ª vez que ela aparece: resolver a categoria de uma linha "para revisar"
+ *  só tira o destaque vermelho, NÃO muda ela de grupo. Devolve as linhas por grupo. */
+function _agruparFilaPluggy(marcados) {
     const categoriasDoTipo = item => (estadoApp.menus &&
         (item.tipo === 'entradas' ? estadoApp.menus.categoriasReceita : estadoApp.menus.categoriasDespesa)) || [];
     const veioComSugestao = item => !!(item.categoria_sugerida || sugerirCategoriaClientePluggy(item, categoriasDoTipo(item)));
@@ -425,43 +406,14 @@ async function carregarRevisaoPluggy() {
     const revisar = daFila('revisar');
     const duplicatas = daFila('duplicatas');
     const prontas = daFila('prontas');
+    return { revisar, duplicatas, prontas };
+}
 
-    // "Limpar" só habilita se há algo visível pra limpar (pendentes, histórico ou já ignoradas).
-    const btnLimparRevisao = document.getElementById('btnLimparRevisaoPluggy');
-    if (btnLimparRevisao) btnLimparRevisao.disabled = !pendentesBrutos.length && !historicoValido.length && !jaIgnoradas.length;
-
-    if (!pendentesBrutos.length && !historicoValido.length && !jaIgnoradas.length) {
-        container.innerHTML = '<p class="empty-message">Nada pendente — toque em "Sincronizar agora" pra buscar transações novas</p>';
-        container.onclick = null;
-        container.onchange = null;
-        return;
-    }
-
-    // Contadores AO VIVO (o grupo é congelado, o estado da linha não).
-    const totalIgnoradas = _ignoradasPluggy.size;
-    const prontasAoVivo = marcados.filter(i => !_ignoradasPluggy.has(i.id) && _categoriaAoVivoPluggy(i));
-    const aRevisarAoVivo = marcados.filter(i => !_ignoradasPluggy.has(i.id) && !_categoriaAoVivoPluggy(i));
-    // "Cancelar" só desfaz alterações manuais — sem nenhuma, não tem o que
-    // desfazer e ficava parecendo um botão que não faz nada.
-    const temAlteracoes = totalIgnoradas > 0
-        || Object.keys(_categoriaEscolhidaPluggy).length > 0
-        || Object.keys(_descricaoEditadaPluggy).length > 0;
-
-    // Layout compartilhado (js/revisao-importacao.js): grupo → subgrupos
-    // Despesas/Receitas → tabela X/Data/Valor/Categoria/Descrição. Sem
-    // "Forma de pgto." — o método já vem fixado pela conta em "Método do app".
-    // Cartão de crédito: tudo é despesa — nenhum grupo (Para revisar, Prontas, Descartadas...) tem subgrupos
-    const soCartao = itens => itens.length > 0 && itens.every(i => contasPorId[i.conta_id]?.tipo_conta === 'CREDIT');
-    const grupo = (id, titulo, itens, nota = '', semSubgrupos = false, abrir = false) => htmlGrupoRevisao({
-        id, titulo: titulo, abertos: _abertosPluggy, padraoAberto: abrir, subAberto: false, itens, nota, semSubgrupos: semSubgrupos || soCartao(itens),
-        tipoDe: i => i.tipo, colunas: ['Data', 'Valor', 'Categoria', 'Descrição'],
-        htmlLinha: gerarHTMLImportadaPluggy,
-    });
-
-    // Histórico: MESMO markup dos outros grupos desta página (revisao-grupo),
-    // com um subgrupo por tipo cujo corpo são os cards dos lançamentos.
+/** Grupo "Já lançados (histórico)": MESMO markup dos outros grupos desta página, com um subgrupo por tipo cujo corpo são os cards. */
+function _htmlHistoricoPluggy(historicoValido, contasPorId) {
+    if (!historicoValido.length) return '';
     const _somaHist = l => l.reduce((acc, i) => acc + (parseFloat(i.transacao.valor) || 0), 0);
-    const tabelaHistorico = !historicoValido.length ? '' : _grupoColapsavelConciliar({
+    return _grupoColapsavelConciliar({
         id: 'pluggy-historico', abertos: _abertosPluggy, padraoAberto: false,
         titulo: `📜 Já lançados (histórico) (${historicoValido.length})`,
         corpo: ((historicoValido.every(i => contasPorId[i.conta_id]?.tipo_conta === 'CREDIT') || !historicoValido.some(i => i.transacao.tipo === 'entradas'))
@@ -478,10 +430,11 @@ async function carregarRevisaoPluggy() {
             });
         }).join('')),
     });
+}
 
-    // Com mais de uma conta na fila, cada conta vira um grupo (Nubank: Crédito,
-    // Mercado Pago: Conta...) com os 3 grupos de sempre dentro; com uma só, fica
-    // como sempre foi.
+/** Os grupos "Para revisar" e "Possíveis duplicatas": com mais de uma conta na fila, cada conta vira um grupo (Nubank: Crédito,
+ *  Mercado Pago: Conta...) com os dois dentro; com uma só, ficam soltos. */
+function _htmlGruposPorContaPluggy(marcados, revisar, duplicatas, contasPorId, grupo) {
     const notaDup = `<p class="revisao-nota">Mesmo tipo, data (± 2 dias) e valor de algo já lançado no app. Vêm com X: ao importar, cada uma é conciliada com o lançamento que já existe (ele ganha o selo 🏦), sem duplicar — clique no ↺ se for mesmo um lançamento novo.</p>`;
     // Cartão de crédito é praticamente sempre despesa — o subgrupo
     // "Despesas" vira uma camada de clique inútil (não existe "Receitas"
@@ -513,6 +466,86 @@ async function carregarRevisaoPluggy() {
             });
         }).join('');
     };
+    return blocosPorConta();
+}
+
+/** Liga a busca, o botão de importar e os cliques da tela de revisão. */
+function _ligarRevisaoPluggy(container) {
+    container.querySelectorAll('details[data-grupo-id]').forEach(det => {
+        det.addEventListener('toggle', () => { if (!_buscaPluggyAtiva) _abertosPluggy[det.dataset.grupoId] = det.open; });
+    });
+
+    document.getElementById('pluggyRevisaoBusca')?.addEventListener('input', e => {
+        _pluggyRevisaoBusca = e.target.value;
+        _filtrarRevisaoPluggy(_pluggyRevisaoBusca);
+    });
+    // Reaplica o filtro depois de um re-render (ex.: trocou a categoria de
+    // uma linha) — sem isso a busca "esquecia" o que estava filtrado.
+    if (_pluggyRevisaoBusca) _filtrarRevisaoPluggy(_pluggyRevisaoBusca);
+
+    document.getElementById('btnImportarProntasPluggy')?.addEventListener('click', importarProntasPluggy);
+
+    container.onclick = onRevisaoPluggyClick;
+    container.onchange = onRevisaoPluggyChange;
+}
+
+/** Carrega e renderiza a fila de revisão (Importar > Pluggy): pendentes
+ *  (divididos em duplicatas/a revisar/prontas, como nos outros grupos) + um
+ *  histórico do que já foi confirmado (revisável, não editável aqui). */
+async function carregarRevisaoPluggy() {
+    const container = document.getElementById('pluggyRevisaoLista');
+    if (!container) return;
+
+    if (_telaLimpaPluggy) {
+        const btnL = document.getElementById('btnLimparRevisaoPluggy');
+        if (btnL) btnL.disabled = true;
+        const tOrig = document.getElementById('pluggyOrigemTitulo');
+        if (tOrig) tOrig.hidden = true;
+        container.innerHTML = '<p class="empty-message">Tela limpa — toque em "Sincronizar agora" pra ver tudo de novo</p>';
+        container.onclick = null;
+        container.onchange = null;
+        _revisaoPluggyCache = {};
+        _atualizarTotalMesPluggy();
+        return;
+    }
+
+    const { error, pendentes: pendentesBrutos, historico, contasPorId, noEscopo, jaIgnoradas } = await _buscarRevisaoPluggy();
+    if (error) {
+        console.error(error);
+        container.innerHTML = '<p class="empty-message">Erro ao carregar a fila de revisão</p>';
+        return;
+    }
+
+    const marcados = await _prepararFilaPluggy(pendentesBrutos, contasPorId);
+    const historicoValido = _historicoValidoPluggy(historico, noEscopo);
+    const { revisar, duplicatas, prontas } = _agruparFilaPluggy(marcados);
+
+    // "Limpar" só habilita se há algo visível pra limpar (pendentes, histórico ou já ignoradas).
+    const btnLimparRevisao = document.getElementById('btnLimparRevisaoPluggy');
+    if (btnLimparRevisao) btnLimparRevisao.disabled = !pendentesBrutos.length && !historicoValido.length && !jaIgnoradas.length;
+
+    if (!pendentesBrutos.length && !historicoValido.length && !jaIgnoradas.length) {
+        container.innerHTML = '<p class="empty-message">Nada pendente — toque em "Sincronizar agora" pra buscar transações novas</p>';
+        container.onclick = null;
+        container.onchange = null;
+        return;
+    }
+
+    // Contadores AO VIVO (o grupo é congelado, o estado da linha não).
+    const totalIgnoradas = _ignoradasPluggy.size;
+    const prontasAoVivo = marcados.filter(i => !_ignoradasPluggy.has(i.id) && _categoriaAoVivoPluggy(i));
+    const aRevisarAoVivo = marcados.filter(i => !_ignoradasPluggy.has(i.id) && !_categoriaAoVivoPluggy(i));
+
+    // Layout compartilhado (js/revisao-importacao.js): grupo → subgrupos
+    // Despesas/Receitas → tabela X/Data/Valor/Categoria/Descrição. Sem
+    // "Forma de pgto." — o método já vem fixado pela conta em "Método do app".
+    // Cartão de crédito: tudo é despesa — nenhum grupo (Para revisar, Prontas, Descartadas...) tem subgrupos
+    const soCartao = itens => itens.length > 0 && itens.every(i => contasPorId[i.conta_id]?.tipo_conta === 'CREDIT');
+    const grupo = (id, titulo, itens, nota = '', semSubgrupos = false, abrir = false) => htmlGrupoRevisao({
+        id, titulo: titulo, abertos: _abertosPluggy, padraoAberto: abrir, subAberto: false, itens, nota, semSubgrupos: semSubgrupos || soCartao(itens),
+        tipoDe: i => i.tipo, colunas: ['Data', 'Valor', 'Categoria', 'Descrição'],
+        htmlLinha: gerarHTMLImportadaPluggy,
+    });
 
     // Marcadas com X numa revisão anterior (status 'ignorada' no banco) — não
     // entram na fila de novo, mas ficam visíveis aqui, riscadas, em vez de
@@ -536,13 +569,13 @@ async function carregarRevisaoPluggy() {
         <input type="search" id="pluggyRevisaoBusca" class="docs-busca pluggy-revisao-busca"
             placeholder="🔎 Buscar por descrição ou categoria..." autocomplete="off"
             aria-label="Buscar nesta página" value="${escAttrRevisao(_pluggyRevisaoBusca)}">`,
-        blocosPorConta(),
+        _htmlGruposPorContaPluggy(marcados, revisar, duplicatas, contasPorId, grupo),
         jaIgnoradasHTML,
         grupo('pluggy-prontas', '✓ Prontas', prontas),
         // "Já lançados (histórico)" sempre por último — é a única lista que
         // não pede nenhuma ação (as outras têm algo a decidir: revisar,
         // conferir duplicata, importar).
-        tabelaHistorico,
+        _htmlHistoricoPluggy(historicoValido, contasPorId),
         `<div class="revisao-acoes">
             <button type="button" class="btn-submit" id="btnImportarProntasPluggy"
                 title="${totalIgnoradas ? `As ${totalIgnoradas} linha(s) com X serão descartadas da fila.` : ''}"
@@ -553,23 +586,7 @@ async function carregarRevisaoPluggy() {
         <div id="pluggyImportProgresso" class="revisao-progresso" hidden></div>`,
     ].join('');
 
-    container.querySelectorAll('details[data-grupo-id]').forEach(det => {
-        det.addEventListener('toggle', () => { if (!_buscaPluggyAtiva) _abertosPluggy[det.dataset.grupoId] = det.open; });
-    });
-
-    document.getElementById('pluggyRevisaoBusca')?.addEventListener('input', e => {
-        _pluggyRevisaoBusca = e.target.value;
-        _filtrarRevisaoPluggy(_pluggyRevisaoBusca);
-    });
-    // Reaplica o filtro depois de um re-render (ex.: trocou a categoria de
-    // uma linha) — sem isso a busca "esquecia" o que estava filtrado.
-    if (_pluggyRevisaoBusca) _filtrarRevisaoPluggy(_pluggyRevisaoBusca);
-
-    document.getElementById('btnImportarProntasPluggy')?.addEventListener('click', importarProntasPluggy);
-
-
-    container.onclick = onRevisaoPluggyClick;
-    container.onchange = onRevisaoPluggyChange;
+    _ligarRevisaoPluggy(container);
 }
 
 /** Linha da tabela de revisão (layout compartilhado — ver
