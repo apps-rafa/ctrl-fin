@@ -177,8 +177,19 @@ function ajustarFontesDashboard() {
             ajustarFonteParaCaber(b);
             return parseFloat(getComputedStyle(b).fontSize);
         };
-        if (cardCompacto(b)) { rot.style.fontStyle = 'normal'; return tentar('∑', false); }
-        rot.style.fontStyle = '';
+        if (cardCompacto(b)) {
+            // Card estreito: ∑ (mais leve) com o MESMO tamanho do valor total; os dois encolhem juntos até caber
+            rot.hidden = false; rot.textContent = '∑';
+            rot.style.fontStyle = 'normal'; rot.style.fontWeight = '300';
+            b.style.fontSize = '';
+            let px = parseFloat(getComputedStyle(b).fontSize);
+            for (; px > 10; px -= 1) {
+                rot.style.fontSize = px + 'px'; b.style.fontSize = px + 'px';
+                if (b.scrollWidth <= b.clientWidth + 1) break;
+            }
+            return;
+        }
+        rot.style.fontStyle = ''; rot.style.fontWeight = ''; rot.style.fontSize = '';
         const f1 = tentar('total', false);
         const f2 = tentar('∑', false);
         const f3 = tentar('∑', true);
@@ -304,6 +315,15 @@ function ajustarRotulosCards() {
         const aperta = cardCompacto(topo) || rot.some(i => { const l = i.parentElement; return i.scrollWidth + (l.querySelector('b')?.scrollWidth || 0) + 10 > l.clientWidth || parseFloat(getComputedStyle(i).fontSize) < 9; });
         if (aperta) poe(true);
         topo.classList.toggle('rot-emoji', aperta);
+        // Com emoji no lugar das palavras sobra largura: os valores crescem (até 82% do tamanho do total), sempre cabendo na linha
+        const valores = [...topo.querySelectorAll('.linha:not(.linha-detalhe) > b')];
+        valores.forEach(v => { v.style.fontSize = ''; });
+        const totalB = topo.closest('.summary-card')?.querySelector('.linha.total b');
+        if (aperta && cardCompacto(topo) && totalB) {
+            let px = parseFloat(getComputedStyle(totalB).fontSize) * 0.82;
+            const cabe = () => valores.every(v => { const l = v.parentElement; const i = l.querySelector('i'); return (i ? i.getBoundingClientRect().width : 0) + v.scrollWidth + 8 <= l.clientWidth; });
+            for (; px > 10; px -= 0.5) { valores.forEach(v => { v.style.fontSize = px + 'px'; }); if (cabe()) break; }
+        }
     });
 }
 window.addEventListener('resize', () => ajustarRotulosCards());
@@ -336,9 +356,9 @@ function _unificarDetalhes() {
     if (!els.length) return;
     let menor = Math.min(...els.map(x => x._f));
     // sempre um pouco menores que os rótulos (recebido, pago, a receber, a pagar) e que o "total"
-    const ref = document.querySelector('.card-linhas .linha.total .rot-total');
+    const ref = document.querySelector('.card-linhas-topo .linha:not(.linha-detalhe) > b');
     const refPx = ref ? parseFloat(getComputedStyle(ref).fontSize) : 0;
-    if (refPx > 0) menor = Math.min(menor, refPx * 0.88);
+    if (refPx > 0) menor = Math.min(menor, refPx * 0.7);
     els.forEach(x => { x.style.fontSize = menor + 'px'; });
     // Conferência final com o texto já na tela (fontes do aparelho, itálico...): se ainda passar da linha, encolhe todos juntos até caber
     for (let i = 0; i < 25; i++) {
@@ -360,7 +380,7 @@ function _detalheCard(linhaId, detId, a, b, [rotA, emoA], [rotB, emoB], mask) {
     if (!det) return;
     const fmt = v => formatarMoeda(v || 0).replace(/^R\$\s?/, '');
     const fa = fmt(a), fb = fmt(b);
-    _ajustarDetalhe(det, tem ? [`${rotA} ${fa} + ${rotB} ${fb}`, `${emoA} ${fa} + ${emoB} ${fb}`, `${fa} + ${fb}`].map(mask) : null);
+    _ajustarDetalhe(det, tem ? [`${rotA} ${fa} + ${rotB} ${fb}`, `${emoA}${fa} ${emoB}${fb}`, `${fa} + ${fb}`].map(mask) : null);
 }
 
 /** Texto de detalhe do dashboard (ex.: "pendentes 10 + crédito 20"): usa a 1ª versão que cabe com respiro; senão a mais curta. */

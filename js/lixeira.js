@@ -83,7 +83,7 @@ async function carregarLixeira(qtd) {
     }
 
     box.innerHTML = data.slice(0, _lixeiraQtd).map(htmlItemLixeira).join('')
-        + (data.length > _lixeiraQtd ? `<button type="button" class="busca-ampla-btn" data-lixeira-mais>Carregar mais 5</button>` : '');
+        + (data.length > _lixeiraQtd ? `<button type="button" class="busca-ampla-btn" data-lixeira-mais>Carregar mais ${Math.min(5, data.length - _lixeiraQtd)}</button>` : '');
     box.onclick = onCliqueLixeira;
 }
 

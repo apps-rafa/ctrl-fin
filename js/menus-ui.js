@@ -141,7 +141,7 @@ async function carregarAbaMenus() {
           <span id="pluggyCredStatusOf" class="menu-hint pluggy-cred-status"></span>
         </div>
         <div class="pluggy-saldo-linha">
-          <button type="button" class="pluggy-toggle-opt" id="btnSaldoContas" role="switch" title="Mostrar ou esconder o saldo das contas no dashboard"></button>
+          <button type="button" class="mini-btn" id="btnSaldoContas" role="switch" title="Mostrar ou esconder o saldo das contas no dashboard"></button>
         </div>
 
         <!-- Painel "Dados cadastrais" (credencial própria da Pluggy) — troca

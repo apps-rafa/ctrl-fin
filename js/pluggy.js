@@ -589,7 +589,7 @@ function iniciarPluggy() {
     if (btnSaldo) {
         const pintar = () => {
             const on = saldoContasLigado();
-            btnSaldo.classList.toggle('active', on);
+            btnSaldo.classList.toggle('ligado', on);
             btnSaldo.setAttribute('aria-checked', String(on));
             btnSaldo.textContent = '💰 Saldo em contas: ' + (on ? 'ligado' : 'desligado');
         };
