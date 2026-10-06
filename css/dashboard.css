@@ -450,3 +450,5 @@
 .card-linhas-topo.rot-emoji .linha b { font-size: clamp(.7rem, 10.5cqw, 1.25rem); }
 /* pix / crédito / pendentes: sempre em itálico (e menores que os rótulos, ver _unificarDetalhes) */
 .card-linhas-topo .linha-detalhe i { font-style: italic; }
+/* emojis dos detalhes ("⚡ 37 + 💳 0") não ficam em itálico */
+.card-linhas-topo .linha-detalhe i .emo { font-style: normal; }

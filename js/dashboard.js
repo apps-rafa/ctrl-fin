@@ -177,6 +177,8 @@ function ajustarFontesDashboard() {
             ajustarFonteParaCaber(b);
             return parseFloat(getComputedStyle(b).fontSize);
         };
+        if (cardCompacto(b)) { rot.style.fontStyle = 'normal'; return tentar('∑', false); }
+        rot.style.fontStyle = '';
         const f1 = tentar('total', false);
         const f2 = tentar('∑', false);
         const f3 = tentar('∑', true);
@@ -284,6 +286,13 @@ function atualizarResumo() {
     ajustarRotulosCards();
 }
 
+/** Card estreito (celular): rótulos, "total" e detalhes já viram emoji, em vez de esperar o texto ficar minúsculo. */
+const LARGURA_CARD_COMPACTO = 240;
+const cardCompacto = el => { const c = el && el.closest && el.closest('.summary-card'); return !!c && c.clientWidth > 0 && c.clientWidth < LARGURA_CARD_COMPACTO; };
+
+/** Emojis dentro do texto de detalhe (ficam fora do itálico do resto). */
+const _htmlDetalhe = texto => String(texto).replace(/(⚡|💳|⏳)/g, '<span class="emo">$1</span>');
+
 /** Rótulos dos cards (atual/pago, a receber/a pagar): viram 🟢 e ⏭️ quando não cabem ao lado do valor (os dois do card juntos). */
 function ajustarRotulosCards() {
     document.querySelectorAll('.summary-card .card-linhas-topo').forEach(topo => {
@@ -292,7 +301,7 @@ function ajustarRotulosCards() {
         const poe = emoji => rot.forEach(i => { i.textContent = emoji ? i.dataset.emo : i.dataset.rot; });
         poe(false);
         // aperta = não cabe ao lado do valor, ou o texto (que escala com o card) já ficou pequeno demais pra ler
-        const aperta = rot.some(i => { const l = i.parentElement; return i.scrollWidth + (l.querySelector('b')?.scrollWidth || 0) + 10 > l.clientWidth || parseFloat(getComputedStyle(i).fontSize) < 9; });
+        const aperta = cardCompacto(topo) || rot.some(i => { const l = i.parentElement; return i.scrollWidth + (l.querySelector('b')?.scrollWidth || 0) + 10 > l.clientWidth || parseFloat(getComputedStyle(i).fontSize) < 9; });
         if (aperta) poe(true);
         topo.classList.toggle('rot-emoji', aperta);
     });
@@ -359,26 +368,27 @@ function _ajustarDetalhe(el, variantes) {
     el._variantes = variantes;
     const aplicar = () => {
         const v = el._variantes;
-        if (!v) { el.textContent = '\u00a0'; el.style.fontSize = ''; el._f = null; _unificarDetalhes(); return; }
+        if (!v) { el.innerHTML = '\u00a0'; el.style.fontSize = ''; el._f = null; _unificarDetalhes(); return; }
         el.style.whiteSpace = 'nowrap';
         el.style.fontSize = '';
         const caixa = (el.closest('.linha') || el.parentElement).clientWidth;
-        if (!caixa) { el.textContent = v[0]; el._f = null; return; }
+        if (!caixa) { el.innerHTML = _htmlDetalhe(v[0]); el._f = null; return; }
         const util = caixa - 4; // até a largura da linha que separa do total (respiro mínimo)
         // Cada variante, esticada até a largura da linha, dá um tamanho de fonte; vale a mais completa (completo -> emojis ->
         // só números) cujo tamanho continua legível (>= 9px). Sobrou espaço = a fonte cresce (até 13px).
         const f0 = parseFloat(getComputedStyle(el).fontSize);
         let melhor = null;
-        for (const texto of v) {
-            el.textContent = texto;
+        const opcoes = cardCompacto(el) ? v.slice(1) : v; // celular: já em emoji (ou só números), nunca o texto por extenso
+        for (const texto of opcoes) {
+            el.innerHTML = _htmlDetalhe(texto);
             const w = el.getBoundingClientRect().width;
             if (!(w > 0) || !(f0 > 0)) continue;
             const f = f0 * util / w;
             if (!melhor || f > melhor.f && melhor.f < 9) melhor = { texto, f };
             if (f >= 9) { melhor = { texto, f }; break; }
         }
-        if (!melhor) { el.textContent = v[0]; el._f = null; return; }
-        el.textContent = melhor.texto;
+        if (!melhor) { el.innerHTML = _htmlDetalhe(v[0]); el._f = null; return; }
+        el.innerHTML = _htmlDetalhe(melhor.texto);
         el._f = Math.max(7, Math.min(melhor.f, 13));
         _unificarDetalhes();
     };
