@@ -78,6 +78,7 @@ async function renderDados() {
         <input type="file" id="importBackupArquivo" accept=".json,application/json" hidden>
         <button type="button" class="dados-btn" id="btnImportarBackup">📁 Importar Backup</button>
         <button type="button" class="dados-btn" id="btnBaixarBackup">⬇️ Baixar Backup</button>
+        <button type="button" class="dados-btn" id="btnEmailBackup" title="Manda o backup completo para o seu e-mail (todo dia 1 ele também é enviado sozinho)">✉️ Enviar por e-mail</button>
         <button type="button" class="dados-btn dados-btn-perigo" id="btnApagarDados">${ICONE_LIXEIRA} Apagar</button>
     </div>
     <div id="secImportarBackup"></div>
@@ -139,6 +140,7 @@ async function renderDados() {
     atualizar();
 
     document.getElementById('btnBaixarBackup')?.addEventListener('click', baixarBackup);
+    document.getElementById('btnEmailBackup')?.addEventListener('click', enviarBackupPorEmail);
     document.getElementById('btnApagarDados')?.addEventListener('click', confirmarApagarDados);
 }
 
@@ -175,6 +177,29 @@ async function _renderDadosMeses(aoMudar) {
             aoMudar();
         });
     });
+}
+
+/** Manda o backup COMPLETO (não depende dos botões de seleção acima) por e-mail — edge function enviar-backup (Resend). */
+async function enviarBackupPorEmail() {
+    const btn = document.getElementById('btnEmailBackup');
+    const status = document.getElementById('dadosStatus');
+    if (btn) btn.disabled = true;
+    if (status) { status.hidden = false; status.textContent = 'Enviando backup por e-mail...'; }
+    try {
+        const { data, error } = await sb.functions.invoke('enviar-backup', { body: {} });
+        if (error) {
+            let detalhe = '';
+            try { detalhe = (await error.context.json()).error || ''; } catch (_) { /* sem corpo */ }
+            throw new Error(detalhe || error.message);
+        }
+        mostrarNotificacao(`Backup enviado para ${data.para} (${data.lancamentos} lançamentos)`, 'sucesso');
+    } catch (err) {
+        console.error('Erro ao enviar backup por e-mail:', err);
+        mostrarNotificacao('Não consegui enviar: ' + (err.message || 'erro'), 'erro');
+    } finally {
+        if (btn) btn.disabled = false;
+        if (status) status.hidden = true;
+    }
 }
 
 async function baixarBackup() {

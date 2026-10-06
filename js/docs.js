@@ -154,7 +154,7 @@ const DOCS_SECOES = [
         m: 'A cor vale no app inteiro: listas, busca, barras, gráficos e visão anual — e é retroativa para lançamentos antigos.' },
       { t: 'Feriados', r: 'Feriados nacionais, estaduais (por UF) e municipais; servem para ajustar vencimentos ao dia útil.',
         m: 'Nacionais e estaduais oficiais não podem ser apagados, só desativados; "sincronizar" completa pela Nager.Date. Municipais e avulsos você cadastra.' },
-      { t: 'Dados', r: 'Baixar backup (JSON), restaurar um backup e apagar dados por seleção. Os três botões (Importar, Baixar e Apagar) têm o mesmo visual.',
+      { t: 'Dados', r: 'Baixar backup (JSON), restaurar um backup e apagar dados por seleção. Os botões (Importar, Baixar, Enviar por e-mail e Apagar) têm o mesmo visual. "✉️ Enviar por e-mail" manda o backup completo (todos os meses, independentemente da seleção acima) para o e-mail da sua conta, em arquivo .json que o "Importar Backup" restaura; além disso, todo dia 1 o backup é enviado sozinho. O envio usa o Resend (segredo RESEND_API_KEY no Supabase) e, sem domínio verificado, só chega ao e-mail da própria conta do Resend.',
         m: 'Você escolhe o que entra (categorias, formas, feriados, lançamentos e quais meses). Apagar é irreversível — exige confirmação.' },
     ],
   },
