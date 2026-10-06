@@ -79,6 +79,15 @@ test("rede lenta (mais de 3 s): abre a versão guardada em vez de esperar", asyn
   assert.equal(await txt(res), "index nova");
 });
 
+test("arquivo vendor.<hash>.js (supabase-js do próprio site): cache primeiro", async () => {
+  let idas = 0;
+  const sw = novoSW({ rede: async () => { idas++; return resp("lib"); } });
+  const req = new Request("https://x.test/ctrl-fin/vendor.supabase.abc123.js");
+  await sw.evento("fetch", { request: req });
+  assert.equal(await txt(await sw.evento("fetch", { request: req })), "lib");
+  assert.equal(idas, 1);
+});
+
 test("não mexe em escritas nem no que é de outros sites (API do Supabase)", async () => {
   const sw = novoSW({ rede: async () => resp("x") });
   let respondeu = false;

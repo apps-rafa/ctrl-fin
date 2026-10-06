@@ -42,6 +42,13 @@ for (const nome of LAZY) {
     fs.writeFileSync(path.join(dist, modulos[nome]), codigo);
 }
 
+// --- supabase-js servido pelo próprio site (versão fixa do package.json): um host a menos no 1º carregamento e entra no cache offline
+const nomeSupabase = `vendor.supabase.${hash(fs.readFileSync(path.join(raiz, "node_modules/@supabase/supabase-js/dist/umd/supabase.js"), "utf8"))}.js`;
+fs.copyFileSync(path.join(raiz, "node_modules/@supabase/supabase-js/dist/umd/supabase.js"), path.join(dist, nomeSupabase));
+const reSupabase = /<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@[^"]+"><\/script>/;
+if (!reSupabase.test(html)) throw new Error("tag do supabase-js (CDN) não encontrada no index.html");
+html = html.replace(reSupabase, `<script src="${nomeSupabase}"></script>`);
+
 // --- HTML: uma tag de cada, no lugar da primeira de cada tipo
 let primeiraCss = true, primeiraJs = true;
 html = html.replace(reCss, () => (primeiraCss ? ((primeiraCss = false), `    <link rel="stylesheet" href="${nomeCss}">\n`) : ""));
@@ -52,8 +59,8 @@ html = html.replace("</body>", `    <script>if ("serviceWorker" in navigator) wi
 fs.writeFileSync(path.join(dist, "index.html"), html);
 
 // --- service worker: lista dos arquivos do núcleo + versão (muda quando qualquer arquivo muda → o aparelho instala o novo e limpa o antigo)
-const precache = [nomeJs, nomeCss, "img/icon-192.png", "img/favicon.svg"];
-const versao = hash([nomeJs, nomeCss, ...Object.values(modulos)].join("|"));
+const precache = [nomeSupabase, nomeJs, nomeCss, "img/icon-192.png", "img/favicon.svg"];
+const versao = hash([nomeSupabase, nomeJs, nomeCss, ...Object.values(modulos)].join("|"));
 fs.writeFileSync(path.join(dist, "sw.js"), fs.readFileSync(new URL("./sw.template.js", import.meta.url), "utf8")
     .replace("__VERSAO__", versao).replace("__PRECACHE__", JSON.stringify(precache)));
 
