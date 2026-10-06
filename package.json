@@ -7,6 +7,9 @@
     "check": "node scripts/checar-sintaxe.mjs && node scripts/smoke-carregamento.mjs",
     "check:bot": "npx --yes -p typescript tsc --noEmit --allowImportingTsExtensions --skipLibCheck --target es2022 --module esnext --moduleResolution bundler --lib es2022,dom supabase/functions/telegram-webhook/index.ts scripts/deno-stub.d.ts",
     "dev": "node dev/servir.mjs",
-    "versao": "node scripts/carimbar-versao.mjs"
+    "build": "node scripts/build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }
