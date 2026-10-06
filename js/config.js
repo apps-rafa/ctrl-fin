@@ -13,6 +13,23 @@ const SUPABASE_KEY = 'sb_publishable_TBLXpqgQRkHgaRFGDL17uA_KOkc_Q_F';
 // Cliente global (supabase-js carregado via <script> no index.html)
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Contador de escritas em `transacoes`: cada insert/update/delete/upsert (de qualquer tela) soma 1. Quem guarda cache do que leu
+// (ex.: Pendências) compara esse número para saber se precisa reler do banco.
+window._transacoesVersao = 0;
+(() => {
+    const original = sb.from.bind(sb);
+    sb.from = tabela => {
+        const consulta = original(tabela);
+        if (tabela === 'transacoes') {
+            ['insert', 'update', 'delete', 'upsert'].forEach(metodo => {
+                const f = consulta[metodo].bind(consulta);
+                consulta[metodo] = (...args) => { window._transacoesVersao++; return f(...args); };
+            });
+        }
+        return consulta;
+    };
+})();
+
 // Categorias de receita fixas (não podem ser removidas) — "Estorno" é um
 // valor que volta na fatura do cartão de crédito (daí só aceitar Método de
 // Crédito), "Reembolso" é um valor que volta via Pix/transferência (daí só

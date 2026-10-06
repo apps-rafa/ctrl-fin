@@ -16,8 +16,13 @@ const _transacoesParaDuplicatas = () => transacoesParaDuplicatasAPI();
 
 /** Busca no banco: TODAS as ocorrências "a confirmar" já vencidas (de qualquer mês anterior) e as duplicatas de TODOS os meses
  *  (mesma regra do grupo Duplicatas: mesmo valor, forma e descrição repetidos dentro do mesmo mês). */
+let _pendenciasChave = null; // { versao, hoje, em } da última leitura bem-sucedida
+const _PENDENCIAS_TTL_MS = 5 * 60 * 1000; // outro aparelho / o bot podem ter mexido: relê de vez em quando
 async function carregarPendencias() {
     const hoje = hojeISO();
+    // Nada foi escrito neste aparelho desde a última leitura (e é o mesmo dia): reaproveita, sem refazer a consulta pesada
+    if (_pendenciasChave && _pendenciasChave.versao === window._transacoesVersao && _pendenciasChave.hoje === hoje && Date.now() - _pendenciasChave.em < _PENDENCIAS_TTL_MS) return;
+    const versaoAoIniciar = window._transacoesVersao;
     try {
         const [rAc, todas] = await Promise.all([
             ocorrenciasVencidasAPI(hoje),
@@ -46,6 +51,7 @@ async function carregarPendencias() {
         let total = 0;
         meses.forEach(m => { total += m.ac.length + m.dups.length; });
         _pendencias = { total, meses };
+        _pendenciasChave = { versao: versaoAoIniciar, hoje, em: Date.now() };
     } catch (e) {
         console.error('Pendências indisponíveis:', e);
     }
