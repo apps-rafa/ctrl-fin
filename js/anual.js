@@ -165,11 +165,11 @@ function _renderExtratoFiltro(ano) {
         <details class="subgrupo" data-mes="${m}" data-nome="mes-${m}" style="--cor-rec:${cor}" ${aberto ? 'open' : ''}>
           <summary class="subgrupo-cab">
             <span class="subgrupo-nome">${MESES_ANUAL_LONGO[m]}</span>
-            ${_renderOrganizadorInline(tipoUI, agrupar, chave, tipoUI === 'saida', lista)}
             <span class="subgrupo-espaco"></span>
             <span class="subgrupo-contagem">${lista.length}</span>
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(tot)}</span></span>
           </summary>
+          ${_barraGrupo(_renderOrganizadorInline(tipoUI, agrupar, chave, tipoUI === 'saida', lista))}
           ${_corpoGrupoComSubmodo(lista, tipoUI, agrupar, chave, tipoUI === 'saida', abertosSub[m] || {}, opts)}
         </details>`;
     }).join('');
@@ -417,6 +417,7 @@ function _renderVisaoAnual() {
         ${extrato}
         <p class="menu-hint anual-nota">Valores em R$ (sem centavos), pelo mês da competência${(vD.temEstorno) ? '; estornos/reembolsos no cartão abatem a despesa' : ''}. No gráfico, a barra da esquerda é a receita e a da direita a despesa do mês, coloridas pela proporção de cada ${agrupar === 'categoria' ? 'categoria' : 'forma de pagamento'}. Meses passados sem lançamento não aparecem. Toque no nome de um mês para focar nele (toque de novo para voltar ao ano) e no nome de uma ${agrupar === 'categoria' ? 'categoria' : 'forma'} para filtrá-la.</p>`
         : `<p class="empty-message">Nada lançado em ${ano}${estadoAnual.filtro ? ` para “${_esc(estadoAnual.filtro)}”` : ''}.</p>${extrato}`}`;
+    cont.querySelectorAll('.subgrupo-organizador').forEach(_ajustarLabelsFiltro); // rótulos do funil cabem na largura
     if (estadoAnual.rolarPara !== null) { // voltou de uma edição: a página volta ao ponto em que estava
         const y = estadoAnual.rolarPara; estadoAnual.rolarPara = null;
         requestAnimationFrame(() => window.scrollTo(0, y));
