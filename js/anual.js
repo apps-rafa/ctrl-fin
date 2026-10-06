@@ -21,6 +21,8 @@ const estadoAnual = {
     ano: new Date().getFullYear(),
     agrupar: 'categoria', // 'categoria' | 'metodo'
     filtro: '',           // nome de uma linha (categoria/forma) ou '' = todas
+    filtroTipo: '',       // 'saidas' | 'entradas': de qual lado é o filtro (despesa e receita têm menus separados)
+    filtro2: '',          // refinamento no extrato: forma (se agrupa por categoria) ou categoria (se agrupa por forma)
     cmp: { ativo: false, a: null, b: null }, // comparação de dois meses (0-11)
     porAno: {},           // ano -> transações
     foco: null,           // mês (0-11) em foco ao tocar no cabeçalho; null = ano todo
@@ -83,7 +85,8 @@ function _calcularAno(linhas, tipo) {
 /** Aplica o filtro (uma linha só) e soma os totais mensais. */
 function _visao(ano, tipo) {
     const base = _calcularAno(estadoAnual.porAno[ano], tipo);
-    let linhas = estadoAnual.filtro ? base.linhas.filter(l => l.nome === estadoAnual.filtro) : base.linhas;
+    // Com filtro, só o lado dele (despesa ou receita) aparece
+    let linhas = !estadoAnual.filtro ? base.linhas : (estadoAnual.filtroTipo === tipo ? base.linhas.filter(l => l.nome === estadoAnual.filtro) : []);
     // Ordem: maior total do ano primeiro; com um mês em foco, o maior valor daquele mês primeiro
     const foco = estadoAnual.foco;
     if (foco !== null && foco !== undefined) {
@@ -99,7 +102,10 @@ function _visao(ano, tipo) {
  *  daquele mês; sem foco, o ano inteiro. Mesma regra de estorno do
  *  _calcularAno: não entra na lista (ele abate a fatura do cartão, não é
  *  um lançamento "da forma/categoria" em si). */
-function _transacoesDoFiltro(ano) {
+/** A outra dimensão do lançamento: forma de pagamento (agrupando por categoria) ou categoria (agrupando por forma). */
+const _nomeRefino = t => (estadoAnual.agrupar === 'categoria' ? _chaveMetodoAnual(t.metodo) : (t.categoria || '(sem categoria)'));
+
+function _transacoesDoFiltro(ano, comRefino = true) {
     if (!estadoAnual.filtro) return [];
     const { agrupar, foco } = estadoAnual;
     const metodos = (estadoApp.menus && estadoApp.menus.metodos) || [];
@@ -113,6 +119,8 @@ function _transacoesDoFiltro(ano) {
         if (foco !== null && foco !== undefined && mes !== foco) continue;
         const nomeLinha = agrupar === 'categoria' ? (t.categoria || '(sem categoria)') : _chaveMetodoAnual(t.metodo);
         if (nomeLinha !== estadoAnual.filtro) continue;
+        if (t.tipo !== estadoAnual.filtroTipo) continue;
+        if (comRefino && estadoAnual.filtro2 && _nomeRefino(t) !== estadoAnual.filtro2) continue;
         const estorno = t.tipo === 'entradas' && rotulosCredito.has(t.metodo);
         if (estorno) continue;
         itens.push({ ...t, tipoUI: t.tipo === 'entradas' ? 'entrada' : 'saida' });
@@ -130,8 +138,14 @@ function _transacoesDoFiltro(ano) {
  *  reveladas embaixo dele seria pior que não mascarar nada aqui. */
 function _renderExtratoFiltro(ano) {
     if (!estadoAnual.filtro || typeof gerarHTMLTransacao !== 'function') return '';
+    // Refino (forma/categoria) só existe se, dentro do filtro, houver mais de uma opção
+    const nomesRefino = [...new Set(_transacoesDoFiltro(ano, false).map(_nomeRefino))];
+    if (!nomesRefino.includes(estadoAnual.filtro2)) estadoAnual.filtro2 = '';
     const itens = _transacoesDoFiltro(ano);
     if (!itens.length) return '';
+    const refino = nomesRefino.length > 1
+        ? `<div class="anual-filtros anual-refino"><select id="anualFiltro2" aria-label="Refinar"><option value="">${estadoAnual.agrupar === 'categoria' ? 'Todas as formas de pagamento' : 'Todas as categorias'}</option>${nomesRefino.sort((a, b) => a.localeCompare(b, 'pt-BR')).map(n => `<option value="${_esc(n)}"${n === estadoAnual.filtro2 ? ' selected' : ''}>${_esc(n)}</option>`).join('')}</select></div>`
+        : '';
     const { foco, agrupar } = estadoAnual;
     const periodo = foco !== null && foco !== undefined ? MESES_ANUAL_LONGO[foco] : String(ano);
     const totalAbs = itens.reduce((a, t) => a + Math.abs(Number(t.valor) || 0), 0);
@@ -169,7 +183,7 @@ function _renderExtratoFiltro(ano) {
         <span class="rec-grupo-contagem">${itens.length}</span>
         <span class="rec-grupo-total"><span class="tot-valor">${formatarMoeda(totalAbs)}</span></span>
       </summary>
-      <div class="rec-grupo-itens">${corpo}</div>
+      <div class="rec-grupo-itens">${refino}${corpo}</div>
     </details>`;
 }
 
@@ -258,7 +272,7 @@ function _secaoTabela({ rotulo, tipo, v, meses, mesAtual, ultimoMes, dim }) {
             return `<td class="cel${i === mesAtual ? ' atual' : ''}${dim(i)}" style="background:color-mix(in srgb, ${neg ? 'var(--receita-text)' : corHeat} ${forca}%, transparent)" title="${_esc(l.nome)} · ${MESES_ANUAL_LONGO[i]}: ${_fmtMoeda(x)}">${_fmtCel(x)}</td>`;
         }).join('');
         const ponto = neg ? '' : `<i class="anual-ponto" style="background:${_corDoNomeAnual(l.nome, tipo)}"></i>`;
-        const alvo = neg ? '' : ` data-anual-linha="${_esc(l.nome)}" title="Filtrar só ${_esc(l.nome)}"`;
+        const alvo = neg ? '' : ` data-anual-tipo="${tipo}" data-anual-linha="${_esc(l.nome)}" title="Filtrar só ${_esc(l.nome)}"`;
         return `<tr><th scope="row" class="anual-nome${neg ? '' : ' clicavel'}"${alvo}>${ponto}<span>${_nomeCurto(l.nome)}</span></th>${cel}<td class="total">${_fmtCel(l.total)}</td></tr>`;
     }).join('');
     const deltas = meses.map(i => {
@@ -362,11 +376,15 @@ function _renderVisaoAnual() {
             <div class="anual-card foco"><span>Despesa vs. ${foco > 0 ? MESES_ANUAL_LONGO[foco - 1] : 'mês anterior'}</span><b class="${pD.classe}">${fmtVar(pD.valor)}</b></div>`;
     }
 
-    // Opções do filtro (categorias/formas de receita e despesa juntas)
-    const nomes = new Map();
-    [...vD.todas, ...vR.todas].filter(l => !_ehNeg(l.nome)).forEach(l => nomes.set(l.nome, (nomes.get(l.nome) || 0) + Math.abs(l.total)));
-    const opcoes = [...nomes.entries()].sort((a, b) => b[1] - a[1]).map(([n]) => `<option value="${_esc(n)}"${n === estadoAnual.filtro ? ' selected' : ''}>${_esc(n)}</option>`).join('');
-    const rotuloTodas = agrupar === 'categoria' ? 'Todas as categorias' : 'Todas as formas';
+    // Filtros separados: um menu para despesas e outro para receitas (só aparecem com opções)
+    const menuFiltro = (v, tipo, id, rotulo) => {
+        const nomes = v.todas.filter(l => !_ehNeg(l.nome)).sort((a, b) => b.total - a.total).map(l => l.nome);
+        if (!nomes.length) return '';
+        const ativo = estadoAnual.filtroTipo === tipo;
+        const todas = agrupar === 'categoria' ? 'todas as categorias' : 'todas as formas';
+        return `<select id="${id}" aria-label="Filtrar ${rotulo.toLowerCase()}"><option value="">${rotulo}: ${todas}</option>${nomes.map(n => `<option value="${_esc(n)}"${ativo && n === estadoAnual.filtro ? ' selected' : ''}>${_esc(n)}</option>`).join('')}</select>`;
+    };
+    const menusFiltro = menuFiltro(vD, 'saidas', 'anualFiltroD', 'Despesas') + menuFiltro(vR, 'entradas', 'anualFiltroR', 'Receitas');
 
     const secD = _secaoTabela({ rotulo: 'Despesas', tipo: 'saidas', v: vD, meses, mesAtual, ultimoMes, dim });
     const secR = _secaoTabela({ rotulo: 'Receitas', tipo: 'entradas', v: vR, meses, mesAtual, ultimoMes, dim });
@@ -377,7 +395,7 @@ function _renderVisaoAnual() {
 
     cont.innerHTML = `
         <div class="anual-filtros">
-            <select id="anualFiltro" aria-label="Filtrar"><option value="">${rotuloTodas}</option>${opcoes}</select>
+            ${menusFiltro}
             <button type="button" class="anual-toggle${estadoAnual.cmp.ativo ? ' active' : ''}" data-anual-cmp title="Comparar dois meses">⇄ Comparar meses</button>
             ${foco !== null ? `<button type="button" class="anual-toggle active" data-foco-limpar title="Voltar a ver o ano todo">${MESES_ANUAL_LONGO[foco]} ✕</button>` : ''}
             <button type="button" class="anual-toggle anual-olho" data-anual-olho title="${_anualOculto() ? 'Mostrar valores' : 'Esconder valores'}">${_anualOculto() ? OLHO_FECHADO_SVG : OLHO_ABERTO_SVG}</button>
@@ -395,7 +413,7 @@ function _renderVisaoAnual() {
                     <th class="total">Total</th></tr>
                 </thead>
                 <tbody>${secD.html}${secR.html}</tbody>
-                <tfoot>${saldoLinha}</tfoot>
+                ${estadoAnual.filtro ? '' : `<tfoot>${saldoLinha}</tfoot>`}
             </table>
         </div>
         ${extrato}
@@ -425,6 +443,8 @@ async function carregarVisaoAnual(forcar = false) {
     _renderVisaoAnual();
 }
 
+function _limparFiltroAnual() { estadoAnual.filtro = ''; estadoAnual.filtroTipo = ''; estadoAnual.filtro2 = ''; }
+
 function iniciarVisaoAnual() {
     const aba = document.getElementById('anual');
     if (!aba) return;
@@ -434,16 +454,17 @@ function iniciarVisaoAnual() {
         const btnAno = e.target.closest('[data-anual-ano]');
         const btnMes = e.target.closest('[data-foco-mes]');
         const linha = e.target.closest('[data-anual-linha]');
-        if (btnAgr) { estadoAnual.agrupar = btnAgr.dataset.anualAgrupar; estadoAnual.filtro = ''; carregarVisaoAnual(); }
-        else if (btnAno) { estadoAnual.ano += Number(btnAno.dataset.anualAno); estadoAnual.filtro = ''; estadoAnual.foco = null; estadoAnual.cmp.a = estadoAnual.cmp.b = null; carregarVisaoAnual(); }
+        if (btnAgr) { estadoAnual.agrupar = btnAgr.dataset.anualAgrupar; _limparFiltroAnual(); carregarVisaoAnual(); }
+        else if (btnAno) { estadoAnual.ano += Number(btnAno.dataset.anualAno); _limparFiltroAnual(); estadoAnual.foco = null; estadoAnual.cmp.a = estadoAnual.cmp.b = null; carregarVisaoAnual(); }
         else if (e.target.closest('[data-anual-cmp]')) { estadoAnual.cmp.ativo = !estadoAnual.cmp.ativo; _renderVisaoAnual(); }
         else if (e.target.closest('[data-anual-cmp-inverter]')) { const c = estadoAnual.cmp; [c.a, c.b] = [c.b, c.a]; _renderVisaoAnual(); }
         else if (btnMes) { const m = Number(btnMes.dataset.focoMes); estadoAnual.foco = estadoAnual.foco === m ? null : m; _renderVisaoAnual(); }
-        else if (linha) { estadoAnual.filtro = estadoAnual.filtro === linha.dataset.anualLinha ? '' : linha.dataset.anualLinha; _renderVisaoAnual(); }
+        else if (linha) { const igual = estadoAnual.filtro === linha.dataset.anualLinha && estadoAnual.filtroTipo === linha.dataset.anualTipo; _limparFiltroAnual(); if (!igual) { estadoAnual.filtro = linha.dataset.anualLinha; estadoAnual.filtroTipo = linha.dataset.anualTipo; } _renderVisaoAnual(); }
         else if (e.target.closest('[data-foco-limpar]')) { estadoAnual.foco = null; _renderVisaoAnual(); }
     });
     aba.addEventListener('change', e => {
-        if (e.target.id === 'anualFiltro') { estadoAnual.filtro = e.target.value; _renderVisaoAnual(); }
+        if (e.target.id === 'anualFiltroD' || e.target.id === 'anualFiltroR') { _limparFiltroAnual(); estadoAnual.filtro = e.target.value; estadoAnual.filtroTipo = e.target.value ? (e.target.id === 'anualFiltroD' ? 'saidas' : 'entradas') : ''; _renderVisaoAnual(); }
+        else if (e.target.id === 'anualFiltro2') { estadoAnual.filtro2 = e.target.value; _renderVisaoAnual(); }
         else if (e.target.id === 'anualCmpA') { estadoAnual.cmp.a = Number(e.target.value); _renderVisaoAnual(); }
         else if (e.target.id === 'anualCmpB') { estadoAnual.cmp.b = Number(e.target.value); _renderVisaoAnual(); }
     });
