@@ -242,6 +242,12 @@ async function avisarErroBot(admin: ReturnType<typeof createClient>, token: stri
  *  categoria/data/forma é sempre pelo "✏️ Editar" (mini app), não por
  *  responder texto, porque com vários rascunhos ao mesmo tempo não dava pra
  *  saber a qual deles uma resposta digitada se referia. */
+/** Último dia do mês da data ISO ("2026-10-05" -> "2026-10-31"). */
+function ultimoDiaDoMes(iso: string): string {
+  const [a, m] = iso.split("-").map(Number);
+  return `${a}-${String(m).padStart(2, "0")}-${String(new Date(Date.UTC(a, m, 0)).getUTCDate()).padStart(2, "0")}`;
+}
+
 async function processarTextoLivre(
   supabaseAdmin: ReturnType<typeof createClient>,
   token: string,
@@ -251,6 +257,10 @@ async function processarTextoLivre(
   // Texto livre: tenta entender como um lançamento ("gastei 35,90 no
   // mercado", "recebi 200 de salário"). Sem um valor em dinheiro no
   // texto, não dá pra saber o que é — cai no "não entendi" de sempre.
+  // "sem data" / "data indefinida" / "não sei quando": lançamento só com o mês (fica no fim do mês, "--/mês")
+  const reSemData = /\b(sem data|sem dia|data indefinida|n[aã]o sei quando)\b/i;
+  const semData = reSemData.test(texto);
+  if (semData) texto = texto.replace(reSemData, " ").replace(/\s+/g, " ").trim();
   const achado = interpretarSmsCartao(texto) ?? interpretarValorETipo(texto);
   if (!achado) {
     await tg(token, "sendMessage", {
@@ -342,7 +352,8 @@ async function processarTextoLivre(
     metodo: metodoObj ? rotuloMetodo(metodoObj) : null,
     metodoKind: metodoObj?.metodo_kind ?? null,
     diaFechamento: metodoObj?.dia_fechamento ?? null,
-    data: achado.data ?? hojeBrasiliaISO(),
+    data: semData ? ultimoDiaDoMes(achado.data ?? hojeBrasiliaISO()) : (achado.data ?? hojeBrasiliaISO()),
+    dataIndefinida: semData || undefined,
     parcelas: parcelasFinal,
     metodoOrigem,
   };

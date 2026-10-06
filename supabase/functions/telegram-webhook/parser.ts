@@ -139,6 +139,8 @@ export interface RascunhoLancamento {
   ocorrenciaId?: number | null;
   /** Lançamentos parecidos achados antes de montar o rascunho (ids): o aviso pergunta se é o mesmo. */
   similares?: number[];
+  /** "sem data": só o mês é conhecido (a data fica no fim do mês, marcada como indefinida, e o checkbox Pago/Recebido fica sempre visível). */
+  dataIndefinida?: boolean;
 }
 
 export type MetodoMenu = { nome: string; metodo_kind: string | null; banco: string | null; dia_fechamento: number | null };
