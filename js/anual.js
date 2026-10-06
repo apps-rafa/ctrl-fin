@@ -350,8 +350,11 @@ function _renderVisaoAnual() {
     const foco = estadoAnual.foco;
     const dim = i => (foco !== null && i !== foco ? ' dim' : '') + (foco === i ? ' foco' : '');
     const ref = Math.max(0, ultimoMes);
-    const sD = vD.totais.reduce((a, b) => a + b, 0), sR = vR.totais.reduce((a, b) => a + b, 0);
-    const saldos = vR.totais.map((r, i) => r - vD.totais[i]);
+    // Os cartões do topo mostram sempre o ano/mês inteiro, sem o filtro (que vale para a tabela, o gráfico e o extrato)
+    const totaisCheios = v => (estadoAnual.filtro ? v.todas.reduce((acc, l) => acc.map((x, i) => x + l.meses[i]), Array(12).fill(0)) : v.totais);
+    const tD = totaisCheios(vD), tR = totaisCheios(vR);
+    const sD = tD.reduce((a, b) => a + b, 0), sR = tR.reduce((a, b) => a + b, 0);
+    const saldos = tR.map((r, i) => r - tD[i]);
     const fmtVar = p => (p === null ? '—' : `${p > 0 ? '▲' : p < 0 ? '▼' : ''} ${Math.abs(p).toFixed(0)}%`);
     const sinal = x => (x > 0 ? '+' : '');
 
@@ -359,17 +362,17 @@ function _renderVisaoAnual() {
     let cartoes;
     if (foco === null) {
         const dec = ultimoMes + 1;
-        const mediaD = dec ? vD.totais.slice(0, dec).reduce((a, b) => a + b, 0) / dec : 0;
+        const mediaD = dec ? tD.slice(0, dec).reduce((a, b) => a + b, 0) / dec : 0;
         cartoes = `
             <div class="anual-card"><span>Receitas no ano</span><b class="bom">${_fmtMoeda(sR)}</b></div>
             <div class="anual-card"><span>Despesas no ano</span><b class="ruim">${_fmtMoeda(sD)}</b></div>
             <div class="anual-card"><span>Saldo do ano</span><b class="${sR - sD >= 0 ? 'bom' : 'ruim'}">${sinal(sR - sD)}${_fmtMoeda(sR - sD)}</b></div>
             <div class="anual-card"><span>Despesa média por mês</span><b>${_fmtMoeda(mediaD)}</b></div>`;
     } else {
-        const pD = foco > 0 ? _pctTipo('saidas', vD.totais[foco], vD.totais[foco - 1]) : { valor: null, classe: '' };
+        const pD = foco > 0 ? _pctTipo('saidas', tD[foco], tD[foco - 1]) : { valor: null, classe: '' };
         cartoes = `
-            <div class="anual-card foco"><span>Receitas em ${MESES_ANUAL_LONGO[foco]}</span><b class="bom">${_fmtMoeda(vR.totais[foco])}</b></div>
-            <div class="anual-card foco"><span>Despesas em ${MESES_ANUAL_LONGO[foco]}</span><b class="ruim">${_fmtMoeda(vD.totais[foco])}</b></div>
+            <div class="anual-card foco"><span>Receitas em ${MESES_ANUAL_LONGO[foco]}</span><b class="bom">${_fmtMoeda(tR[foco])}</b></div>
+            <div class="anual-card foco"><span>Despesas em ${MESES_ANUAL_LONGO[foco]}</span><b class="ruim">${_fmtMoeda(tD[foco])}</b></div>
             <div class="anual-card foco"><span>Saldo do mês</span><b class="${saldos[foco] >= 0 ? 'bom' : 'ruim'}">${sinal(saldos[foco])}${_fmtMoeda(saldos[foco])}</b></div>
             <div class="anual-card foco"><span>Despesa vs. ${foco > 0 ? MESES_ANUAL_LONGO[foco - 1] : 'mês anterior'}</span><b class="${pD.classe}">${fmtVar(pD.valor)}</b></div>`;
     }
