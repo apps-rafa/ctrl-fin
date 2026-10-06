@@ -137,5 +137,3 @@
 .gh-total { font-size: .74rem; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .gh-linha.rec .gh-total { color: var(--receita-text); }
 .gh-linha.desp .gh-total { color: var(--despesa-text); }
-.anual-refino { padding: .5rem .6rem 0; }
-.anual-refino select { width: 100%; }

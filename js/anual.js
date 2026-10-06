@@ -22,7 +22,6 @@ const estadoAnual = {
     agrupar: 'categoria', // 'categoria' | 'metodo'
     filtro: '',           // nome de uma linha (categoria/forma) ou '' = todas
     filtroTipo: '',       // 'saidas' | 'entradas': de qual lado é o filtro (despesa e receita têm menus separados)
-    filtro2: '',          // refinamento no extrato: forma (se agrupa por categoria) ou categoria (se agrupa por forma)
     cmp: { ativo: false, a: null, b: null }, // comparação de dois meses (0-11)
     porAno: {},           // ano -> transações
     foco: null,           // mês (0-11) em foco ao tocar no cabeçalho; null = ano todo
@@ -103,10 +102,7 @@ function _visao(ano, tipo) {
  *  daquele mês; sem foco, o ano inteiro. Mesma regra de estorno do
  *  _calcularAno: não entra na lista (ele abate a fatura do cartão, não é
  *  um lançamento "da forma/categoria" em si). */
-/** A outra dimensão do lançamento: forma de pagamento (agrupando por categoria) ou categoria (agrupando por forma). */
-const _nomeRefino = t => (estadoAnual.agrupar === 'categoria' ? _chaveMetodoAnual(t.metodo) : (t.categoria || '(sem categoria)'));
-
-function _transacoesDoFiltro(ano, comRefino = true) {
+function _transacoesDoFiltro(ano) {
     if (!estadoAnual.filtro) return [];
     const { agrupar, foco } = estadoAnual;
     const metodos = (estadoApp.menus && estadoApp.menus.metodos) || [];
@@ -121,7 +117,6 @@ function _transacoesDoFiltro(ano, comRefino = true) {
         const nomeLinha = agrupar === 'categoria' ? (t.categoria || '(sem categoria)') : _chaveMetodoAnual(t.metodo);
         if (nomeLinha !== estadoAnual.filtro) continue;
         if (t.tipo !== estadoAnual.filtroTipo) continue;
-        if (comRefino && estadoAnual.filtro2 && _nomeRefino(t) !== estadoAnual.filtro2) continue;
         const estorno = t.tipo === 'entradas' && rotulosCredito.has(t.metodo);
         if (estorno) continue;
         itens.push({ ...t, tipoUI: t.tipo === 'entradas' ? 'entrada' : 'saida' });
@@ -139,44 +134,45 @@ function _transacoesDoFiltro(ano, comRefino = true) {
  *  reveladas embaixo dele seria pior que não mascarar nada aqui. */
 function _renderExtratoFiltro(ano) {
     if (!estadoAnual.filtro || typeof gerarHTMLTransacao !== 'function') return '';
-    // Refino (forma/categoria) só existe se, dentro do filtro, houver mais de uma opção
-    const nomesRefino = [...new Set(_transacoesDoFiltro(ano, false).map(_nomeRefino))];
-    if (!nomesRefino.includes(estadoAnual.filtro2)) estadoAnual.filtro2 = '';
     const itens = _transacoesDoFiltro(ano);
     if (!itens.length) return '';
-    const refino = nomesRefino.length > 1
-        ? `<div class="anual-filtros anual-refino"><select id="anualFiltro2" aria-label="Refinar"><option value="">${estadoAnual.agrupar === 'categoria' ? 'Todas as formas de pagamento' : 'Todas as categorias'}</option>${nomesRefino.sort((a, b) => a.localeCompare(b, 'pt-BR')).map(n => `<option value="${_esc(n)}"${n === estadoAnual.filtro2 ? ' selected' : ''}>${_esc(n)}</option>`).join('')}</select></div>`
-        : '';
+    const tipoUI = estadoAnual.filtroTipo === 'entradas' ? 'entrada' : 'saida';
     const { foco, agrupar } = estadoAnual;
     const periodo = foco !== null && foco !== undefined ? MESES_ANUAL_LONGO[foco] : String(ano);
     const totalAbs = itens.reduce((a, t) => a + Math.abs(Number(t.valor) || 0), 0);
-    const cor = _corDoNomeAnual(estadoAnual.filtro, itens[0].tipoUI === 'entrada' ? 'entradas' : 'saidas');
+    const cor = _corDoNomeAnual(estadoAnual.filtro, estadoAnual.filtroTipo);
     const opts = agrupar === 'categoria' ? { semCategoriaChip: true } : { semMetodoChip: true };
     _transacoesExtra = itens; // editar/excluir (js/ui.js) procuram o lançamento aqui, pois ele pode ser de qualquer mês
-    // Vários meses: um subgrupo por mês (mais recente primeiro), fechados, cada um mostrando 5 por vez ("Carregar mais N");
-    // um mês só: a lista direta (também 5 por vez). O estado aberto/fechado sobrevive ao redesenho.
-    const abertos = {};
-    document.querySelectorAll('#anualConteudo .anual-extrato details[data-nome]').forEach(d => { abertos[d.dataset.nome] = d.open; });
+    // Um subgrupo por mês (mais recente primeiro), cada um com o funil de sempre (forma de pagamento ao ver por categoria,
+    // categoria ao ver por forma — só quando há mais de uma opção) e 5 itens por vez ("Carregar mais N").
+    // Aberto/fechado de cada mês (e dos subgrupos de dentro) sobrevive ao redesenho.
+    const abertos = {}, abertosSub = {};
+    document.querySelectorAll('#anualConteudo .anual-extrato details[data-mes]').forEach(d => {
+        abertos[d.dataset.mes] = d.open;
+        abertosSub[d.dataset.mes] = {};
+        d.querySelectorAll('details.subgrupo').forEach(x => { abertosSub[d.dataset.mes][x.dataset.nome] = x.open; });
+    });
     const grupoAberto = document.querySelector('#anualConteudo .anual-extrato');
     const porMes = new Map();
     itens.forEach(t => { const m = parseInt(String(t.competencia).slice(5, 7), 10) - 1; if (!porMes.has(m)) porMes.set(m, []); porMes.get(m).push(t); });
     const mesesOrdem = [...porMes.keys()].sort((a, b) => b - a);
-    const corpo = mesesOrdem.length > 1
-        ? mesesOrdem.map(m => {
-            const lista = porMes.get(m);
-            const tot = lista.reduce((a, t) => a + Math.abs(Number(t.valor) || 0), 0);
-            return `
-        <details class="subgrupo" data-nome="mes-${m}" style="--cor-rec:${cor}" ${abertos['mes-' + m] ? 'open' : ''}>
+    const corpo = mesesOrdem.map(m => {
+        const lista = porMes.get(m);
+        const tot = lista.reduce((a, t) => a + Math.abs(Number(t.valor) || 0), 0);
+        const chave = `${ano}|${estadoAnual.filtro}|${m}`;
+        const aberto = mesesOrdem.length === 1 || abertos[m];
+        return `
+        <details class="subgrupo" data-mes="${m}" data-nome="mes-${m}" style="--cor-rec:${cor}" ${aberto ? 'open' : ''}>
           <summary class="subgrupo-cab">
             <span class="subgrupo-nome">${MESES_ANUAL_LONGO[m]}</span>
+            ${_renderOrganizadorInline(tipoUI, agrupar, chave, tipoUI === 'saida', lista)}
             <span class="subgrupo-espaco"></span>
             <span class="subgrupo-contagem">${lista.length}</span>
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(tot)}</span></span>
           </summary>
-          ${lista.map(t => gerarHTMLTransacao(t, t.tipoUI, opts)).join('')}
+          ${_corpoGrupoComSubmodo(lista, tipoUI, agrupar, chave, tipoUI === 'saida', abertosSub[m] || {}, opts)}
         </details>`;
-        }).join('')
-        : itens.map(t => gerarHTMLTransacao(t, t.tipoUI, opts)).join('');
+    }).join('');
     return `
     <details class="rec-grupo anual-extrato" data-nome="extrato" style="--cor-rec:${cor}" ${grupoAberto && grupoAberto.open ? 'open' : ''}>
       <summary>
@@ -185,7 +181,7 @@ function _renderExtratoFiltro(ano) {
         <span class="rec-grupo-contagem">${itens.length}</span>
         <span class="rec-grupo-total"><span class="tot-valor">${formatarMoeda(totalAbs)}</span></span>
       </summary>
-      <div class="rec-grupo-itens">${refino}${corpo}</div>
+      <div class="rec-grupo-itens">${corpo}</div>
     </details>`;
 }
 
@@ -449,12 +445,26 @@ async function carregarVisaoAnual(forcar = false) {
     _renderVisaoAnual();
 }
 
-function _limparFiltroAnual() { estadoAnual.filtro = ''; estadoAnual.filtroTipo = ''; estadoAnual.filtro2 = ''; }
+function _limparFiltroAnual() { estadoAnual.filtro = ''; estadoAnual.filtroTipo = ''; }
 
 function iniciarVisaoAnual() {
     const aba = document.getElementById('anual');
     if (!aba) return;
     aba.addEventListener('click', async e => {
+        // Funil do mês (forma de pagamento / categoria) e botão que tira o filtro: mesma lógica das outras listas
+        const subBtn = e.target.closest('[data-submodo]');
+        const subIcone = e.target.closest('[data-submodo-icone]');
+        if (subBtn || subIcone) {
+            e.preventDefault(); // está dentro do <summary>: sem isto o clique também abre/fecha o mês
+            const org = (subBtn || subIcone).closest('[data-grupo-chave]');
+            const tipoUI = estadoAnual.filtroTipo === 'entradas' ? 'entrada' : 'saida';
+            const atual = _subModoGrupoDe(tipoUI, estadoAnual.agrupar, org.dataset.grupoChave);
+            _setSubModoGrupo(tipoUI, estadoAnual.agrupar, org.dataset.grupoChave, subBtn && subBtn.dataset.submodo !== atual ? subBtn.dataset.submodo : 'cronologica');
+            const mes = org.closest('details'); if (mes) mes.open = true;
+            estadoAnual.rolarPara = window.scrollY;
+            _renderVisaoAnual();
+            return;
+        }
         // Editar/excluir/marcar pago nos lançamentos do extrato: mesma lógica das outras listas
         if (e.target.closest('[data-act]')) { onListaTransacaoClick(e); return; }
         if (e.target.closest('[data-anual-olho]')) { alternarValoresOcultos(); return; }
@@ -472,7 +482,6 @@ function iniciarVisaoAnual() {
     });
     aba.addEventListener('change', e => {
         if (e.target.id === 'anualFiltroD' || e.target.id === 'anualFiltroR') { _limparFiltroAnual(); estadoAnual.filtro = e.target.value; estadoAnual.filtroTipo = e.target.value ? (e.target.id === 'anualFiltroD' ? 'saidas' : 'entradas') : ''; _renderVisaoAnual(); }
-        else if (e.target.id === 'anualFiltro2') { estadoAnual.filtro2 = e.target.value; _renderVisaoAnual(); }
         else if (e.target.id === 'anualCmpA') { estadoAnual.cmp.a = Number(e.target.value); _renderVisaoAnual(); }
         else if (e.target.id === 'anualCmpB') { estadoAnual.cmp.b = Number(e.target.value); _renderVisaoAnual(); }
     });
