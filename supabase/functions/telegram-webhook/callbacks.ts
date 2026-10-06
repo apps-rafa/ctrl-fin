@@ -33,6 +33,7 @@ export async function tratarUltimoEditar(c: ContextoCallback): Promise<void> {
       valor: Number(t.valor), descricao: t.descricao ?? "", categoria: ehEstornoGravado ? "Estorno" : (t.categoria ?? ""),
       metodo: t.metodo || null, metodoKind: met?.metodo_kind ?? null, diaFechamento: met?.dia_fechamento ?? null,
       data: String(t.data).slice(0, 10), competencia: t.competencia ? String(t.competencia).slice(0, 10) : null,
+      dataIndefinida: !!t.data_indefinida,
     };
     await tg(token, "answerCallbackQuery", { callback_query_id: cq.id });
     await tg(token, "sendMessage", {

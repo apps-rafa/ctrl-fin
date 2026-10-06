@@ -178,6 +178,7 @@ export async function carregarListasUsuario(admin: ReturnType<typeof createClien
 export function urlMiniApp(id: number | string, r: RascunhoLancamento, l: ListasUsuario): string {
   const q = new URLSearchParams();
   q.set("id", String(id));
+  if (r.dataIndefinida) q.set("di", "1"); // sem data: o campo Data abre em branco
   if (r.ocorrenciaId) q.set("o", "1"); // rascunho de uma ocorrência já existente: o botão do formulário vira "Atualizar"
   q.set("tipo", r.tipo);
   q.set("v", String(r.valor));

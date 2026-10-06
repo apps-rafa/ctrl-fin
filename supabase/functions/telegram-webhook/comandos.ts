@@ -59,6 +59,7 @@ export async function tratarFormularioMiniApp(c: ContextoFormulario): Promise<vo
     diaFechamento: metodoF?.dia_fechamento ?? null,
     parcelas: tipoF === "saidas" && metodoF?.metodo_kind === "Crédito" && nParc > 1 ? nParc : null,
     competencia: null,
+    dataIndefinida: p.dataIndefinida === true && nParc === 1 ? true : undefined, // formulário com a Data em branco
   };
   // Mês escolhido no formulário (toda despesa; no crédito é o da fatura): o ano acompanha o
   // mês sugerido pela data (+ fechamento, no crédito), ajustando a virada de ano.
@@ -82,6 +83,7 @@ export async function tratarFormularioMiniApp(c: ContextoFormulario): Promise<vo
     const { error: erroU } = await supabaseAdmin.from("transacoes").update({
       tipo: ehEst ? "entradas" : dadosF.tipo, data: dadosF.data, valor: dadosF.valor, metodo: dadosF.metodo, categoria: dadosF.categoria,
       descricao: dadosF.descricao, competencia: dadosF.competencia || competenciaDe(dadosF.data, dadosF.metodoKind === "Crédito" ? dadosF.diaFechamento : null),
+      data_indefinida: !!dadosF.dataIndefinida, ...(dadosF.dataIndefinida || dadosF.data > hojeBrasiliaISO() ? { agendado: true } : {}),
     }).eq("id", Number(mT[1])).eq("user_id", tgUser.user_id);
     await tg(token, "sendMessage", { chat_id: chatId, text: erroU ? "Erro ao salvar — tenta de novo." : "✅ Lançamento atualizado!", reply_markup: remover });
     return;
