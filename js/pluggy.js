@@ -220,7 +220,7 @@ async function _adicionarParcelaPluggyAPI(dados, item) {
     registro.parcelas_total = n;
     registro.parcela_num = k;
     registro.valor_total = Math.round(Number(item.valor) * n * 100) / 100;
-    const { data, error } = await sb.from('transacoes').insert(registro).select().single();
+    const { data, error } = await inserirLinhaTransacaoAPI(registro);
     if (error) throw error;
     return mapearTransacao(data);
 }

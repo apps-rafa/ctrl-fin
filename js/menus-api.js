@@ -283,13 +283,13 @@ async function _propagarRenomeacaoMenu(antes, linha) {
         if (antes.tipo === 'Método') {
             const velho = rotuloMetodo(ant), novo = rotuloMetodo(dep);
             if (velho && novo && velho !== novo) {
-                const { error } = await sb.from('transacoes').update({ metodo: novo }).eq('metodo', velho);
+                const { error } = await renomearMetodoNasTransacoesAPI(velho, novo);
                 if (error) console.error('Erro ao atualizar lançamentos da forma de pagamento:', error);
                 else await _recarregarAposRenomear();
             }
         } else if (antes.tipo === 'Categoria') {
             if (ant.nome && dep.nome && ant.nome !== dep.nome) {
-                const { error } = await sb.from('transacoes').update({ categoria: dep.nome }).eq('categoria', ant.nome);
+                const { error } = await renomearCategoriaNasTransacoesAPI(ant.nome, dep.nome);
                 if (error) console.error('Erro ao atualizar lançamentos da categoria:', error);
                 await sb.from('transacoes_importadas').update({ categoria_sugerida: dep.nome }).eq('categoria_sugerida', ant.nome);
                 if (!error) await _recarregarAposRenomear();

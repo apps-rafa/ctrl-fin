@@ -97,3 +97,36 @@ test("rotuloPixPadrao: primeiro PIX do cadastro (com ou sem banco); vazio se nã
   cliente.estadoApp.menus.metodos.unshift({ nome: "PIX Itaú", metodoKind: "PIX/Débito", banco: "Itaú" });
   assert.equal(cliente.rotuloPixPadrao(), "PIX Itaú");
 });
+
+// ---- Camada de dados: as telas não escrevem direto em `transacoes` ----
+test("escritas em transacoes ficam em api.js/dados.js (as telas chamam funções nomeadas)", () => {
+  const diretos = [];
+  for (const arq of fs.readdirSync(new URL("../js/", import.meta.url))) {
+    if (!arq.endsWith(".js") || ["api.js", "dados.js"].includes(arq)) continue;
+    const linhas = fs.readFileSync(new URL(`../js/${arq}`, import.meta.url), "utf8").split("\n");
+    linhas.forEach((l, i) => { if (/sb\s*\.from\(['"]transacoes['"]\)\s*\.(insert|update|delete|upsert)\b/.test(l)) diretos.push(`${arq}:${i + 1}`); });
+  }
+  assert.deepEqual(diretos, [], "use as funções de api.js (confirmarOcorrenciasAPI, marcarPagoAPI, ...) em vez de sb.from('transacoes').escrita");
+});
+
+test("api.js: operações nomeadas montam as consultas certas", async () => {
+  const chamadas = [];
+  const igual = (a, b) => assert.equal(JSON.stringify(a), JSON.stringify(b)); // (objetos do vm têm outro protótipo)
+  const q = (op, tabela) => { const reg = { tabela, op, filtros: [] }; chamadas.push(reg); const obj = { eq: (c, v) => { reg.filtros.push(["eq", c, v]); return obj; }, in: (c, v) => { reg.filtros.push(["in", c, v]); return obj; }, gte: (c, v) => { reg.filtros.push(["gte", c, v]); return obj; } }; return obj; };
+  const ctxApi = vm.createContext({ console, Date, parseFloat, parseInt, String, Math, hojeISO: () => "2026-10-05",
+    sb: { from: (t) => ({ update: (c) => { const o = q("update", t); o.campos = c; chamadas[chamadas.length - 1].campos = c; return o; }, delete: () => q("delete", t), insert: () => q("insert", t) }) } });
+  vm.runInContext(fs.readFileSync(new URL("../js/api.js", import.meta.url), "utf8"), ctxApi);
+  ctxApi.confirmarOcorrenciasAPI([1, 2]);
+  igual(chamadas.at(-1), { tabela: "transacoes", op: "update", filtros: [["in", "id", [1, 2]]], campos: { a_confirmar: false } });
+  ctxApi.aprovarDuplicatasAPI(7);
+  igual(chamadas.at(-1).filtros, [["eq", "id", 7]]);
+  igual(chamadas.at(-1).campos, { duplicata_ok: true });
+  ctxApi.marcarPagoAPI({ id: 9, dataIndefinida: true });
+  igual(chamadas.at(-1).campos, { agendado: false, data: "2026-10-05", data_indefinida: false });
+  ctxApi.marcarPagoAPI({ id: 9, dataIndefinida: false });
+  igual(chamadas.at(-1).campos, { agendado: false });
+  ctxApi.apagarOcorrenciasDaRecorrenciaAPI(3, "2026-10-05");
+  igual(chamadas.at(-1).filtros, [["eq", "recorrencia_id", 3], ["eq", "a_confirmar", true], ["gte", "data", "2026-10-05"]]);
+  ctxApi.apagarOcorrenciasDaRecorrenciaAPI(3);
+  assert.equal(chamadas.at(-1).filtros.length, 2);
+});
