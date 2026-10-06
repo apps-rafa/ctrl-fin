@@ -7,7 +7,15 @@
  * Configura todos os event listeners
  */
 function configurarEventListeners() {
-    
+    ligarCalendarioDeMeses();
+    ligarSwipeDoMes();
+    ligarNavegacao();
+    ligarCamposDoFormulario();
+    ligarReajusteResponsivo();
+}
+
+/** Tira de meses, setas, "casinha" e a faixa de saldo em contas. */
+function ligarCalendarioDeMeses() {
     // Navegação de calendário: tira de meses (clique seleciona de verdade),
     // setas laterais andam a janela E mudam a seleção junto — o mês do meio
     // é sempre o selecionado — + "casinha" (volta pro mês vigente). O ano
@@ -49,7 +57,10 @@ function configurarEventListeners() {
         saldoContasEl.addEventListener('click', alternar);
         saldoContasEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(); } });
     }
+}
 
+/** Swipe no dashboard troca o mês (e o redimensionamento atualiza o calendário). */
+function ligarSwipeDoMes() {
     // Swipe no dashboard troca o mês, com animação: o painel acompanha o dedo,
     // ao soltar (além de ~25% da largura ou gesto rápido) o mês atual sai pro
     // lado e o novo entra vindo do lado oposto — como se cada mês fosse um
@@ -124,7 +135,10 @@ function configurarEventListeners() {
     window.addEventListener('resize', debounce(() => {
         atualizarCalendarioNav();
     }, 150));
+}
 
+/** Tipo do formulário, abas, engrenagem, modos das listas, busca e cards do dashboard. */
+function ligarNavegacao() {
     // Seletor de tipo (Despesa/Receita) do formulário "Novo lançamento" —
     // escopado: "Próximas" tem seu próprio filtro com a mesma classe
     // .tipo-btn, e não deve disparar mudarTipoTransacao().
@@ -220,7 +234,10 @@ function configurarEventListeners() {
     // visão, então precisa do toggle que mudarAba() já tem embutido.
     document.querySelector('.summary-card.entradas')?.addEventListener('click', () => mudarAba('entradas'));
     document.querySelector('.summary-card.saidas')?.addEventListener('click', () => mudarAba('saidas'));
+}
 
+/** Formulário de lançamento: campos, máscaras, parcelas, exclusão e sugestões. */
+function ligarCamposDoFormulario() {
     // Formulário
     const form = document.querySelector(SELECTORS.formTransacao);
     if (form) {
@@ -322,7 +339,10 @@ function configurarEventListeners() {
     } else if (categoriaInput) {
         categoriaInput.addEventListener('change', atualizarCampoMetodoReceita);
     }
-    
+}
+
+/** Reavalia rótulos e valores do dashboard quando a largura muda. */
+function ligarReajusteResponsivo() {
     // Reavalia labels curtos/longos e campos "sozinhos" quando a largura muda
     let rTimer;
     window.addEventListener('resize', () => {
@@ -352,7 +372,6 @@ function configurarEventListeners() {
     }
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(reajustar);
     window.addEventListener('load', reajustar);
-
 }
 
 /**

@@ -13,41 +13,9 @@ async function recarregarMenus() {
   atualizarUI();           // reaplica cores nas listas
 }
 
-async function carregarAbaMenus() {
-  const menus = await carregarMenusCompleto();
-  menusAtual = menus;
-
-  if (!menus) {
-    document.querySelector(SELECTORS.menusContainer).innerHTML =
-      '<p class="empty-state">Erro ao carregar configuração</p>';
-    return;
-  }
-
-  // innerHTML é recriado do zero a cada chamada (adicionar/reordenar item
-  // chama recarregarMenus()) — sem isso, os <details> das colunas de
-  // categoria e dos grupos de feriado voltavam sempre pro estado fechado
-  // (padrão de um <details> novo), mesmo que o usuário tivesse aberto.
-  const estadoAberto = {};
-  document.querySelectorAll(`${SELECTORS.menusContainer} details[data-cat-tipo], ${SELECTORS.menusContainer} details[data-fer-cat]`)
-    .forEach(d => { estadoAberto[d.dataset.catTipo || `fer-${d.dataset.ferCat}`] = d.open; });
-
-  document.querySelector(SELECTORS.menusContainer).innerHTML = `
-    <div class="menus-gerenciamento">
-
-      <div class="subtabs" role="tablist">
-        <div class="subtabs-itens">
-          <button class="subtab" data-sub="cat">🏷️ <span class="subtab-texto">Categorias</span></button>
-          <button class="subtab" data-sub="met">💳
-            <span class="subtab-texto met-full">Formas de pagamento</span>
-            <span class="subtab-texto met-curto">Pgtos.</span>
-          </button>
-          <button class="subtab" data-sub="fer">📅 <span class="subtab-texto">Feriados</span></button>
-          <button class="subtab" data-sub="of">🏦 <span class="subtab-texto">Open Finance</span></button>
-          <button class="subtab" data-sub="notif">🔔 <span class="subtab-texto">Notificações</span></button>
-          <button class="subtab" data-sub="dados">💾 <span class="subtab-texto">Dados</span></button>
-        </div>
-      </div>
-
+/** Aba Categorias (duas colunas: Receita e Despesa). */
+function htmlSecaoCategorias(estadoAberto) {
+  return `
       <div class="menu-section menu-section--cols" data-sub="cat" hidden>
         <details class="cat-coluna" data-cat-tipo="entradas" ${estadoAberto.entradas ? 'open' : ''}>
           <summary class="cat-coluna-topo">
@@ -66,7 +34,12 @@ async function carregarAbaMenus() {
           <div class="menu-list" id="categoriasDespesaList"></div>
         </details>
       </div>
+  `;
+}
 
+/** Aba Formas de pagamento. */
+function htmlSecaoFormasDePagamento() {
+  return `
       <div class="menu-section" data-sub="met" hidden>
         <div class="menu-secao-topo">
           <p class="menu-hint">Use as setinhas ▲▼ pra reordenar do jeito que você quiser — é essa ordem que aparece no dropdown do lançamento.</p>
@@ -77,8 +50,12 @@ async function carregarAbaMenus() {
         </div>
         <div class="menu-list" id="metodosList"></div>
       </div>
+  `;
+}
 
-
+/** Aba Feriados. */
+function htmlSecaoFeriados(estadoAberto) {
+  return `
       <div class="menu-section" data-sub="fer" hidden>
         <div class="feriados-barra">
           <button type="button" class="mini-btn" data-fer-ano="-1">←</button>
@@ -107,7 +84,12 @@ async function carregarAbaMenus() {
           <div class="menu-list" id="feriados-${cat}-list"></div>
         </details>`).join('')}
       </div>
+  `;
+}
 
+/** Aba Notificações (Telegram, comandos e lançar por mensagem). */
+function htmlSecaoNotificacoes() {
+  return `
       <div class="menu-section" data-sub="notif" hidden>
         <h3 class="dados-selecao-titulo">Telegram</h3>
         <div id="pluggyTelegramBox" class="pluggy-telegram"></div>
@@ -133,7 +115,12 @@ async function carregarAbaMenus() {
           (sem ser os botões), ele entende como a <b>descrição</b> do lançamento.
         </p>
       </div>
+  `;
+}
 
+/** Aba Open Finance (Pluggy: dados cadastrais, saldo e contas conectadas). */
+function htmlSecaoOpenFinance() {
+  return `
       <div class="menu-section" data-sub="of" hidden>
         <h3 class="dados-selecao-titulo">Pluggy</h3>
         <div class="pluggy-cred-aviso">
@@ -239,6 +226,53 @@ async function carregarAbaMenus() {
           <div id="pluggyRevisaoLista" class="transacoes-lista"></div>
         </div>
       </div>
+  `;
+}
+
+async function carregarAbaMenus() {
+  const menus = await carregarMenusCompleto();
+  menusAtual = menus;
+
+  if (!menus) {
+    document.querySelector(SELECTORS.menusContainer).innerHTML =
+      '<p class="empty-state">Erro ao carregar configuração</p>';
+    return;
+  }
+
+  // innerHTML é recriado do zero a cada chamada (adicionar/reordenar item
+  // chama recarregarMenus()) — sem isso, os <details> das colunas de
+  // categoria e dos grupos de feriado voltavam sempre pro estado fechado
+  // (padrão de um <details> novo), mesmo que o usuário tivesse aberto.
+  const estadoAberto = {};
+  document.querySelectorAll(`${SELECTORS.menusContainer} details[data-cat-tipo], ${SELECTORS.menusContainer} details[data-fer-cat]`)
+    .forEach(d => { estadoAberto[d.dataset.catTipo || `fer-${d.dataset.ferCat}`] = d.open; });
+
+  document.querySelector(SELECTORS.menusContainer).innerHTML = `
+    <div class="menus-gerenciamento">
+
+      <div class="subtabs" role="tablist">
+        <div class="subtabs-itens">
+          <button class="subtab" data-sub="cat">🏷️ <span class="subtab-texto">Categorias</span></button>
+          <button class="subtab" data-sub="met">💳
+            <span class="subtab-texto met-full">Formas de pagamento</span>
+            <span class="subtab-texto met-curto">Pgtos.</span>
+          </button>
+          <button class="subtab" data-sub="fer">📅 <span class="subtab-texto">Feriados</span></button>
+          <button class="subtab" data-sub="of">🏦 <span class="subtab-texto">Open Finance</span></button>
+          <button class="subtab" data-sub="notif">🔔 <span class="subtab-texto">Notificações</span></button>
+          <button class="subtab" data-sub="dados">💾 <span class="subtab-texto">Dados</span></button>
+        </div>
+      </div>
+
+      ${htmlSecaoCategorias(estadoAberto)}
+
+      ${htmlSecaoFormasDePagamento()}
+
+      ${htmlSecaoFeriados(estadoAberto)}
+
+      ${htmlSecaoNotificacoes()}
+
+      ${htmlSecaoOpenFinance()}
 
       <div class="menu-section" data-sub="dados" hidden id="secDados"></div>
 
