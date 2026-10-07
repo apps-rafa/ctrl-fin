@@ -612,6 +612,17 @@ function _htmlFaturaVirtual(f, compacta = false) {
  *  Usado em "A pagar" (Despesas) e em Próximos. `estornos`: lançamentos de crédito na fatura (mostrados com "+"). */
 function _htmlSubgrupoFatura(f, its, totalRef, tipoUI, abertosSub, estornos, forcarAberto = false) {
     const nome = `Fatura ${f.rot}`;
+    // Funil de categoria (só aparece com mais de uma categoria na fatura); os botões usam data-fat-sub (ver _onCliqueFiltroFatura)
+    const chave = `${f.rot}|${f.comp}`;
+    const comoEstorno = t => !!(estornos && estornos.has(t));
+    const barra = _barraGrupo(_renderOrganizadorInline(tipoUI, 'fatura', chave, true, its.filter(t => !comoEstorno(t)))
+        .replace(/data-submodo-icone/g, 'data-fat-sub-icone').replace(/data-submodo=/g, 'data-fat-sub='));
+    const porCategoria = _subModoGrupoDe(tipoUI, 'fatura', chave) === 'categoria';
+    const item = t => gerarHTMLTransacao(t, comoEstorno(t) ? 'entrada' : tipoUI, { semMetodoChip: true });
+    // por categoria: os créditos (estornos) ficam soltos no topo e as compras se dividem em subgrupos por categoria
+    const corpo = porCategoria
+        ? its.filter(comoEstorno).map(item).join('') + _renderItensSubagrupados(its.filter(t => !comoEstorno(t)), tipoUI, _dimensaoSubmodo('categoria', true), abertosSub, `${tipoUI}:fatura:${chave}`, undefined, { semMetodoChip: true })
+        : its.map(item).join('');
     const cor = ((estadoApp.menus && estadoApp.menus.cores && estadoApp.menus.cores.metodo) || {})[f.rot] || corPadraoChip(f.rot);
     return `
         <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}"${forcarAberto ? ' data-auto="1"' : ''} style="--cor-rec:${cor}" ${forcarAberto || abertosSub[nome] ? 'open' : ''}>
@@ -622,7 +633,8 @@ function _htmlSubgrupoFatura(f, its, totalRef, tipoUI, abertosSub, estornos, for
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(f.total)}</span>${totalRef ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct((f.total / totalRef) * 100)}%</span>` : ''}</span>
           </summary>
           ${_htmlFaturaVirtual(f, true)}
-          ${its.map(t => gerarHTMLTransacao(t, estornos && estornos.has(t) ? 'entrada' : tipoUI, { semMetodoChip: true })).join('')}
+          ${barra}
+          ${corpo}
         </details>`;
 }
 
@@ -874,6 +886,7 @@ function _ordenarPorGrupo(itens) {
 // tela toda. Ordem = ordem dos botões.
 const _SUBMODOS_POR_MODO = {
     aconfirmar: ['categoria', 'metodo'],   // grupo "A confirmar"
+    fatura: ['categoria'],     // subgrupo "Fatura <cartão>": filtro por categoria
     cronologica: ['metodo'],   // grupos Atual / A pagar: filtro por forma de pagamento
     metodo: ['categoria'],
     categoria: ['metodo']
@@ -1419,3 +1432,20 @@ function iniciarAjusteBadgesQuebrados() {
 window.addEventListener('load', iniciarAjusteBadgesQuebrados);
 window.addEventListener('resize', () => _ajustarBadgesQuebrados());
 document.addEventListener('toggle', e => { if (e.target && e.target.open && e.target.querySelector) _ajustarBadgesQuebrados(e.target); }, true);
+
+/** Clique no funil de categoria de uma fatura (Despesas e Próximos): guarda a escolha e redesenha a lista onde ela está. */
+document.addEventListener('click', e => {
+    const botao = e.target.closest('[data-fat-sub], [data-fat-sub-icone]');
+    if (!botao) return;
+    e.preventDefault(); // está dentro do <summary>: sem isto o clique também abre/fecha a fatura
+    e.stopPropagation();
+    const chave = botao.closest('[data-grupo-chave]').dataset.grupoChave;
+    const det = botao.closest('details.subgrupo');
+    const tipoUI = 'saida';
+    const atual = _subModoGrupoDe(tipoUI, 'fatura', chave);
+    _setSubModoGrupo(tipoUI, 'fatura', chave, botao.dataset.fatSub && botao.dataset.fatSub !== atual ? botao.dataset.fatSub : 'cronologica');
+    if (det) det.open = true;
+    if (botao.closest('#resultadoBusca')) atualizarBuscaGlobal();
+    else if (botao.closest('#proximas')) atualizarProximasTransacoes();
+    else atualizarSaidasLista();
+}, true);

@@ -116,7 +116,7 @@ async function atualizarProximasTransacoes() {
         const html = renderProximasAgrupado(abertosPend, futuras);
         container.innerHTML = html || `<p class="empty-message">Nada a receber, a pagar nem fatura daqui em diante</p>`;
         container.onclick = html ? _onCliqueProximas : null;
-        container.querySelectorAll('.faturas-cartao .subgrupo-organizador').forEach(_ajustarLabelsFiltro);
+        container.querySelectorAll('.subgrupo-organizador').forEach(_ajustarLabelsFiltro);
     } catch (error) {
         console.error('Erro ao atualizar próximas transações:', error);
         container.innerHTML = '<p class="empty-message">Erro ao carregar próximas transações</p>';
