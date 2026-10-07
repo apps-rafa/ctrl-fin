@@ -450,7 +450,11 @@ function marcarPagoAPI(trans) {
 }
 
 /** Apaga lançamento(s) pelo id, sem a regra de parcelas (use deletarTransacaoAPI para isso). */
-function apagarPorIdAPI(ids) {
+/** Apaga por id, passando antes pela Lixeira (recuperável por 30 dias). Devolve { error }. */
+async function apagarPorIdAPI(ids) {
+    const { data: linhas, error: eSel } = await _emIds(sb.from('transacoes').select('*'), ids);
+    if (eSel) return { error: eSel };
+    try { await moverParaLixeira(linhas); } catch (error) { return { error }; }
     return _emIds(sb.from('transacoes').delete(), ids);
 }
 
