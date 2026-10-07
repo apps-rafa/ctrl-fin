@@ -427,7 +427,7 @@ async function salvarRecorrencia(ev) {
         valor, meses: _recMesesDe(_recDuracaoAtual()) || null, metodo: e.metodo.value, categoria: e.categoria.value,
         descricao: e.descricao.value.trim(),
         competencia_offset: Number(e.competencia.value) || 0,
-        remetentes: e.remetentes.value.trim().toLowerCase(),
+        remetentes: [...new Set(e.remetentes.value.split(/[,;\n]/).map(t => t.trim().toLowerCase()).filter(Boolean))].join('; '), // vários e-mails separados por ; (sem repetir)
     };
     const btn = e.painel.querySelector('.rec-btn-salvar');
     btn.disabled = true;
