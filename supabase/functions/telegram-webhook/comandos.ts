@@ -4,7 +4,7 @@ import type { createClient } from "npm:@supabase/supabase-js@2";
 import { executarBackup } from "./backup.ts";
 import { tg, rotuloMetodo, TELEGRAM_API } from "./util.ts";
 import { competenciaDe, hojeBrasiliaISO, aplicarRespostaAoRascunho, type RascunhoLancamento, type MetodoMenu } from "./parser.ts";
-import { enviarRascunho, carregarListasUsuario, confirmarRascunhoNoBanco, criarCategoria, criarMetodo } from "./lancamentos.ts";
+import { enviarRascunho, carregarListasUsuario, confirmarRascunhoNoBanco, criarCategoria, criarMetodo, textoGastoDiario } from "./lancamentos.ts";
 import { carregarContasPluggy, executarAtualizacaoPluggy, rotuloBotaoConta, BOTAO_TODAS_CONTAS } from "./pluggy.ts";
 
 type Admin = ReturnType<typeof createClient>;
@@ -102,7 +102,7 @@ export async function tratarFormularioMiniApp(c: ContextoFormulario): Promise<vo
     await tg(token, "sendMessage", { chat_id: chatId, text: dadosF.ocorrenciaId ? `${(erroF as Error)?.message || "Erro ao confirmar"}` : "Erro ao lançar — tenta de novo.", reply_markup: remover });
     return;
   }
-  await tg(token, "sendMessage", { chat_id: chatId, text: dadosF.ocorrenciaId ? "✅ Recorrência confirmada!" : "✅ Lançado!", reply_markup: remover });
+  await tg(token, "sendMessage", { chat_id: chatId, text: (dadosF.ocorrenciaId ? "✅ Recorrência confirmada!" : "✅ Lançado!") + await textoGastoDiario(supabaseAdmin, tgUser.user_id), reply_markup: remover });
   return;
 }
 

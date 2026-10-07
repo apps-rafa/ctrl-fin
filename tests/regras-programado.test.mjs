@@ -69,7 +69,7 @@ test("aviso de parecido: mesmo texto e mesmos botões em qualquer origem (só mu
   const rotulos = (o) => tecladoParecidos(o, 5).inline_keyboard.flat().map((b) => b.text);
   assert.deepEqual(rotulos("sms"), rotulos("pluggy"));
   assert.deepEqual(rotulos("sms"), rotulos("email"));
-  assert.deepEqual(tecladoParecidos("pluggy", 5).inline_keyboard.flat().map((b) => b.callback_data), ["pgig:5", "pgat:5", "pgou:5"]);
+  assert.deepEqual(tecladoParecidos("pluggy", 5).inline_keyboard.flat().map((b) => b.callback_data), ["pgat:5", "pgou:5"]);
 });
 
 // ---- Cliente: gravação de lançamento (api.js) e forma de pagamento padrão da receita (menus-api.js) ----

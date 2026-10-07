@@ -31,7 +31,7 @@ jobs:
             case "$fn" in _*) continue ;; esac # _shared não é uma função
             # Os webhooks (Telegram/Pluggy) não recebem JWT do Supabase: têm segredo próprio
             case "$fn" in
-              telegram-webhook|pluggy-webhook) flag="--no-verify-jwt" ;;
+              telegram-webhook|pluggy-webhook|enviar-backup) flag="--no-verify-jwt" ;; # enviar-backup confere o JWT do usuário (botão) ou o segredo do cron dentro da função
               *) flag="" ;;
             esac
             supabase functions deploy "$fn" --project-ref "$PROJECT_REF" --use-api $flag
