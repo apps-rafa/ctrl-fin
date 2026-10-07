@@ -142,15 +142,64 @@ function _copiasDeDuplicatas(ids) {
     return [...conjuntos.values()].flatMap(grupo => (grupo.length > 1 ? grupo.slice().sort((a, b) => a - b).slice(1) : []));
 }
 
-/** Botões do cabeçalho do grupo Duplicatas (Home, abas e Pendências): aceitar todas / apagar todas. */
+/** Botão do cabeçalho do grupo Duplicatas (Home, abas e Pendências): o ✓ apaga as cópias e preserva o original de cada conjunto. */
 function _botoesTodasDuplicatas() {
-    return `<span role="button" tabindex="0" class="mini-btn" data-dup-aceitar-todas title="Aceitar todas: marca todas como &quot;não é duplicata&quot; — não avisa de novo sobre elas"><span class="mb-ico">✓</span><span class="mb-txt"> Aceitar todas</span></span>
-        <span role="button" tabindex="0" class="mini-btn armed" data-dup-apagar-todas title="Apagar cópias: apaga as cópias e mantém o original (o mais antigo) de cada conjunto"><span class="mb-ico">${ICONE_LIXEIRA}</span><span class="mb-txt"> Apagar todas</span></span>`;
+    return `<span role="button" tabindex="0" class="mini-btn armed" data-dup-apagar-todas title="Resolver: apaga as cópias e mantém o original (o mais antigo) de cada conjunto"><span class="mb-ico">✓</span><span class="mb-txt"> Apagar cópias</span></span>`;
 }
 /** Botões do cabeçalho do grupo A confirmar: confirmar todas / apagar todas. */
 function _botoesTodasAConfirmar() {
     return `<span role="button" tabindex="0" class="mini-btn" data-ac-confirmar-todas title="Confirmar todas as ocorrências listadas aqui"><span class="mb-ico">✓</span><span class="mb-txt"> Confirmar todas</span></span>
         <span role="button" tabindex="0" class="mini-btn armed" data-ac-apagar-todas title="Apagar todas: apaga só estas ocorrências (as recorrências continuam ativas)"><span class="mb-ico">${ICONE_LIXEIRA}</span><span class="mb-txt"> Apagar todas</span></span>`;
+}
+
+/** Conjuntos de lançamentos parecidos (mesmo mês, tipo, valor, forma e descrição), cada um do mais antigo (o original) ao mais novo. */
+function _conjuntosDuplicatas(itens) {
+    const mapa = new Map();
+    itens.forEach(t => {
+        const chave = [String(t.competencia || '').slice(0, 7), t.tipo, t.valor, t.metodo || '', _normalizarChave(t.descricao || '')].join('|');
+        mapa.set(chave, [...(mapa.get(chave) || []), t]);
+    });
+    return [...mapa.values()].map(l => l.slice().sort((a, b) => a.id - b.id)).sort((a, b) => _porDataDesc(a[0], b[0]));
+}
+
+/** Corpo do grupo Duplicatas: cada conjunto vira um subgrupo (só quando há mais de um), com o ✓ ao lado do título — apaga as cópias e
+ *  preserva o original; cada lançamento leva o selo "original" (fica) ou "cópia" (é o que o sistema sugere apagar).
+ *  htmlItem(t, extra) desenha um lançamento (extra leva o selo). */
+function _htmlConteudoDuplicatas(itens, htmlItem) {
+    const conjuntos = _conjuntosDuplicatas(itens);
+    const linha = (t, c) => htmlItem(t, c.length > 1 ? { seloDuplicata: t.id === c[0].id ? 'original' : 'copia' } : {});
+    if (conjuntos.length <= 1) return conjuntos.flatMap(c => c.map(t => linha(t, c))).join('');
+    const abertos = {};
+    document.querySelectorAll('details.subgrupo[data-dupset]').forEach(d => { abertos[d.dataset.dupset] = d.open; });
+    return conjuntos.map(c => {
+        const id = c[0].id;
+        const nome = String(c[0].descricao || c[0].categoria || 'Sem descrição').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        const total = c.reduce((acc, t) => acc + ((t.valorMes != null ? t.valorMes : t.valor) || 0), 0);
+        const resolver = c.length > 1
+            ? `<span role="button" tabindex="0" class="mini-btn armed dup-resolver" data-dup-resolver="${c.map(t => t.id).join(',')}" title="Apagar a cópia e manter o original"><span class="mb-ico">✓</span></span>`
+            : '';
+        return `
+        <details class="subgrupo" data-nome="dup:${id}" data-dupset="${id}" style="--cor-rec:var(--despesa-text)" ${abertos[id] ? 'open' : ''}>
+          <summary class="subgrupo-cab">
+            <span class="subgrupo-nome">${nome} · ${formatarMoeda(c[0].valor)}</span>
+            ${resolver}
+            <span class="subgrupo-espaco"></span>
+            <span class="subgrupo-contagem">${c.length}</span>
+            <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(total)}</span></span>
+          </summary>
+          ${c.map(t => linha(t, c)).join('')}
+        </details>`;
+    }).join('');
+}
+
+/** Apaga as cópias (com "Desfazer" por 5 s): o original de cada conjunto fica. */
+function _apagarCopiasComDesfazer(ids) {
+    if (!ids.length) return;
+    executarComDesfazer({
+        texto: `${ids.length} cópia${ids.length === 1 ? '' : 's'} apagada${ids.length === 1 ? '' : 's'} (o original foi mantido)`,
+        ids,
+        confirmar: async () => { for (const id of ids) await excluirTransacao(id, { silencioso: true }); },
+    });
 }
 
 function _renderGrupoDuplicatas(transacoes, tipoUI, aberto, duplicatasPre, onde = 'home') {
@@ -171,7 +220,7 @@ function _renderGrupoDuplicatas(transacoes, tipoUI, aberto, duplicatasPre, onde 
         <span class="rec-grupo-total">${formatarMoeda(total)}</span>
       </summary>
       <div class="rec-grupo-itens">
-        ${_subgruposDespesaReceita(duplicatas, tipoDe, t => gerarHTMLTransacao(t, tipoDe(t), { comAprovarDuplicata: true }), '__duplicatas__', onde)}
+        ${_htmlConteudoDuplicatas(duplicatas, (t, x) => gerarHTMLTransacao(t, tipoDe(t), { comAprovarDuplicata: true, ...x }))}
       </div>
     </details>`;
 }
@@ -1048,6 +1097,9 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     const diaFormatado = _dt ? `${trans.dataIndefinida ? '--' : String(_dt.getDate()).padStart(2, '0')}/${String(_dt.getMonth() + 1).padStart(2, '0')}` : '--';
     const dowFormatado = _dt && !trans.dataIndefinida ? _dowTri[_dt.getDay()] : '';
 
+    const seloDup = opts.seloDuplicata === 'copia'
+        ? '<span class="selo-dup selo-dup--copia" title="O sistema sugere que esta é a duplicata (seria apagada)">duplicata</span>'
+        : opts.seloDuplicata === 'original' ? '<span class="selo-dup selo-dup--original" title="Lançamento original (fica)">original</span>' : '';
     const quandoTag = opts.quando ? `<span class="quando-tag">${opts.quando}</span>` : '';
 
     // Info da parcela (nunca vai para a descrição — vem dos campos da linha)
@@ -1129,7 +1181,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
             acoes += `<button class="btn-icon btn-success" data-act="confirmar-ocorrencia" data-id="${trans.id}" title="Confirmar: este lançamento veio de uma recorrência e ainda é só um rascunho" aria-label="Confirmar">✓</button>`;
         }
         if (opts.comAprovarDuplicata) {
-            acoes += `<button class="btn-icon btn-success" data-act="aprovar-duplicata" data-id="${trans.id}" title="Não é duplicata — não avisar de novo sobre este lançamento">✓</button>`;
+            acoes += `<button class="btn-icon" data-act="aprovar-duplicata" data-id="${trans.id}" title="Não é duplicata — manter os dois e não avisar de novo sobre este lançamento" aria-label="Não é duplicata">≠</button>`;
         }
         acoes += `<button class="btn-icon" data-act="editar-trans" data-id="${trans.id}" title="${ehParcela && !ehOriginal ? 'Editar (abre o lançamento original)' : 'Editar'}" aria-label="Editar">${ICONE_LAPIS}</button>`;
         if (opts.comConfirmarOcorrencia) {
@@ -1154,7 +1206,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
                 ${parcelaTag}
                 ${quitarCheckbox}
                 ${pagoCheck}
-                ${(metaChip || quandoTag || quitadoTag) ? `<span class="despesa-badges">${metaChip}${quandoTag}${quitadoTag}</span>` : ''}
+                ${(metaChip || quandoTag || quitadoTag || seloDup) ? `<span class="despesa-badges">${seloDup}${metaChip}${quandoTag}${quitadoTag}</span>` : ''}
                 <span class="despesa-linha2">${descTxt}${catChip}</span>
             </div>
             <div class="despesa-actions">${acoes}</div>
@@ -1172,13 +1224,10 @@ async function marcarPagoRecebido(trans, marcado) {
 
 /** Delegação de clique nas listas de transações */
 function onListaTransacaoClick(e) {
-    const aceitarTodas = e.target.closest('[data-dup-aceitar-todas]');
-    if (aceitarTodas) {
-        e.preventDefault(); // dentro do <summary> — sem isso também abre/fecha o <details>
-        const det = aceitarTodas.closest('details');
-        const ids = [...det.querySelectorAll('[data-act="aprovar-duplicata"]')].map(b => Number(b.dataset.id)).filter(Number.isFinite);
-        ids.forEach(id => _aprovarDuplicata(id));
-        atualizarUI();
+    const resolverConjunto = e.target.closest('[data-dup-resolver]');
+    if (resolverConjunto) {
+        e.preventDefault(); e.stopPropagation(); // dentro do <summary> do subgrupo
+        _apagarCopiasComDesfazer(_copiasDeDuplicatas(resolverConjunto.dataset.dupResolver.split(',').map(Number).filter(Number.isFinite)));
         return;
     }
     const acConfirmar = e.target.closest('[data-ac-confirmar-todas]');
@@ -1188,12 +1237,9 @@ function onListaTransacaoClick(e) {
         const det = (acConfirmar || acApagar).closest('details');
         const ids = [...det.querySelectorAll('[data-act="confirmar-ocorrencia"]')].map(b => Number(b.dataset.id)).filter(Number.isFinite);
         if (!ids.length) return;
-        if (acConfirmar) { confirmarOcorrenciasRecorrencia(ids); return; }
-        mostrarDialogo({
-            titulo: 'Apagar todas as ocorrências?',
-            texto: `Remove <strong>${ids.length}</strong> ocorrência${ids.length === 1 ? '' : 's'} listada${ids.length === 1 ? '' : 's'} aqui. As recorrências continuam ativas.`,
-            acoes: [{ label: 'Cancelar' }, { label: 'Apagar todas', primario: true, perigo: true, onClick: async () => { await apagarOcorrenciasRecorrencia(ids); } }]
-        });
+        const plural = ids.length === 1 ? '' : 's';
+        if (acConfirmar) { executarComDesfazer({ texto: `${ids.length} ocorrência${plural} confirmada${plural}`, ids, confirmar: () => confirmarOcorrenciasRecorrencia(ids) }); return; }
+        executarComDesfazer({ texto: `${ids.length} ocorrência${plural} apagada${plural} (as recorrências continuam ativas)`, ids, confirmar: () => apagarOcorrenciasRecorrencia(ids) });
         return;
     }
     const apagarTodas = e.target.closest('[data-dup-apagar-todas]');
@@ -1205,16 +1251,7 @@ function onListaTransacaoClick(e) {
         // de cada conjunto fica o mais antigo (menor id) e só as cópias são apagadas.
         const ids = _copiasDeDuplicatas(listados);
         if (!ids.length) return;
-        mostrarDialogo({
-            titulo: 'Apagar as cópias?',
-            texto: `Remove <strong>${ids.length}</strong> cópia${ids.length === 1 ? '' : 's'} e mantém o lançamento original (o mais antigo) de cada conjunto. Dá para recuperar na Lixeira por 30 dias.`,
-            acoes: [
-                { label: 'Cancelar' },
-                { label: 'Apagar cópias', primario: true, perigo: true, onClick: async () => {
-                    for (const id of ids) await excluirTransacao(id);
-                } }
-            ]
-        });
+        _apagarCopiasComDesfazer(ids);
         return;
     }
     const el = e.target.closest('[data-act]');
@@ -1233,12 +1270,17 @@ function onListaTransacaoClick(e) {
     if (!trans) return;
 
     switch (el.dataset.act) {
-        case 'quitar-parc':
-            quitarParcelamento(id, el.checked);
+        case 'quitar-parc': {
+            const quitar = el.checked;
+            executarComDesfazer({ texto: quitar ? 'Parcelamento quitado' : 'Quitação desfeita', aoDesfazer: () => { el.checked = !quitar; }, confirmar: () => quitarParcelamento(id, quitar) });
             break;
-        case 'marcar-pago':
-            marcarPagoRecebido(trans, el.checked);
+        }
+        case 'marcar-pago': {
+            if (!el.checked) break;
+            const receita = el.closest('.despesa-item')?.dataset.tipoTransacao === 'entradas';
+            executarComDesfazer({ texto: receita ? 'Marcado como recebido' : 'Marcado como pago', aoDesfazer: () => { el.checked = false; }, confirmar: () => marcarPagoRecebido(trans, true) });
             break;
+        }
         case 'editar-trans': {
             if (trans.parcelasTotal && trans.parcelaNum !== 1) { abrirOriginalDaParcela(trans); break; }
             const viaProximasEntrada = ctxProximas.some(c => c.trans.id === id && c.tipoUI === 'entrada');

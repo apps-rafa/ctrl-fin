@@ -29,8 +29,9 @@ function _pilhaDesfazer() {
 }
 
 /** Executa visualmente já, oferece Desfazer por 5 s e confirma depois.
- *  texto: mensagem do aviso; ids: lançamentos que somem da tela até o fim; confirmar(): a ação real (async); antes(): opcional, roda ao aplicar. */
-function executarComDesfazer({ texto, ids = [], confirmar, antes }) {
+ *  texto: mensagem do aviso; ids: lançamentos que somem da tela até o fim; confirmar(): a ação real (async);
+ *  antes(): opcional, roda ao aplicar; aoDesfazer(): opcional, devolve à tela o que antes() mudou (ex.: desmarcar uma caixa). */
+function executarComDesfazer({ texto, ids = [], confirmar, antes, aoDesfazer }) {
     ids.forEach(id => _idsEmDesfazer.add(Number(id)));
     _aplicarOcultosDesfazer();
     if (antes) antes();
@@ -39,10 +40,19 @@ function executarComDesfazer({ texto, ids = [], confirmar, antes }) {
     aviso.className = 'desfazer-aviso';
     aviso.innerHTML = `<span class="desfazer-texto"></span><button type="button" class="desfazer-btn">Desfazer</button><i class="desfazer-barra"></i>`;
     aviso.querySelector('.desfazer-texto').textContent = texto;
-    aviso.querySelector('.desfazer-barra').style.animationDuration = DESFAZER_MS + 'ms';
     _pilhaDesfazer().appendChild(aviso);
 
     let encerrada = false;
+    // barra de tempo (wipe): diminui da esquerda para a direita até acabar os 5 s
+    const barra = aviso.querySelector('.desfazer-barra');
+    const inicio = performance.now();
+    const passo = () => {
+        if (encerrada) { clearInterval(relogio); return; }
+        barra.style.transform = `scaleX(${Math.max(0, 1 - (performance.now() - inicio) / DESFAZER_MS)})`;
+    };
+    const relogio = setInterval(passo, 50); // (setInterval, não requestAnimationFrame: segue rodando com a aba em segundo plano)
+    passo();
+
     const soltarIds = () => { ids.forEach(id => _idsEmDesfazer.delete(Number(id))); _aplicarOcultosDesfazer(); };
     const acao = {
         confirmar: async () => {
@@ -65,6 +75,7 @@ function executarComDesfazer({ texto, ids = [], confirmar, antes }) {
         _desfazerPendentes.delete(acao);
         aviso.remove();
         soltarIds(); // volta ao estado anterior, sem ter tocado no banco
+        if (aoDesfazer) aoDesfazer();
     });
     return acao;
 }

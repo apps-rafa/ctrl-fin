@@ -91,7 +91,11 @@ function perguntarExcluirRecorrente(trans) {
             texto: `<strong>${trans.descricao || trans.categoria || 'Este lançamento'}</strong> faz parte de uma recorrência. Apagar só este mês ou encerrar a recorrência?`,
             acoes: [
                 { label: 'Cancelar', onClick: () => resolve(false) },
-                { label: 'Só este mês', primario: true, onClick: () => feito(async () => { const { error } = await apagarPorIdAPI(trans.id); if (error) throw error; }, 'Erro ao excluir') },
+                { label: 'Só este mês', primario: true, onClick: () => {
+                    // some na hora; "Desfazer" por 5 s (js/desfazer.js) e só depois vai para a Lixeira
+                    executarComDesfazer({ texto: `Excluído: ${trans.descricao || trans.categoria || 'lançamento'}`, ids: [trans.id], confirmar: async () => { const { error } = await apagarPorIdAPI(trans.id); if (error) throw error; await _recAtualizarTudo(); } });
+                    resolve(true);
+                } },
                 { label: 'Encerrar recorrência', perigo: true, onClick: () => feito(async () => {
                     const { error } = await apagarPorIdAPI(trans.id); if (error) throw error;
                     await encerrarRecorrencia(trans.recorrenciaId);

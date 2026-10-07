@@ -105,6 +105,8 @@ body .rec-item { padding-left: 2.3rem !important; }
     .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-c-total { flex: 1 1 4.6rem; min-width: 4.6rem; }
     .rec-grade:not(:has(.rec-c-total:not([hidden]))) .lbl-ref-longo { display: none; }
     .rec-grade:not(:has(.rec-c-total:not([hidden]))) .lbl-ref-curto { display: inline; }
+    /* E-mail sozinho numa 3ª linha, com 100% da largura */
+    .rec-grade:not(:has(.rec-c-total:not([hidden]))) .rec-linha--3 { grid-template-columns: minmax(0, 1fr); }
 }
 @container (min-width: 47rem) {
     .rec-grade .rec-linha { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .5rem; grid-column: 1 / -1; }
@@ -119,4 +121,7 @@ body .rec-item { padding-left: 2.3rem !important; }
     .rec-grade .rec-c-total { flex: 1 1 4.6rem; min-width: 4.6rem; }
     .rec-grade .lbl-ref-longo { display: none; }
     .rec-grade .lbl-ref-curto { display: inline; }
+    /* E-mail sozinho numa 3ª linha, com 100% da largura (a Descrição ocupa o seu lugar na 2ª) */
+    .rec-grade .rec-linha--3 { grid-template-columns: minmax(0, 1fr); }
+    .rec-grade .rec-linha--3 .rec-c-email { flex: 1 1 100%; }
 }
