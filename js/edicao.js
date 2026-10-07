@@ -2,10 +2,10 @@
 // Extraído de ui.js (mesmas funções globais; carregado logo depois dele em index.html).
 
 /** @returns {Promise<boolean>} true se realmente apagou */
-async function excluirTransacao(id) {
+async function excluirTransacao(id, { silencioso = false } = {}) {
     try {
         await deletarTransacaoAPI(id);
-        mostrarNotificacao('Transação excluída', 'sucesso');
+        if (!silencioso) mostrarNotificacao('Transação excluída', 'sucesso'); // com o aviso "Desfazer" na tela, não precisa de outro
         await recarregarDados();
         atualizarUI();
         return true;

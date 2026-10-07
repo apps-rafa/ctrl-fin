@@ -314,3 +314,14 @@
 *:focus::before, *:focus::after {
     transform: none !important;
 }
+
+/* "Desfazer" (js/desfazer.js): aviso fixo embaixo, com a barra de tempo diminuindo (wipe) durante os 5 s */
+#desfazerPilha { position: fixed; bottom: 20px; right: 20px; z-index: 1100; display: flex; flex-direction: column; gap: .5rem; align-items: flex-end; max-width: calc(100vw - 24px); pointer-events: none; }
+.desfazer-aviso { position: relative; overflow: hidden; pointer-events: auto; display: flex; align-items: center; gap: .9rem; min-width: min(280px, calc(100vw - 24px)); max-width: min(420px, calc(100vw - 24px)); padding: .75rem 1rem .85rem; border-radius: 8px; background: var(--surface-2, #1f2937); color: var(--text, #fff); border: 1px solid var(--border-strong, var(--border)); box-shadow: 0 4px 12px rgba(0, 0, 0, .35); animation: slideInUp .25s ease; font-size: .85rem; }
+.desfazer-texto { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.desfazer-btn { flex: none; border: 0; background: transparent; color: var(--primary, #818cf8); font-weight: 700; font-size: .85rem; text-transform: uppercase; letter-spacing: .03em; cursor: pointer; padding: .2rem .3rem; }
+.desfazer-btn:hover { text-decoration: underline; }
+.desfazer-barra { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--primary, #818cf8); transform-origin: left center; animation: desfazerWipe 5s linear forwards; }
+@keyframes desfazerWipe { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.despesa-item.desfazendo { display: none !important; }
+@media (max-width: 480px) { #desfazerPilha { left: 12px; right: 12px; bottom: 12px; align-items: stretch; } .desfazer-aviso { max-width: none; } }
