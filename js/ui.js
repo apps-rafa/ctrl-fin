@@ -129,10 +129,23 @@ function _detectarDuplicatas(transacoes) {
  *  sozinho conforme o usuário for resolvendo (editando, apagando ou
  *  aprovando) — não precisa "arquivar". Grupo vazio nunca abre (nem é
  *  clicável: não é um <details>, é uma linha estática). */
+/** Dos lançamentos listados num grupo de duplicatas, só as CÓPIAS: agrupa pela mesma regra de _detectarDuplicatas (tipo, valor, forma,
+ *  descrição) e deixa de fora o mais antigo (menor id) de cada conjunto. */
+function _copiasDeDuplicatas(ids) {
+    const todos = new Map([...(estadoApp.transacoes?.entradas || []), ...(estadoApp.transacoes?.saidas || []), ...(typeof _transacoesExtra !== 'undefined' ? _transacoesExtra : [])].map(t => [t.id, t]));
+    const conjuntos = new Map();
+    ids.forEach(id => {
+        const t = todos.get(id);
+        const chave = t ? [String(t.competencia || '').slice(0, 7), t.tipo, t.valor, t.metodo || '', _normalizarChave(t.descricao || '')].join('|') : 'id:' + id; // sem os dados: nunca apaga às cegas
+        conjuntos.set(chave, [...(conjuntos.get(chave) || []), id]);
+    });
+    return [...conjuntos.values()].flatMap(grupo => (grupo.length > 1 ? grupo.slice().sort((a, b) => a - b).slice(1) : []));
+}
+
 /** Botões do cabeçalho do grupo Duplicatas (Home, abas e Pendências): aceitar todas / apagar todas. */
 function _botoesTodasDuplicatas() {
     return `<span role="button" tabindex="0" class="mini-btn" data-dup-aceitar-todas title="Aceitar todas: marca todas como &quot;não é duplicata&quot; — não avisa de novo sobre elas"><span class="mb-ico">✓</span><span class="mb-txt"> Aceitar todas</span></span>
-        <span role="button" tabindex="0" class="mini-btn armed" data-dup-apagar-todas title="Apagar todas: apaga todos os lançamentos listados aqui"><span class="mb-ico">${ICONE_LIXEIRA}</span><span class="mb-txt"> Apagar todas</span></span>`;
+        <span role="button" tabindex="0" class="mini-btn armed" data-dup-apagar-todas title="Apagar cópias: apaga as cópias e mantém o original (o mais antigo) de cada conjunto"><span class="mb-ico">${ICONE_LIXEIRA}</span><span class="mb-txt"> Apagar todas</span></span>`;
 }
 /** Botões do cabeçalho do grupo A confirmar: confirmar todas / apagar todas. */
 function _botoesTodasAConfirmar() {
@@ -1187,14 +1200,17 @@ function onListaTransacaoClick(e) {
     if (apagarTodas) {
         e.preventDefault();
         const det = apagarTodas.closest('details');
-        const ids = [...det.querySelectorAll('[data-act="aprovar-duplicata"]')].map(b => Number(b.dataset.id)).filter(Number.isFinite);
+        const listados = [...det.querySelectorAll('[data-act="aprovar-duplicata"]')].map(b => Number(b.dataset.id)).filter(Number.isFinite);
+        // O grupo lista TODOS os membros de cada conjunto de parecidos (o original e as cópias). Apagar todos levaria o original junto:
+        // de cada conjunto fica o mais antigo (menor id) e só as cópias são apagadas.
+        const ids = _copiasDeDuplicatas(listados);
         if (!ids.length) return;
         mostrarDialogo({
-            titulo: 'Apagar todas as duplicatas?',
-            texto: `Remove <strong>${ids.length}</strong> lançamento${ids.length === 1 ? '' : 's'} listado${ids.length === 1 ? '' : 's'} neste grupo. Não dá para desfazer.`,
+            titulo: 'Apagar as cópias?',
+            texto: `Remove <strong>${ids.length}</strong> cópia${ids.length === 1 ? '' : 's'} e mantém o lançamento original (o mais antigo) de cada conjunto. Dá para recuperar na Lixeira por 30 dias.`,
             acoes: [
                 { label: 'Cancelar' },
-                { label: 'Apagar todas', primario: true, perigo: true, onClick: async () => {
+                { label: 'Apagar cópias', primario: true, perigo: true, onClick: async () => {
                     for (const id of ids) await excluirTransacao(id);
                 } }
             ]
