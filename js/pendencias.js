@@ -110,7 +110,7 @@ function renderPendencias() {
             <span class="fatura-espaco"></span>
             <span class="fatura-total">${formatarMoeda(total)}</span>
           </summary>
-          <div class="fatura-itens">${itens.map(t => gerarHTMLTransacao(t, tipoUI(t), { semRelogio: true, ...opts })).join('')}</div>
+          <div class="fatura-itens">${opts && opts.comAprovarDuplicata ? _htmlConteudoDuplicatas(itens, (t, x) => gerarHTMLTransacao(t, tipoUI(t), { semRelogio: true, ...opts, ...x })) : itens.map(t => gerarHTMLTransacao(t, tipoUI(t), { semRelogio: true, ...opts })).join('')}</div>
         </details>`;
     };
     const html = [..._pendencias.meses.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([comp, m]) => {

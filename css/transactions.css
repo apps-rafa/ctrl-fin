@@ -868,3 +868,8 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 /* Pendências: meses em zebrado, como em Próximos (e os botões "todas" dos grupos, com o mesmo tamanho dos de Duplicatas/A confirmar) */
 #pendencias details.fatura-item[data-pend^="mes:"]:nth-of-type(even) { background: color-mix(in srgb, var(--surface-3) 55%, transparent); }
 .fatura-item > summary .mini-btn { flex: none; }
+/* Duplicatas: selo do que o sistema sugere apagar (duplicata) e do que fica (original); ✓ do conjunto ao lado do título */
+.selo-dup { display: inline-block; font-size: .6rem; font-weight: 700; line-height: 1; padding: .18rem .45rem; border-radius: 999px; text-transform: uppercase; letter-spacing: .04em; border: 1px solid currentColor; font-style: normal; }
+.selo-dup--copia { color: var(--despesa-text); background: color-mix(in srgb, var(--despesa-text) 18%, transparent); }
+.selo-dup--original { color: var(--receita-text); }
+.subgrupo-cab .dup-resolver { margin-left: .5rem; }

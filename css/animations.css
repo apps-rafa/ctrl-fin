@@ -321,7 +321,6 @@
 .desfazer-texto { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .desfazer-btn { flex: none; border: 0; background: transparent; color: var(--primary, #818cf8); font-weight: 700; font-size: .85rem; text-transform: uppercase; letter-spacing: .03em; cursor: pointer; padding: .2rem .3rem; }
 .desfazer-btn:hover { text-decoration: underline; }
-.desfazer-barra { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--primary, #818cf8); transform-origin: left center; animation: desfazerWipe 5s linear forwards; }
-@keyframes desfazerWipe { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.desfazer-barra { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--primary, #818cf8); transform-origin: left center; } /* a largura é animada por JS (js/desfazer.js): o CSS do app desliga todo keyframe */
 .despesa-item.desfazendo { display: none !important; }
 @media (max-width: 480px) { #desfazerPilha { left: 12px; right: 12px; bottom: 12px; align-items: stretch; } .desfazer-aviso { max-width: none; } }

@@ -160,7 +160,7 @@ function _htmlGruposFilaBusca(acs, dups, chaveBusca, abertos = {}) {
         <span class="rec-grupo-contagem">${lista.length}</span>
         <span class="rec-grupo-total">${formatarMoeda(lista.reduce((s, x) => s + valorDe(x), 0))}</span>
       </summary>
-      <div class="rec-grupo-itens">${lista.slice(0, _limiteGrupoBusca(chaveBusca, nome)).map(x => gerarHTMLTransacao(x, tipoUI(x), opts)).join('')}${_htmlMaisGrupo(nome, lista.length, _limiteGrupoBusca(chaveBusca, nome))}</div>
+      <div class="rec-grupo-itens">${opts && opts.comAprovarDuplicata ? _htmlConteudoDuplicatas(lista, (x, extra) => gerarHTMLTransacao(x, tipoUI(x), { ...opts, ...extra })) : lista.slice(0, _limiteGrupoBusca(chaveBusca, nome)).map(x => gerarHTMLTransacao(x, tipoUI(x), opts)).join('') + _htmlMaisGrupo(nome, lista.length, _limiteGrupoBusca(chaveBusca, nome))}</div>
     </details>`;
     return grupo('__busca_aconfirmar__', '🔁 A confirmar', 'var(--text-muted)', acs, { comConfirmarOcorrencia: true })
         + grupo('__busca_duplicatas__', '📑 Duplicatas', 'var(--despesa-text)', dups, { comAprovarDuplicata: true });
