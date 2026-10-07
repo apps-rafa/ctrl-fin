@@ -1233,7 +1233,7 @@ function onListaTransacaoClick(e) {
             break;
         }
         case 'confirmar-ocorrencia':
-            confirmarOcorrenciaRecorrencia(id);
+            executarComDesfazer({ texto: `Confirmado: ${trans.descricao || trans.categoria || 'lançamento'}`, ids: [id], confirmar: () => confirmarOcorrenciaRecorrencia(id) });
             break;
         case 'recusar-ocorrencia':
         case 'excluir-trans':
@@ -1242,19 +1242,12 @@ function onListaTransacaoClick(e) {
             if (trans.parcelasTotal && trans.parcelaNum !== 1) {
                 excluirTransacao(id); // deixa a API lançar o detalhe e o catch mostra o diálogo
             } else {
-                mostrarDialogo({
-                    titulo: 'Excluir lançamento?',
-                    texto: `Remove <strong>${trans.descricao || trans.categoria || 'este lançamento'}</strong>. Não dá para desfazer.`,
-                    acoes: [
-                        { label: 'Cancelar' },
-                        { label: 'Excluir', primario: true, perigo: true, onClick: async () => { await excluirTransacao(id); } }
-                    ]
-                });
+                // Some da tela na hora; o "Desfazer" fica 5 s (ver js/desfazer.js) e só depois o lançamento vai para a lixeira
+                executarComDesfazer({ texto: `Excluído: ${trans.descricao || trans.categoria || 'lançamento'}`, ids: [id], confirmar: () => excluirTransacao(id, { silencioso: true }) });
             }
             break;
         case 'aprovar-duplicata':
-            _aprovarDuplicata(id);
-            atualizarUI();
+            executarComDesfazer({ texto: 'Marcado como "não é duplicata"', ids: [id], confirmar: async () => { _aprovarDuplicata(id); atualizarUI(); } });
             break;
     }
 }
