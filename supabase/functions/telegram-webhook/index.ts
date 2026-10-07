@@ -64,7 +64,7 @@ import {
   tratarFormularioMiniApp, tratarStart, tratarAtualizar, tratarPgtoPadraoComando, tratarBackup,
 } from "./comandos.ts";
 import {
-  tratarUltimoEditar, tratarRascunhoEditar, tratarRascunhoConfirmarOuCancelar, tratarAtualizarConta, tratarPgtoPadrao,
+  tratarUltimoEditar, tratarRascunhoEditar, descartarRascunho, tirarTecladoDoChat, tratarRascunhoConfirmarOuCancelar, tratarAtualizarConta, tratarPgtoPadrao,
   tratarRecorrenciaRascunho,
 } from "./callbacks.ts";
 import {
@@ -499,8 +499,17 @@ Deno.serve(async (req: Request) => {
       const texto = String(update.message.text).trim();
 
       // Botão do teclado mostrado junto do "Editar" de um rascunho: só tira o teclado (o rascunho continua nos botões dele)
+      // Um único toque encerra tudo: o rascunho em edição vira "descartado" (recuperável com Resgatar na mensagem original) e o teclado some.
       if (texto === "❌ Cancelar edição") {
-        await tg(token, "sendMessage", { chat_id: chatId, text: "Edição cancelada — o rascunho continua pendente.", reply_markup: { remove_keyboard: true } });
+        const { data: emEdicao } = await supabaseAdmin.from("telegram_rascunhos").select("id, dados, mensagem_id")
+          .eq("chat_id", chatId).eq("status", "pendente").not("editando_em", "is", null).order("editando_em", { ascending: false }).limit(1);
+        const r = emEdicao?.[0];
+        if (r?.mensagem_id) {
+          await descartarRascunho(supabaseAdmin, token, chatId, r.id, r.mensagem_id, null, !!(r.dados as RascunhoLancamento).ocorrenciaId);
+        } else {
+          if (r) await supabaseAdmin.from("telegram_rascunhos").update({ status: "descartado", editando_em: null }).eq("id", r.id);
+          await tirarTecladoDoChat(token, chatId);
+        }
         return json({ ok: true });
       }
 
@@ -622,7 +631,7 @@ Deno.serve(async (req: Request) => {
         return json({ ok: true });
       }
 
-      if ((acao === "nlconfirmar" || acao === "nlcancelar") && chatId) {
+      if ((acao === "nlconfirmar" || acao === "nlcancelar" || acao === "nlresgatar") && chatId) {
         await tratarRascunhoConfirmarOuCancelar({ supabaseAdmin, token, cq, chatId, idStr, acao });
         return json({ ok: true });
       }

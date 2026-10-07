@@ -61,11 +61,12 @@ export function textoParecidos(p: { origem: OrigemAviso; titulo: string; valor: 
 /** Botões do aviso (iguais para toda origem). `id` = o que identifica o lançamento recebido naquela origem. */
 export function tecladoParecidos(origem: OrigemAviso, id: number | string, podeAtualizar = true) {
   const p = PREFIXO[origem];
-  return { inline_keyboard: [
-    [{ text: "✅ É o mesmo (ignorar)", callback_data: `${p}ig:${id}` }],
-    ...(podeAtualizar ? [[{ text: "🔄 É o mesmo, atualizar valor/data", callback_data: `${p}at:${id}` }]] : []),
-    [{ text: "➕ Não, é outro lançamento", callback_data: `${p}ou:${id}` }],
-  ] };
+  // Duas opções, na mesma linha: Atualizar (muda o lançamento que já existe) | Criar novo (mantém o existente e cria outro)
+  // (os callbacks "ig" antigos continuam tratados, para mensagens que já foram enviadas)
+  return { inline_keyboard: [[
+    ...(podeAtualizar ? [{ text: "🔄 Atualizar", callback_data: `${p}at:${id}` }] : []),
+    { text: "➕ Criar novo", callback_data: `${p}ou:${id}` },
+  ]] };
 }
 
 /** Aviso padrão de lançamento novo vindo do banco (Pluggy), com Confirmar/Ignorar. */

@@ -6,7 +6,8 @@ export function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
-export async function tg(token: string, method: string, body: unknown) {
+// deno-lint-ignore no-explicit-any
+export async function tg(token: string, method: string, body: unknown): Promise<any> {
   try {
     // Nunca mostra pré-visualização de link (descrições vindas do banco, ex.: "apple.com/bill", viravam link com thumb)
     const corpo = method === "sendMessage" ? { link_preview_options: { is_disabled: true }, ...(body as object) } : body;
@@ -15,9 +16,12 @@ export async function tg(token: string, method: string, body: unknown) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(corpo),
     });
-    if (!resp.ok) console.error(`Telegram ${method} falhou:`, resp.status, await resp.text());
+    const texto = await resp.text();
+    if (!resp.ok) console.error(`Telegram ${method} falhou:`, resp.status, texto);
+    try { return JSON.parse(texto); } catch { return null; }
   } catch (e) {
     console.error(`Erro chamando Telegram ${method}:`, e);
+    return null;
   }
 }
 

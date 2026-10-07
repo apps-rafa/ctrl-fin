@@ -3,7 +3,7 @@
 import type { createClient } from "npm:@supabase/supabase-js@2";
 import { tg, formatarMoedaBR, rotuloMetodo } from "./util.ts";
 import { type RascunhoLancamento } from "./parser.ts";
-import { carregarListasUsuario, confirmarRascunhoNoBanco, urlMiniApp, enviarRascunho } from "./lancamentos.ts";
+import { carregarListasUsuario, confirmarRascunhoNoBanco, urlMiniApp, enviarRascunho, tecladoRascunho, textoGastoDiario } from "./lancamentos.ts";
 import { carregarContasPluggy, executarAtualizacaoPluggy, tituloContaPluggyDetalhado } from "./pluggy.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -54,12 +54,14 @@ export async function tratarRascunhoEditar(c: ContextoCallback): Promise<void> {
     const rascunhoId = Number(idStr);
     const { data: tgUser } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
     const { data: rascunho } = tgUser
-      ? await supabaseAdmin.from("telegram_rascunhos").select("dados").eq("id", rascunhoId).eq("chat_id", chatId).eq("user_id", tgUser.user_id).maybeSingle()
+      ? await supabaseAdmin.from("telegram_rascunhos").select("dados").eq("id", rascunhoId).eq("chat_id", chatId).eq("user_id", tgUser.user_id).eq("status", "pendente").maybeSingle()
       : { data: null };
     if (!tgUser || !rascunho) {
-      await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Esse rascunho já não existe mais" });
+      await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Esse rascunho já não existe mais (ou foi descartado)" });
       return;
     }
+    await supabaseAdmin.from("telegram_rascunhos").update({ editando_em: null }).eq("chat_id", chatId); // um rascunho em edição por vez
+    await supabaseAdmin.from("telegram_rascunhos").update({ editando_em: new Date().toISOString() }).eq("id", rascunhoId);
     const d = rascunho.dados as RascunhoLancamento;
     const listas = await carregarListasUsuario(supabaseAdmin, tgUser.user_id);
     await tg(token, "answerCallbackQuery", { callback_query_id: cq.id });
@@ -74,9 +76,36 @@ export async function tratarRascunhoEditar(c: ContextoCallback): Promise<void> {
     return;
 }
 
+/** Descarta um rascunho (pendente → descartado): nada é apagado; a mensagem original fica só com o botão ♻️ Resgatar e o teclado do ✏️ Editar some.
+ *  textoAtual = texto da mensagem (quando se sabe); sem ele, só os botões são trocados e o texto fica como está. */
+export async function descartarRascunho(
+  admin: ReturnType<typeof createClient>, token: string, chatId: number, rascunhoId: number, mensagemId: number, textoAtual: string | null, ehOcorrencia: boolean,
+): Promise<void> {
+  await admin.from("telegram_rascunhos").update({ status: "descartado", editando_em: null, mensagem_id: mensagemId }).eq("id", rascunhoId);
+  const resgatar = { inline_keyboard: [[{ text: "♻️ Resgatar", callback_data: `nlresgatar:${rascunhoId}` }]] };
+  if (textoAtual === null) {
+    await tg(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: mensagemId, reply_markup: resgatar });
+  } else {
+    const base = textoAtual.replace(/\n\n❌ Descartado[\s\S]*$/, "");
+    await tg(token, "editMessageText", {
+      chat_id: chatId, message_id: mensagemId,
+      // cancelar o rascunho NUNCA mexe na recorrência nem na ocorrência: ela segue "a confirmar" no app
+      text: `${base}\n\n❌ Descartado${ehOcorrencia ? ' — o lançamento segue em "a confirmar" no app' : ""}`,
+      reply_markup: resgatar,
+    });
+  }
+  await tirarTecladoDoChat(token, chatId);
+}
+
+/** Tira o teclado do ✏️ Editar / ❌ Cancelar edição: o Telegram só remove teclado junto de uma mensagem, então ela é enviada e apagada na hora. */
+export async function tirarTecladoDoChat(token: string, chatId: number): Promise<void> {
+  const r = await tg(token, "sendMessage", { chat_id: chatId, text: "·", reply_markup: { remove_keyboard: true } });
+  if (r?.result?.message_id) await tg(token, "deleteMessage", { chat_id: chatId, message_id: r.result.message_id });
+}
+
   // Rascunho de lançamento por texto livre (ver interpretarValorETipo
-  // acima) — "❌ Cancelar" só apaga o rascunho; "✅ Confirmar" grava de
-  // verdade em transacoes.
+  // acima) — "❌ Cancelar" DESCARTA o rascunho (recuperável com "Resgatar");
+  // "✅ Confirmar" grava de verdade em transacoes; "♻️ Resgatar" volta ao pendente.
 export async function tratarRascunhoConfirmarOuCancelar(c: ContextoCallback): Promise<void> {
   const { supabaseAdmin, token, cq, chatId, idStr, acao } = c;
     const rascunhoId = Number(idStr);
@@ -86,7 +115,7 @@ export async function tratarRascunhoConfirmarOuCancelar(c: ContextoCallback): Pr
       return;
     }
     const { data: rascunho } = await supabaseAdmin
-      .from("telegram_rascunhos").select("dados")
+      .from("telegram_rascunhos").select("dados, status")
       .eq("id", rascunhoId).eq("chat_id", chatId).eq("user_id", tgUser.user_id) // nunca confia só no id vindo do botão
       .maybeSingle();
     if (!rascunho) {
@@ -95,19 +124,32 @@ export async function tratarRascunhoConfirmarOuCancelar(c: ContextoCallback): Pr
     }
 
     const ehOcorrencia = !!(rascunho.dados as RascunhoLancamento).ocorrenciaId;
-    if (acao === "nlcancelar") {
-      await supabaseAdmin.from("telegram_rascunhos").delete().eq("id", rascunhoId);
-      await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: ehOcorrencia ? "Rascunho cancelado" : "Cancelado" });
+    if (acao === "nlresgatar") {
+      if (rascunho.status !== "descartado") {
+        await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Esse rascunho já está pendente" });
+        return;
+      }
+      await supabaseAdmin.from("telegram_rascunhos").update({ status: "pendente" }).eq("id", rascunhoId);
+      await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Rascunho resgatado" });
       await tg(token, "editMessageText", {
         chat_id: chatId, message_id: cq.message.message_id,
-        // cancelar o rascunho NUNCA mexe na recorrência nem na ocorrência: ela segue "a confirmar" no app
-        text: ehOcorrencia ? `${cq.message.text}\n\n❌ Rascunho cancelado — o lançamento segue em "a confirmar" no app` : `${cq.message.text}\n\n❌ Cancelado`,
+        text: String(cq.message.text ?? "").replace(/\n\n❌ Descartado[\s\S]*$/, ""), // volta exatamente como era
+        reply_markup: tecladoRascunho(rascunhoId),
       });
+      return;
+    }
+    if (rascunho.status === "descartado") {
+      await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Rascunho descartado — toque em Resgatar" });
+      return;
+    }
+    if (acao === "nlcancelar") {
+      await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Descartado" });
+      await descartarRascunho(supabaseAdmin, token, chatId, rascunhoId, cq.message.message_id, String(cq.message.text ?? ""), ehOcorrencia);
       return;
     }
 
     const { erro: insertError } = await confirmarRascunhoNoBanco(supabaseAdmin, tgUser.user_id, rascunho.dados as RascunhoLancamento);
-    await supabaseAdmin.from("telegram_rascunhos").delete().eq("id", rascunhoId);
+    if (!insertError) await supabaseAdmin.from("telegram_rascunhos").delete().eq("id", rascunhoId);
     if (insertError) {
       console.error(insertError);
       await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: ehOcorrencia ? String((insertError as Error)?.message || "Erro ao confirmar").slice(0, 190) : "Erro ao confirmar" });
@@ -116,7 +158,7 @@ export async function tratarRascunhoConfirmarOuCancelar(c: ContextoCallback): Pr
     await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Lançado ✅" });
     await tg(token, "editMessageText", {
       chat_id: chatId, message_id: cq.message.message_id,
-      text: `${cq.message.text}\n\n✅ Lançado`,
+      text: `${cq.message.text}\n\n✅ Lançado${await textoGastoDiario(supabaseAdmin, tgUser.user_id)}`,
     });
     return;
 }
@@ -194,6 +236,7 @@ export async function tratarRecorrenciaRascunho(c: ContextoCallback): Promise<vo
   let rascunhoId: number; let dados: RascunhoLancamento;
   if (existentes && existentes.length) {
     rascunhoId = existentes[0].id; dados = existentes[0].dados as RascunhoLancamento;
+    await supabaseAdmin.from("telegram_rascunhos").update({ status: "pendente" }).eq("id", rascunhoId);
   } else {
     const listas = await carregarListasUsuario(supabaseAdmin, tgUser.user_id);
     const met = t.metodo ? listas.metodos.find((m) => rotuloMetodo(m) === t.metodo) ?? null : null;

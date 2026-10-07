@@ -208,6 +208,40 @@ export async function limparRascunhosAntigos(admin: ReturnType<typeof createClie
  *  Editar/Cancelar, resolvíveis em qualquer ordem. "Editar" abre o mini app
  *  já preenchido; confirmar/cancelar chegam como callback_query
  *  "nlconfirmar:<id>"/"nlcancelar:<id>" (ver Deno.serve). */
+/** Botões inline do rascunho pendente. */
+export const tecladoRascunho = (id: number) => ({
+  inline_keyboard: [[
+    { text: "✅ Confirmar", callback_data: `nlconfirmar:${id}` },
+    { text: "✏️ Editar", callback_data: `nleditar:${id}` },
+    { text: "❌ Cancelar", callback_data: `nlcancelar:${id}` },
+  ]],
+});
+
+/** Gasto diário do mês de hoje, como no card do app: balanço do mês (receitas − despesas; estorno no cartão abate a despesa) ÷ dias que restam (contando hoje). */
+export async function textoGastoDiario(admin: ReturnType<typeof createClient>, userId: string): Promise<string> {
+  try { return await calcularGastoDiario(admin, userId); } catch (e) { console.error("gasto diário:", e); return ""; } // nunca atrapalha a confirmação
+}
+
+async function calcularGastoDiario(admin: ReturnType<typeof createClient>, userId: string): Promise<string> {
+  const hoje = hojeBrasiliaISO();
+  const [ano, mes, dia] = hoje.split("-").map(Number);
+  const { data: mets } = await admin.from("menu_itens").select("nome, metodo_kind, banco").eq("tipo", "Método").eq("user_id", userId);
+  const credito = new Set(((mets ?? []) as { nome: string; metodo_kind: string | null; banco: string | null }[]).filter((m) => m.metodo_kind === "Crédito").map(rotuloMetodo));
+  const comp = `${ano}-${String(mes).padStart(2, "0")}-01`;
+  const { data: linhas, error } = await admin.from("transacoes").select("tipo, valor, metodo").eq("user_id", userId).eq("competencia", comp).limit(5000);
+  if (error) { console.error(error); return ""; }
+  let balanco = 0;
+  for (const t of (linhas ?? []) as { tipo: string; valor: number; metodo: string | null }[]) {
+    const v = Number(t.valor) || 0;
+    if (t.tipo === "entradas") balanco += v; // entrada no cartão (estorno) também soma: abate a despesa
+    else balanco -= v;
+  }
+  const dias = Math.max(1, new Date(ano, mes, 0).getDate() - dia + 1);
+  return `
+
+📅 Gasto diário: ${formatarMoedaBR(balanco / dias)} (${dias} dia${dias === 1 ? "" : "s"} restante${dias === 1 ? "" : "s"})`;
+}
+
 export async function enviarRascunho(
   token: string, chatId: number, rascunhoId: number, r: RascunhoLancamento,
   admin?: ReturnType<typeof createClient>, userId?: string, cabecalho?: string,
@@ -232,17 +266,9 @@ export async function enviarRascunho(
   // "✏️ Editar" não abre o formulário direto: o Telegram só devolve os dados do mini app (sendData)
   // quando ele é aberto por um botão do TECLADO, não por botão inline. Então o toque vira o callback
   // "nleditar:<id>" e o bot responde com o botão do formulário DAQUELE rascunho (ver Deno.serve).
-  await tg(token, "sendMessage", {
-    chat_id: chatId,
-    text: linhas,
-    reply_markup: {
-      inline_keyboard: [[
-        { text: "✅ Confirmar", callback_data: `nlconfirmar:${rascunhoId}` },
-        { text: "✏️ Editar", callback_data: `nleditar:${rascunhoId}` },
-        { text: "❌ Cancelar", callback_data: `nlcancelar:${rascunhoId}` },
-      ]],
-    },
-  });
+  const resp = await tg(token, "sendMessage", { chat_id: chatId, text: linhas, reply_markup: tecladoRascunho(rascunhoId) });
+  // guarda a mensagem do rascunho: é nela que "Cancelar" vira "Resgatar" (também quando o cancelamento vem do teclado do ✏️ Editar)
+  if (admin && resp?.result?.message_id) await admin.from("telegram_rascunhos").update({ mensagem_id: resp.result.message_id, status: "pendente" }).eq("id", rascunhoId);
 }
 
 const MESES_ABREV = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];

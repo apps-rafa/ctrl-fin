@@ -262,7 +262,7 @@ export async function executarConta(
   let rascunhoId: number;
   if (existentes && existentes.length) {
     rascunhoId = existentes[0].id;
-    await admin.from("telegram_rascunhos").update({ dados: rascunho }).eq("id", rascunhoId);
+    await admin.from("telegram_rascunhos").update({ dados: rascunho, status: "pendente" }).eq("id", rascunhoId);
   } else {
     const { data: novo, error } = await admin.from("telegram_rascunhos").insert({ user_id: userId, chat_id: chatId, dados: rascunho }).select("id").single();
     if (error || !novo) { console.error(error); await marcar("erro", { recorrencia_id: rec.id, transacao_id: ocorrencia.id }); return { ok: false, status: "erro" }; }
