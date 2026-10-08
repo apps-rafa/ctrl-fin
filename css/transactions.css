@@ -824,6 +824,7 @@ body.modo-anual .barra-pendencias, body.modo-docs .barra-pendencias { display: n
 .rec-grupo[data-nome="__duplicatas__"] > summary > .rec-grupo-nome, .rec-grupo[data-nome="__aconfirmar__"] > summary > .rec-grupo-nome { white-space: nowrap; }
 .rec-grupo[data-nome="__duplicatas__"] > summary > .mini-btn, .rec-grupo[data-nome="__aconfirmar__"] > summary > .mini-btn { font-size: .66rem; padding: .12rem .4rem; white-space: nowrap; }
 .rec-grupo > summary > .mini-btn.so-ico .mb-txt { display: none; }
+.subgrupo-cab > .mini-btn.so-ico .mb-txt { display: none; } /* botões do conjunto de duplicatas: só o ícone quando falta largura */
 .mini-btn .mb-txt { margin-left: .25rem; } /* espaço entre o ✓/lixeira e o texto */
 .barra-pendencias.active { background: color-mix(in srgb, var(--balanco-text, #f5b942) 40%, var(--surface)); box-shadow: inset 0 -3px 0 var(--balanco-text, #f5b942); }
 /* Título da página Pendências */

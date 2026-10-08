@@ -324,10 +324,10 @@ function _ligarFilaManual(box, onde) {
     }, true);
 }
 
-/** Botões "Confirmar/Aceitar todas" e "Apagar todas" (Duplicatas e A confirmar): se o cabeçalho do grupo não comporta o texto (o título nunca quebra
+/** Botões "Confirmar/Aceitar todas" e "Apagar todas" (Duplicatas e A confirmar, inclusive os de cada conjunto de duplicatas): se o cabeçalho não comporta o texto (o título nunca quebra
  *  em 2 linhas), ficam só o ✓ e a lixeira. */
 function ajustarBotoesTodas() {
-    document.querySelectorAll('.rec-grupo[data-nome="__duplicatas__"] > summary, .rec-grupo[data-nome="__aconfirmar__"] > summary, details[data-pend$=":ac"] > summary, details[data-pend$=":dup"] > summary').forEach(sm => {
+    document.querySelectorAll('.rec-grupo[data-nome="__duplicatas__"] > summary, .rec-grupo[data-nome="__aconfirmar__"] > summary, details[data-pend$=":ac"] > summary, details[data-pend$=":dup"] > summary, details.subgrupo[data-dupset] > summary').forEach(sm => {
         const btns = sm.querySelectorAll('.mini-btn');
         btns.forEach(b => b.classList.remove('so-ico'));
         if (!sm.clientWidth) return; // grupo oculto: mede quando aparecer
