@@ -136,15 +136,18 @@ function _copiasDeDuplicatas(ids) {
     const conjuntos = new Map();
     ids.forEach(id => {
         const t = todos.get(id);
-        const chave = t ? [String(t.competencia || '').slice(0, 7), t.tipo, t.valor, t.metodo || '', _normalizarChave(t.descricao || '')].join('|') : 'id:' + id; // sem os dados: nunca apaga às cegas
+        if (!t) return; // sem os dados do lançamento: nunca apaga às cegas
+        const chave = [String(t.competencia || '').slice(0, 7), t.tipo, t.valor, t.metodo || '', _normalizarChave(t.descricao || '')].join('|');
         conjuntos.set(chave, [...(conjuntos.get(chave) || []), id]);
     });
-    return [...conjuntos.values()].flatMap(grupo => (grupo.length > 1 ? grupo.slice().sort((a, b) => a - b).slice(1) : []));
+    // conjunto de 2+: o mais antigo (menor id) é o original; conjunto de 1: o outro membro já foi aprovado como "não é duplicata", este é a cópia
+    return [...conjuntos.values()].flatMap(grupo => grupo.slice().sort((a, b) => a - b).slice(grupo.length > 1 ? 1 : 0));
 }
 
 /** Botão do cabeçalho do grupo Duplicatas (Home, abas e Pendências): o ✓ apaga as cópias e preserva o original de cada conjunto. */
 function _botoesTodasDuplicatas() {
-    return `<span role="button" tabindex="0" class="mini-btn armed" data-dup-apagar-todas title="Resolver: apaga as cópias e mantém o original (o mais antigo) de cada conjunto"><span class="mb-ico">✓</span><span class="mb-txt"> Apagar cópias</span></span>`;
+    return `<span role="button" tabindex="0" class="mini-btn" data-dup-aceitar-todas title="Não é duplicata: mantém todos os lançamentos listados e não avisa de novo sobre eles"><span class="mb-ico">≠</span><span class="mb-txt"> Não é duplicata</span></span>
+        <span role="button" tabindex="0" class="mini-btn armed" data-dup-apagar-todas title="Apagar cópias: apaga as cópias e mantém o original (o mais antigo) de cada conjunto"><span class="mb-ico">✓</span><span class="mb-txt"> Apagar cópias</span></span>`;
 }
 /** Botões do cabeçalho do grupo A confirmar: confirmar todas / apagar todas. */
 function _botoesTodasAConfirmar() {
@@ -165,9 +168,15 @@ function _conjuntosDuplicatas(itens) {
 /** Corpo do grupo Duplicatas: cada conjunto vira um subgrupo (só quando há mais de um), com o ✓ ao lado do título — apaga as cópias e
  *  preserva o original; cada lançamento leva o selo "original" (fica) ou "cópia" (é o que o sistema sugere apagar).
  *  htmlItem(t, extra) desenha um lançamento (extra leva o selo). */
+/** Só as cópias dos lançamentos listados (o que o sistema sugere apagar): é isso que o número do grupo conta. */
+function _listaCopiasDuplicatas(itens) {
+    return _conjuntosDuplicatas(itens).flatMap(c => c.slice(c.length > 1 ? 1 : 0));
+}
+const _numCopiasDuplicatas = itens => _listaCopiasDuplicatas(itens).length;
+
 function _htmlConteudoDuplicatas(itens, htmlItem) {
     const conjuntos = _conjuntosDuplicatas(itens);
-    const linha = (t, c) => htmlItem(t, c.length > 1 ? { seloDuplicata: t.id === c[0].id ? 'original' : 'copia' } : {});
+    const linha = (t, c) => htmlItem(t, { seloDuplicata: c.length > 1 && t.id === c[0].id ? 'original' : 'copia' });
     if (conjuntos.length <= 1) return conjuntos.flatMap(c => c.map(t => linha(t, c))).join('');
     const abertos = {};
     document.querySelectorAll('details.subgrupo[data-dupset]').forEach(d => { abertos[d.dataset.dupset] = d.open; });
@@ -175,17 +184,17 @@ function _htmlConteudoDuplicatas(itens, htmlItem) {
         const id = c[0].id;
         const nome = String(c[0].descricao || c[0].categoria || 'Sem descrição').replace(/&/g, '&amp;').replace(/</g, '&lt;');
         const total = c.reduce((acc, t) => acc + ((t.valorMes != null ? t.valorMes : t.valor) || 0), 0);
-        const resolver = c.length > 1
-            ? `<span role="button" tabindex="0" class="mini-btn armed dup-resolver" data-dup-resolver="${c.map(t => t.id).join(',')}" title="Apagar a cópia e manter o original"><span class="mb-ico">✓</span></span>`
-            : '';
+        const idsConj = c.map(t => t.id).join(',');
+        const resolver = `<span role="button" tabindex="0" class="mini-btn dup-resolver" data-dup-aceitar="${idsConj}" title="Não é duplicata: mantém todos e não avisa de novo"><span class="mb-ico">≠</span><span class="mb-txt"> Não é duplicata</span></span>
+            <span role="button" tabindex="0" class="mini-btn armed dup-resolver" data-dup-resolver="${idsConj}" title="Apagar a cópia e manter o original"><span class="mb-ico">✓</span><span class="mb-txt"> Apagar cópia</span></span>`;
         return `
         <details class="subgrupo" data-nome="dup:${id}" data-dupset="${id}" style="--cor-rec:var(--despesa-text)" ${abertos[id] ? 'open' : ''}>
           <summary class="subgrupo-cab">
             <span class="subgrupo-nome">${nome} · ${formatarMoeda(c[0].valor)}</span>
             ${resolver}
             <span class="subgrupo-espaco"></span>
-            <span class="subgrupo-contagem">${c.length}</span>
-            <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(total)}</span></span>
+            <span class="subgrupo-contagem">${_numCopiasDuplicatas(c)}</span>
+            <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(_listaCopiasDuplicatas(c).reduce((acc, t) => acc + ((t.valorMes != null ? t.valorMes : t.valor) || 0), 0))}</span></span>
           </summary>
           ${c.map(t => linha(t, c)).join('')}
         </details>`;
@@ -209,14 +218,15 @@ function _renderGrupoDuplicatas(transacoes, tipoUI, aberto, duplicatasPre, onde 
     // de deixar uma caixa vazia "🎉 Sem duplicatas" ocupando espaço à toa.
     if (!duplicatas.length) return '';
     const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
-    const total = duplicatas.reduce((s, t) => s + valorDe(t), 0);
+    const copias = _listaCopiasDuplicatas(duplicatas);
+    const total = copias.reduce((s, t) => s + valorDe(t), 0);
     return `
     <details class="rec-grupo cor-rec-despesa" data-nome="__duplicatas__" ${aberto ? 'open' : ''}>
       <summary>
         <span class="rec-grupo-nome">📑 Duplicatas</span>
         ${_botoesTodasDuplicatas()}
         <span class="rec-grupo-espaco"></span>
-        <span class="rec-grupo-contagem">${duplicatas.length}</span>
+        <span class="rec-grupo-contagem">${copias.length}</span>
         <span class="rec-grupo-total">${formatarMoeda(total)}</span>
       </summary>
       <div class="rec-grupo-itens">
@@ -1180,9 +1190,6 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
         if (opts.comConfirmarOcorrencia || trans.aConfirmar) {
             acoes += `<button class="btn-icon btn-success" data-act="confirmar-ocorrencia" data-id="${trans.id}" title="Confirmar: este lançamento veio de uma recorrência e ainda é só um rascunho" aria-label="Confirmar">✓</button>`;
         }
-        if (opts.comAprovarDuplicata) {
-            acoes += `<button class="btn-icon" data-act="aprovar-duplicata" data-id="${trans.id}" title="Não é duplicata — manter os dois e não avisar de novo sobre este lançamento" aria-label="Não é duplicata">≠</button>`;
-        }
         acoes += `<button class="btn-icon" data-act="editar-trans" data-id="${trans.id}" title="${ehParcela && !ehOriginal ? 'Editar (abre o lançamento original)' : 'Editar'}" aria-label="Editar">${ICONE_LAPIS}</button>`;
         if (opts.comConfirmarOcorrencia) {
             acoes += `<button class="btn-icon btn-danger" data-act="recusar-ocorrencia" data-id="${trans.id}" title="Não vai acontecer">✗</button>`;
@@ -1206,8 +1213,8 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
                 ${parcelaTag}
                 ${quitarCheckbox}
                 ${pagoCheck}
-                ${(metaChip || quandoTag || quitadoTag || seloDup) ? `<span class="despesa-badges">${seloDup}${metaChip}${quandoTag}${quitadoTag}</span>` : ''}
-                <span class="despesa-linha2">${descTxt}${catChip}</span>
+                ${(metaChip || quandoTag || quitadoTag) ? `<span class="despesa-badges">${metaChip}${quandoTag}${quitadoTag}</span>` : ''}
+                <span class="despesa-linha2">${descTxt}${catChip}${seloDup}</span>
             </div>
             <div class="despesa-actions">${acoes}</div>
         </div>`;
@@ -1224,6 +1231,17 @@ async function marcarPagoRecebido(trans, marcado) {
 
 /** Delegação de clique nas listas de transações */
 function onListaTransacaoClick(e) {
+    const aceitar = e.target.closest('[data-dup-aceitar-todas], [data-dup-aceitar]');
+    if (aceitar) {
+        e.preventDefault(); e.stopPropagation(); // dentro do <summary>
+        const ids = aceitar.dataset.dupAceitar
+            ? aceitar.dataset.dupAceitar.split(',').map(Number)
+            : [...new Set([...aceitar.closest('details').querySelectorAll('.despesa-item[data-id]')].map(x => Number(x.dataset.id)))];
+        const lista = ids.filter(Number.isFinite);
+        if (!lista.length) return;
+        executarComDesfazer({ texto: 'Marcado como "não é duplicata" (os lançamentos foram mantidos)', ids: lista, confirmar: async () => { lista.forEach(id => _aprovarDuplicata(id)); atualizarUI(); } });
+        return;
+    }
     const resolverConjunto = e.target.closest('[data-dup-resolver]');
     if (resolverConjunto) {
         e.preventDefault(); e.stopPropagation(); // dentro do <summary> do subgrupo
@@ -1246,7 +1264,7 @@ function onListaTransacaoClick(e) {
     if (apagarTodas) {
         e.preventDefault();
         const det = apagarTodas.closest('details');
-        const listados = [...det.querySelectorAll('[data-act="aprovar-duplicata"]')].map(b => Number(b.dataset.id)).filter(Number.isFinite);
+        const listados = [...new Set([...det.querySelectorAll('.despesa-item[data-id]')].map(x => Number(x.dataset.id)))].filter(Number.isFinite);
         // O grupo lista TODOS os membros de cada conjunto de parecidos (o original e as cópias). Apagar todos levaria o original junto:
         // de cada conjunto fica o mais antigo (menor id) e só as cópias são apagadas.
         const ids = _copiasDeDuplicatas(listados);

@@ -49,7 +49,7 @@ async function carregarPendencias() {
         completas.forEach(t => slot(_compDe(t)).dups.push(t));
         meses.forEach(m => m.dups.sort((x, y) => String(y.data).localeCompare(String(x.data))));
         let total = 0;
-        meses.forEach(m => { total += m.ac.length + m.dups.length; });
+        meses.forEach(m => { total += m.ac.length + _numCopiasDuplicatas(m.dups); });
         _pendencias = { total, meses };
         _pendenciasChave = { versao: versaoAoIniciar, hoje, em: Date.now() };
     } catch (e) {
@@ -100,12 +100,14 @@ function renderPendencias() {
     const grupo = (chave, nome, cor, itens, opts, abrir, botoes = '') => {
         if (!itens.length) return '';
         itens.forEach(t => todos.push(t));
-        const total = itens.reduce((acc, t) => acc + valorDe(t), 0);
+        // Duplicatas: o número e o total contam só as cópias (o que seria apagado); o original aparece, mas não conta
+        const contados = opts && opts.comAprovarDuplicata ? _listaCopiasDuplicatas(itens) : itens;
+        const total = contados.reduce((acc, t) => acc + valorDe(t), 0);
         return `
         <details class="fatura-item" data-pend="${chave}" style="--cor-cartao:${cor}" ${aberto(chave, !!abrir) ? 'open' : ''}>
           <summary>
             <span class="fatura-nome">${nome}</span>
-            <span class="fatura-contagem">${itens.length}</span>
+            <span class="fatura-contagem">${contados.length}</span>
             ${botoes}
             <span class="fatura-espaco"></span>
             <span class="fatura-total">${formatarMoeda(total)}</span>
@@ -121,7 +123,7 @@ function renderPendencias() {
         <details class="fatura-item" data-pend="mes:${comp}" ${aberto('mes:' + comp, comp === compSel) ? 'open' : ''}>
           <summary>
             <span class="fatura-nome">${_rotuloMesPend(comp)}</span>
-            <span class="fatura-contagem">${m.ac.length + m.dups.length}</span>
+            <span class="fatura-contagem">${m.ac.length + _numCopiasDuplicatas(m.dups)}</span>
           </summary>
           <div class="fatura-itens">${corpo}</div>
         </details>`;
