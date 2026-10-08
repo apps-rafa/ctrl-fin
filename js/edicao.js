@@ -212,8 +212,11 @@ async function excluirEdicaoTransacao() {
     let apagou;
     if (atual && atual.recorrenciaId) apagou = await perguntarExcluirRecorrente(atual); // só este mês ou encerrar a recorrência
     else {
-        if (!confirm('Apagar este lançamento? Não dá para desfazer.')) return;
-        apagou = await excluirTransacao(id);
+        if (atual && atual.parcelasTotal && atual.parcelaNum !== 1) apagou = await excluirTransacao(id); // parcela que não é a original: o aviso explica
+        else { // some na hora, com "Desfazer" por 5 s (js/desfazer.js) — sem confirm() nativo
+            executarComDesfazer({ texto: `Excluído: ${(atual && (atual.descricao || atual.categoria)) || 'lançamento'}`, ids: [id], confirmar: () => excluirTransacao(id, { silencioso: true }) });
+            apagou = true;
+        }
     }
     if (!apagou) return; // erro real, ou o diálogo "só a 1ª parcela" — segue em edição
 

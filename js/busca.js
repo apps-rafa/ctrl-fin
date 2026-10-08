@@ -157,8 +157,8 @@ function _htmlGruposFilaBusca(acs, dups, chaveBusca, abertos = {}) {
     <details class="rec-grupo" data-nome="${nome}" style="--cor-rec:${cor}" ${abertos[nome] !== false ? 'open' : ''}>
       <summary>
         <span class="rec-grupo-nome">${titulo}</span>
-        <span class="rec-grupo-contagem">${lista.length}</span>
-        <span class="rec-grupo-total">${formatarMoeda(lista.reduce((s, x) => s + valorDe(x), 0))}</span>
+        <span class="rec-grupo-contagem">${opts && opts.comAprovarDuplicata ? _numCopiasDuplicatas(lista) : lista.length}</span>
+        <span class="rec-grupo-total">${formatarMoeda((opts && opts.comAprovarDuplicata ? _listaCopiasDuplicatas(lista) : lista).reduce((s, x) => s + valorDe(x), 0))}</span>
       </summary>
       <div class="rec-grupo-itens">${opts && opts.comAprovarDuplicata ? _htmlConteudoDuplicatas(lista, (x, extra) => gerarHTMLTransacao(x, tipoUI(x), { ...opts, ...extra })) : lista.slice(0, _limiteGrupoBusca(chaveBusca, nome)).map(x => gerarHTMLTransacao(x, tipoUI(x), opts)).join('') + _htmlMaisGrupo(nome, lista.length, _limiteGrupoBusca(chaveBusca, nome))}</div>
     </details>`;
