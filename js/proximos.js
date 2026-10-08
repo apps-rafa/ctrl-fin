@@ -141,7 +141,7 @@ function renderPendentesProximas(abertos = {}, termo = '') {
         <details class="fatura-item" data-pend="${chave}" ${(abertos[chave] !== undefined ? abertos[chave] : !!termo) ? 'open' : ''}>
           <summary>
             <span class="fatura-nome">${nome}</span>
-            <span class="fatura-contagem">${lista.length}</span>
+            <span class="fatura-contagem">${_contarVisuais(lista)}</span>
             <span class="fatura-espaco"></span>
             <span class="fatura-total">${formatarMoeda(total)}</span>
           </summary>
@@ -229,7 +229,7 @@ function renderFaturasCartao(container, termo = '', soNaoRealizadas = false) {
                   <summary class="subgrupo-cab">
                     <span class="subgrupo-nome">${nome}</span>
                     <span class="subgrupo-espaco"></span>
-                    <span class="subgrupo-contagem">${its.length}</span>
+                    <span class="subgrupo-contagem">${_contarVisuais(its)}</span>
                     <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(totalSub)}</span>${total ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pctSub)}%</span>` : ''}</span>
                   </summary>
                   ${_htmlListaComSemanal(its, t => gerarHTMLTransacao(t, tipoUiDe(t), { semMetodoChip: true }), corSub, 'saida')}
