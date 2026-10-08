@@ -872,5 +872,5 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 .selo-dup { display: inline-block; font-size: .6rem; font-weight: 700; line-height: 1; padding: .18rem .45rem; border-radius: 999px; text-transform: uppercase; letter-spacing: .04em; border: 1px solid currentColor; font-style: normal; }
 .selo-dup--copia { color: var(--despesa-text); background: color-mix(in srgb, var(--despesa-text) 18%, transparent); }
 .selo-dup--original { color: var(--receita-text); }
-.subgrupo-cab .dup-resolver { margin-left: .5rem; }
+.subgrupo-cab .dup-resolver { margin-left: .5rem; order: 1; } /* logo depois do nome (o cabeçalho ordena nome=1, contagem=2, espaço=3, total=4) */
 .despesa-linha2 > .selo-dup { flex: none; align-self: center; }

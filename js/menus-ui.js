@@ -380,20 +380,13 @@ async function onFeriadosClick(e) {
 
   if (btn.dataset.ferDel) {
     const nome = btn.closest('.menu-item')?.querySelector('.item-nome')?.textContent || 'este feriado';
-    mostrarDialogo({
-      titulo: 'Apagar feriado?',
-      texto: `Remove <strong>${nome}</strong>.`,
-      acoes: [
-        { label: 'Cancelar' },
-        { label: 'Apagar', primario: true, perigo: true, onClick: async () => {
-            try {
-              await apagarFeriado(btn.dataset.ferDel);
-              renderFeriados();
-              atualizarUI();
-            } catch (_) { mostrarNotificacao('❌ Não foi possível apagar', 'erro'); }
-        } }
-      ]
-    });
+    const linhaFeriado = btn.closest('.menu-item');
+    const idFeriado = btn.dataset.ferDel;
+    // some na hora; "Desfazer" por 5 s (js/desfazer.js) e só depois o feriado é apagado
+    executarComDesfazerNaLinha(linhaFeriado, { texto: `Feriado apagado: ${nome}`, confirmar: async () => {
+      try { await apagarFeriado(idFeriado); renderFeriados(); atualizarUI(); }
+      catch (_) { mostrarNotificacao('❌ Não foi possível apagar', 'erro'); renderFeriados(); }
+    } });
     return;
   }
 }
@@ -718,14 +711,8 @@ async function acaoMenu(fn) {
 /** Confirmação de remoção via diálogo (sem confirm nativo) */
 function confirmarRemocao(row, id) {
   const nome = row?.querySelector('.item-nome')?.textContent || 'este item';
-  mostrarDialogo({
-    titulo: 'Remover?',
-    texto: `Remove <strong>${nome}</strong>. Não dá para desfazer.`,
-    acoes: [
-      { label: 'Cancelar' },
-      { label: 'Remover', primario: true, perigo: true, onClick: () => acaoMenu(() => removerItemMenuAPI(id)) }
-    ]
-  });
+  // some na hora; "Desfazer" por 5 s (js/desfazer.js) e só depois o item é removido
+  executarComDesfazerNaLinha(row, { texto: `Removido: ${nome}`, confirmar: () => acaoMenu(() => removerItemMenuAPI(id)) });
 }
 
 /** Edição inline: troca a linha por campos + Salvar/Cancelar */
