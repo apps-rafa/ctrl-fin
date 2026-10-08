@@ -34,6 +34,16 @@ test("lançado hoje, quitado ou vindo do banco não geram lembrete", () => {
   assert.equal(soTx(r).length, 0);
 });
 
+test("já marcada como Pago (agendado = false) não gera lembrete; programada ainda não paga gera", () => {
+  const r = soTx(montarLembretes({ ...base, transacoes: [tx({ id: 7, agendado: false }), tx({ id: 8, agendado: true })] }));
+  assert.deepEqual(r.map((x) => x.chave), ["lembrete:u1:tx:8"]);
+});
+
+test("sem data definida lembra no último dia do mês e avisa no detalhe", () => {
+  const [l] = soTx(montarLembretes({ ...base, hojeISO: "2026-10-31", transacoes: [tx({ id: 9, data: "2026-10-31", agendado: true, data_indefinida: true })] }));
+  assert.match(l.detalhe, /sem data definida/);
+});
+
 test("compra no cartão NÃO lembra pela data da compra", () => {
   const r = montarLembretes({ ...base, transacoes: [tx({ id: 6, metodo: "Crédito Bradesco", competencia: "2026-11-01" })] });
   assert.equal(soTx(r).length, 0);
