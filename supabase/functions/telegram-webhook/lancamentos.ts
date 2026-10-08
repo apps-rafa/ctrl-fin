@@ -247,7 +247,7 @@ export async function enviarRascunho(
   admin?: ReturnType<typeof createClient>, userId?: string, cabecalho?: string,
 ) {
   const sinal = r.tipo === "entradas" ? "💰 Receita" : "💸 Despesa";
-  const dataFmt = r.dataIndefinida ? `--/${r.data.slice(5, 7)} (sem data definida)` : new Date(`${r.data}T00:00:00`).toLocaleDateString("pt-BR");
+  const dataFmt = r.dataIndefinida ? `?/${r.data.slice(5, 7)} (sem data definida)` : new Date(`${r.data}T00:00:00`).toLocaleDateString("pt-BR");
   const ehCreditoSaida = r.tipo === "saidas" && r.metodoKind === "Crédito";
   const compFatura = r.competencia || competenciaDe(r.data, r.diaFechamento);
   const linhas = [

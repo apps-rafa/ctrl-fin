@@ -506,7 +506,7 @@ function obterDadosFormulario() {
     let compISO = competenciaDeMes(mesSelecionado); // todo lançamento tem o campo "Mês"
     if (!compISO) compISO = mesExib.slice(0, 8) + '01';
 
-    // Data em branco (ou inválida) = lançamento sem data (só o mês de referência): fica no último dia do mês, marcado como indefinido ("--/mês")
+    // Data em branco (ou inválida) = lançamento sem data (só o mês de referência): fica no último dia do mês, marcado como indefinido ("?/mês")
     // (texto que não é uma data, como 9999 ou 00/00, também vale como sem data)
     const dataIndefinida = !dataISO && tipoRecorrencia !== 'Parcelada' && !!compISO;
     if (dataIndefinida) {

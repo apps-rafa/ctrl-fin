@@ -1107,8 +1107,8 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     // tricode do dia da semana (ex.: 26/9 SÁB).
     const _dowTri = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
     const _dt = trans.data ? parseDataLocal(trans.data) : null;
-    // Data indefinida (recorrência mensal "Variável"): só o mês, "--/10"
-    const diaFormatado = _dt ? `${trans.dataIndefinida ? '--' : String(_dt.getDate()).padStart(2, '0')}/${String(_dt.getMonth() + 1).padStart(2, '0')}` : '--';
+    // Data indefinida (recorrência mensal "Variável"): só o mês, "?/10"
+    const diaFormatado = _dt ? `${trans.dataIndefinida ? '?' : String(_dt.getDate()).padStart(2, '0')}/${String(_dt.getMonth() + 1).padStart(2, '0')}` : '--';
     const dowFormatado = _dt && !trans.dataIndefinida ? _dowTri[_dt.getDay()] : '';
 
     const seloDup = opts.seloDuplicata === 'copia'
