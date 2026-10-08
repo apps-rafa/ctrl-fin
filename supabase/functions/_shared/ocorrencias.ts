@@ -59,7 +59,7 @@ export function ocorrenciasDaRecorrencia(
   const dentro = (d: string) => d <= ate && (!fim || d < fim);
   const saida: OcorrenciaData[] = [];
   if (r.frequencia === "mensal") {
-    const variavel = r.dia_mes == null; // "Variável": sem dia definido -> cai no fim do mês, marcada como data indefinida ("--/mês")
+    const variavel = r.dia_mes == null; // "Variável": sem dia definido -> cai no fim do mês, marcada como data indefinida ("?/mês")
     const dia = r.dia_mes ?? 31;
     for (let k = 0; k < 600; k++) {
       const d = somarMesesNoDia(r.inicio, k, dia);

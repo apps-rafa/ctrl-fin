@@ -249,7 +249,7 @@ function _recDatas(r, ate) {
     const fim = r.meses && r.meses > 1 ? iso(_recSomarMeses(ini, r.meses)) : null;
     const out = [];
     if (r.frequencia === 'mensal') {
-        const variavel = !r.diaMes; // sem dia definido: a ocorrência cai no fim do mês, marcada como "--/mês"
+        const variavel = !r.diaMes; // sem dia definido: a ocorrência cai no fim do mês, marcada como "?/mês"
         const dia = variavel ? 31 : r.diaMes;
         for (let k = 0; k < 600; k++) {
             const base = new Date(ini.getFullYear(), ini.getMonth() + k, 1);
@@ -305,7 +305,7 @@ function _recMontarMenuDia(freq, valor) {
     if (e.dia.dataset.freq === freq) return;
     e.dia.dataset.freq = freq;
     if (freq === 'mensal') {
-        // "Variável" = sem dia definido (a ocorrência fica como "--/mês" até você escolher a data); novo: já vem no dia de hoje
+        // "Variável" = sem dia definido (a ocorrência fica como "?/mês" até você escolher a data); novo: já vem no dia de hoje
         e.dia.innerHTML = '<option value="">Variável</option>' + Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
         e.dia.value = valor === undefined ? String(Number(hojeISO().slice(8, 10))) : (valor == null || valor === '' ? '' : String(valor));
     } else {

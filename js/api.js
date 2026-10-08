@@ -45,7 +45,7 @@ function mapearTransacao(row) {
         aConfirmar: !!row.a_confirmar,               // gerada pela recorrência e ainda sem decisão do usuário
         duplicataOk: !!row.duplicata_ok, // "não é duplicata" confirmado (vale em todos os dispositivos)
         agendado: !!row.agendado, // lançamento programado: o "Pago"/"Recebido" aparece quando a data chega, até ser marcado
-        dataIndefinida: !!row.data_indefinida, // recorrência mensal "Variável": só o mês é conhecido (mostra --/mês)
+        dataIndefinida: !!row.data_indefinida, // recorrência mensal "Variável": só o mês é conhecido (mostra ?/mês)
         parcelaNum: row.parcela_num || null,
         parcelasTotal: row.parcelas_total || null,
         valorTotal: row.valor_total != null ? parseFloat(row.valor_total) : null,

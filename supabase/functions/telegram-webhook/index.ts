@@ -257,7 +257,7 @@ async function processarTextoLivre(
   // Texto livre: tenta entender como um lançamento ("gastei 35,90 no
   // mercado", "recebi 200 de salário"). Sem um valor em dinheiro no
   // texto, não dá pra saber o que é — cai no "não entendi" de sempre.
-  // "sem data" / "data indefinida" / "não sei quando": lançamento só com o mês (fica no fim do mês, "--/mês")
+  // "sem data" / "data indefinida" / "não sei quando": lançamento só com o mês (fica no fim do mês, "?/mês")
   const reSemData = /\b(sem data|sem dia|data indefinida|n[aã]o sei quando)\b/i;
   const semData = reSemData.test(texto);
   if (semData) texto = texto.replace(reSemData, " ").replace(/\s+/g, " ").trim();
