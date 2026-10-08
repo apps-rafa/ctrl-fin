@@ -145,9 +145,13 @@ function _copiasDeDuplicatas(ids) {
 }
 
 /** Botão do cabeçalho do grupo Duplicatas (Home, abas e Pendências): o ✓ apaga as cópias e preserva o original de cada conjunto. */
-function _botoesTodasDuplicatas() {
-    return `<span role="button" tabindex="0" class="mini-btn" data-dup-aceitar-todas title="Não é duplicata: mantém todos os lançamentos listados e não avisa de novo sobre eles"><span class="mb-ico">≠</span><span class="mb-txt"> Não é duplicata</span></span>
-        <span role="button" tabindex="0" class="mini-btn armed" data-dup-apagar-todas title="Apagar cópias: apaga as cópias e mantém o original (o mais antigo) de cada conjunto"><span class="mb-ico">✓</span><span class="mb-txt"> Apagar cópias</span></span>`;
+function _botoesTodasDuplicatas(itens) {
+    // Um conjunto só: os botões valem para ele ("Não é duplicata" / "Apagar cópia"). Dois ou mais: aqui ficam os botões do grupo todo
+    // ("Nenhuma é duplicata" / "Apagar todas as cópias") e cada subgrupo tem os seus.
+    const varios = !itens || _conjuntosDuplicatas(itens).length > 1;
+    const [txtNao, txtApagar] = varios ? ['Nenhuma é duplicata', 'Apagar todas as cópias'] : ['Não é duplicata', 'Apagar cópia'];
+    return `<span role="button" tabindex="0" class="mini-btn" data-dup-aceitar-todas title="${varios ? 'Nenhuma é duplicata: mantém todos os lançamentos listados e não avisa de novo sobre eles' : 'Não é duplicata: mantém os lançamentos e não avisa de novo'}"><span class="mb-ico">≠</span><span class="mb-txt"> ${txtNao}</span></span>
+        <span role="button" tabindex="0" class="mini-btn armed" data-dup-apagar-todas title="${varios ? 'Apaga todas as cópias e mantém o original (o mais antigo) de cada conjunto' : 'Apaga a cópia e mantém o original'}"><span class="mb-ico">✓</span><span class="mb-txt"> ${txtApagar}</span></span>`;
 }
 /** Botões do cabeçalho do grupo A confirmar: confirmar todas / apagar todas. */
 function _botoesTodasAConfirmar() {
@@ -193,7 +197,7 @@ function _htmlConteudoDuplicatas(itens, htmlItem) {
             <span class="subgrupo-nome">${nome} · ${formatarMoeda(c[0].valor)}</span>
             ${resolver}
             <span class="subgrupo-espaco"></span>
-            <span class="subgrupo-contagem">${_numCopiasDuplicatas(c)}</span>
+            ${_numCopiasDuplicatas(c) > 1 ? `<span class="subgrupo-contagem">${_numCopiasDuplicatas(c)}</span>` : ''}
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(_listaCopiasDuplicatas(c).reduce((acc, t) => acc + ((t.valorMes != null ? t.valorMes : t.valor) || 0), 0))}</span></span>
           </summary>
           ${c.map(t => linha(t, c)).join('')}
@@ -224,7 +228,7 @@ function _renderGrupoDuplicatas(transacoes, tipoUI, aberto, duplicatasPre, onde 
     <details class="rec-grupo cor-rec-despesa" data-nome="__duplicatas__" ${aberto ? 'open' : ''}>
       <summary>
         <span class="rec-grupo-nome">📑 Duplicatas</span>
-        ${_botoesTodasDuplicatas()}
+        ${_botoesTodasDuplicatas(duplicatas)}
         <span class="rec-grupo-espaco"></span>
         <span class="rec-grupo-contagem">${copias.length}</span>
         <span class="rec-grupo-total">${formatarMoeda(total)}</span>

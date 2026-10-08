@@ -117,7 +117,7 @@ function renderPendencias() {
     };
     const html = [..._pendencias.meses.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([comp, m]) => {
         const corpo = grupo(`pend:${comp}:ac`, '🔁 A confirmar', 'var(--balanco-text)', m.ac.slice().sort((x, y) => String(x.data).localeCompare(String(y.data))), { comConfirmarOcorrencia: true }, comp === compSel, _botoesTodasAConfirmar())
-            + grupo(`pend:${comp}:dup`, '📑 Duplicatas', 'var(--despesa-text)', m.dups, { comAprovarDuplicata: true }, comp === compSel, _botoesTodasDuplicatas());
+            + grupo(`pend:${comp}:dup`, '📑 Duplicatas', 'var(--despesa-text)', m.dups, { comAprovarDuplicata: true }, comp === compSel, _botoesTodasDuplicatas(m.dups));
         if (!corpo) return '';
         return `
         <details class="fatura-item" data-pend="mes:${comp}" ${aberto('mes:' + comp, comp === compSel) ? 'open' : ''}>
