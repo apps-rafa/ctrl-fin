@@ -921,3 +921,6 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 /* "A confirmar": ✓ e ✗ na 1ª linha, logo depois do último item dela (forma de pagamento, ou o valor se ela estiver escondida) */
 .despesa-confirmar { display: inline-flex; align-items: center; gap: .3rem; flex: none; }
 .despesa-confirmar .btn-icon { min-width: 22px; width: 22px; height: 22px; padding: 0; font-size: 12px; line-height: 1; border-radius: 999px; }
+/* Subgrupo aberto: contorno na cor da sua seta (o mesmo anel da fatura/semanal) pra ver onde começa e onde termina; o mês do Anual já tem caixa própria */
+.subgrupo[open]:not([data-mes]) { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cor-rec, var(--primary)) 55%, var(--border)); border-radius: var(--radius-sm); margin: .35rem 0; padding-bottom: .15rem; }
+.subgrupo[open]:not([data-mes]) > .subgrupo-cab { border-bottom-color: color-mix(in srgb, var(--cor-rec, var(--primary)) 40%, var(--border)); }
