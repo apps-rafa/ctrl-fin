@@ -427,6 +427,13 @@ body .despesa-conteudo { column-gap: .35rem; }
     body .despesa-actions { gap: .05rem; }
     body .despesa-actions .btn-icon { min-width: 16px; width: 16px; }
 }
+/* Toque (celular): lápis, lixeira, ✓ e ✗ maiores e mais afastados — os de 16 px eram difíceis de acertar com o dedo */
+@media (max-width: 480px), (pointer: coarse) {
+    body .despesa-actions { gap: .5rem; }
+    body .despesa-actions .btn-icon { min-width: 30px; width: 30px; height: 30px; font-size: 15px; }
+    body .despesa-confirmar { gap: .5rem; }
+    body .despesa-confirmar .btn-icon { min-width: 30px; width: 30px; height: 30px; font-size: 15px; }
+}
 
 /* Chip de categoria abreviado em telas estreitas */
 .chip .cat-curto { display: none; }

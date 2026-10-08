@@ -273,7 +273,7 @@ function _subgruposDespesaReceita(itens, tipoDe, htmlItem, pai, onde) {
         <details class="subgrupo" data-nome="${chave}" style="--cor-rec:${cor}" ${aberto ? 'open' : ''}>
           <summary class="subgrupo-cab">
             <span class="subgrupo-nome">${nome}</span><span class="subgrupo-espaco"></span>
-            <span class="subgrupo-contagem">${lista.length}</span>
+            <span class="subgrupo-contagem">${_contarVisuais(lista)}</span>
             <span class="subgrupo-total">${formatarMoeda(total)}</span>
           </summary>
           ${barra}${corpo}
@@ -292,7 +292,7 @@ function _renderGrupoAConfirmar(itens, tipoUI, aberto, onde = 'home') {
         <span class="rec-grupo-nome">🔁 A confirmar</span>
         ${_botoesTodasAConfirmar()}
         <span class="rec-grupo-espaco"></span>
-        <span class="rec-grupo-contagem">${itens.length}</span>
+        <span class="rec-grupo-contagem">${_contarVisuais(itens)}</span>
         <span class="rec-grupo-total">${formatarMoeda(total)}</span>
       </summary>
       <div class="rec-grupo-itens">
@@ -550,7 +550,7 @@ function _renderListaAgrupadaPorTotal(container, transacoes, tipoUI, msgVazia, {
           <summary>
             <span class="rec-grupo-nome">${nome}</span>
             <span class="rec-grupo-espaco"></span>
-            <span class="rec-grupo-contagem">${itens.length}</span>
+            <span class="rec-grupo-contagem">${_contarVisuais(itens)}</span>
             <span class="rec-grupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalGeral ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
           </summary>
           <div class="rec-grupo-itens">
@@ -839,6 +839,15 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
         corDe: nome => coresMetodo[nome] || corPadraoChip(nome),
     }, abertosSub, `${tipoUI}:cronologica:${nomeGrupo}`, nomeGrupo === nomeAtual ? totalPagoGrupo : totalAPagarGrupo, { semRelogio: nomeGrupo === rotuloPendente }, // em "A pagar" tudo é futuro: o ⏰ seria redundante
         nomeGrupo === nomeAtual ? pagasFat.length : (nomeGrupo === rotuloPendente ? abertasFat.length : 0));
+    // Corpo de um grupo (Pago / A pagar / Recebido / A receber): com o filtro de Categoria ligado, as categorias com mais de um lançamento
+    // viram subgrupos (regra global em _dimensaoAgrupa); sem filtro, despesas por forma de pagamento e receitas em lista
+    const corpoDoGrupo = (nome, itens) => {
+        const opcoes = { semRelogio: nome === rotuloPendente };
+        if (_subModoGrupoDe(tipoUI, 'cronologica', nome) === 'categoria') {
+            return _renderItensSubagrupados(itens, tipoUI, _dimensaoSubmodo('categoria', tipoUI === 'saida'), abertosSub, `${tipoUI}:cronologica:${nome}:cat`, undefined, tipoUI === 'saida' ? opcoes : { ...opcoes, semMetodoChip: true });
+        }
+        return tipoUI === 'saida' ? corpoPorForma(itens, nome) : itens.map(t => gerarHTMLTransacao(t, tipoUI, { semMetodoChip: true, semRelogio: nome === rotuloPendente })).join('');
+    };
     const grupoHTML = (nome, cor, itens, total, pct, extraHTML = '', extraContagem = 0) => {
         if (!itens.length && !extraHTML) return `
         <div class="rec-grupo rec-grupo--vazio" style="--cor-rec:${cor}">
@@ -851,12 +860,13 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
           <summary>
             <span class="rec-grupo-nome">${nome}</span>
             <span class="rec-grupo-espaco"></span>
-            <span class="rec-grupo-contagem">${itens.length + extraContagem}</span>
+            <span class="rec-grupo-contagem">${_contarVisuais(itens) + extraContagem}</span>
             <span class="rec-grupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalGeral ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
           </summary>
           <div class="rec-grupo-itens">
+            ${_barraGrupo(_renderOrganizadorInline(tipoUI, 'cronologica', nome, tipoUI === 'saida', itens))}
             ${extraHTML}
-            ${tipoUI === 'saida' ? corpoPorForma(itens, nome) : itens.map(t => gerarHTMLTransacao(t, tipoUI, { semMetodoChip: true, semRelogio: nome === rotuloPendente })).join('')}
+            ${corpoDoGrupo(nome, itens)}
           </div>
         </details>`;
     };
@@ -963,10 +973,27 @@ function _ordenarPorGrupo(itens) {
 const _SUBMODOS_POR_MODO = {
     aconfirmar: ['categoria', 'metodo'],   // grupo "A confirmar"
     fatura: ['categoria'],     // subgrupo "Fatura <cartão>": filtro por categoria
-    cronologica: ['metodo'],   // grupos Atual / A pagar: filtro por forma de pagamento
+    cronologica: ['categoria'],   // grupos Pago / A pagar / Recebido / A receber: filtro por categoria (as despesas já se dividem por forma de pagamento)
     metodo: ['categoria'],
     categoria: ['metodo']
 };
+
+/** REGRA GLOBAL de filtro/agrupamento por categoria ou forma de pagamento: só vale a pena quando há MAIS DE UM valor
+ *  (senão não há o que separar) E pelo menos um valor com MAIS DE UM lançamento (senão cada lançamento ficaria sozinho
+ *  num grupo). Ex.: 4 de Casa + 1 de Alimentação + 1 de Transporte + 1 de Bloco → filtra, mas só "Casa" vira grupo. */
+function _dimensaoAgrupa(itens, dimCfg) {
+    const qtd = new Map();
+    itens.forEach(t => { const k = dimCfg.chaveDe(t) || dimCfg.semChave; qtd.set(k, (qtd.get(k) || 0) + 1); });
+    return qtd.size > 1 && [...qtd.values()].some(n => n > 1);
+}
+
+/** Quantos "lançamentos" a lista mostra: as sessões de uma recorrência semanal (agrupadas num subgrupo) contam como UM. */
+function _contarVisuais(itens) {
+    let soltos = 0;
+    const semanais = new Set();
+    (itens || []).forEach(t => { if (t.recorrenciaSemanalId) semanais.add(t.recorrenciaSemanalId); else soltos++; });
+    return soltos + semanais.size;
+}
 
 /** Config (chave/rótulo/emoji) de cada dimensão usável como submodo. */
 function _dimensaoSubmodo(dim, ehDespesa) {
@@ -992,7 +1019,10 @@ function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, 
         mapa.get(k).push(t);
     });
     const totalGeral = totalRef != null ? totalRef : itens.reduce((s, t) => s + valorDe(t), 0);
+    // Regra global: um valor com um lançamento só não vira subgrupo (nada a agrupar) — o lançamento fica solto, depois dos grupos
+    const soltos = [...mapa.values()].filter(its => its.length === 1).flat();
     const grupos = [...mapa.entries()]
+        .filter(([, its]) => its.length > 1)
         .map(([nome, its]) => [nome, _ordenarPorGrupo(its, `${chavePrefixo}:sub:${nome}`), its.reduce((s, t) => s + valorDe(t), 0)])
         .sort((a, b) => b[2] - a[2]);
     // Um único subgrupo dentro do grupo = não há escolha real a fazer: já vem aberto,
@@ -1010,12 +1040,12 @@ function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, 
           <summary class="subgrupo-cab">
             <span class="subgrupo-nome">${nome}</span>
             <span class="subgrupo-espaco"></span>
-            <span class="subgrupo-contagem">${its.length}</span>
+            <span class="subgrupo-contagem">${_contarVisuais(its)}</span>
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalGeral ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
           </summary>
           ${_htmlListaComSemanal(its, t => gerarHTMLTransacao(t, tipoUI, { ...baseOpts, ..._optsSemChipRedundante(its, dimCfg.campoChip, nome) }), cor, tipoUI)}
         </details>`;
-    }).join('');
+    }).join('') + _ordenarPorGrupo(soltos.slice()).map(t => gerarHTMLTransacao(t, tipoUI, baseOpts)).join('');
 }
 
 window.addEventListener('resize', () => document.querySelectorAll('.linha-detalhe i').forEach(e => e._reajustar && e._reajustar()));
@@ -1051,8 +1081,7 @@ function _renderOrganizadorInline(tipoUI, modo, grupoChave, ehDespesa, itens) {
     // pagamento = filtro sem sentido). Um filtro já ativo continua visível pra poder ser desfeito.
     const temEscolha = dim => {
         if (!itens) return true;
-        const c = _dimensaoSubmodo(dim, ehDespesa);
-        return new Set(itens.map(t => c.chaveDe(t) || c.semChave)).size > 1;
+        return _dimensaoAgrupa(itens, _dimensaoSubmodo(dim, ehDespesa));
     };
     const visiveis = opcoes.filter(dim => subAtual === dim || temEscolha(dim));
     if (!visiveis.length) return '';
@@ -1114,7 +1143,8 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     const seloDup = opts.seloDuplicata === 'copia'
         ? '<span class="selo-dup selo-dup--copia" title="O sistema sugere que esta é a duplicata (seria apagada)">duplicata</span>'
         : opts.seloDuplicata === 'original' ? '<span class="selo-dup selo-dup--original" title="Lançamento original (fica)">original</span>' : '';
-    const quandoTag = opts.quando ? `<span class="quando-tag">${opts.quando}</span>` : '';
+    // Busca ("A confirmar" de qualquer mês): diz de que mês de referência é o lançamento (a data pode cair num mês e a fatura/competência em outro)
+    const quandoTag = opts.quando ? `<span class="quando-tag">${opts.quando}</span>` : (opts.mesDaCompetencia && trans.competencia ? `<span class="quando-tag" title="Mês de referência: este lançamento está em a confirmar desse mês">ref. ${competenciaParaBR(trans.competencia)}</span>` : '');
 
     // Info da parcela (nunca vai para a descrição — vem dos campos da linha)
     const parcelaTag = ehParcela
@@ -1190,13 +1220,14 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
 
     // Ações
     let acoes = '';
+    let confirmaBtns = ''; // ✓ / ✗ de uma ocorrência "a confirmar": ficam na 1ª linha, ao lado do último item dela
     if (!opts.semAcoes) {
         if (opts.comConfirmarOcorrencia || trans.aConfirmar) {
-            acoes += `<button class="btn-icon btn-success" data-act="confirmar-ocorrencia" data-id="${trans.id}" title="Confirmar: este lançamento veio de uma recorrência e ainda é só um rascunho" aria-label="Confirmar">✓</button>`;
+            confirmaBtns += `<button class="btn-icon btn-success" data-act="confirmar-ocorrencia" data-id="${trans.id}" title="Confirmar: este lançamento veio de uma recorrência e ainda é só um rascunho" aria-label="Confirmar">✓</button>`;
         }
         acoes += `<button class="btn-icon" data-act="editar-trans" data-id="${trans.id}" title="${ehParcela && !ehOriginal ? 'Editar (abre o lançamento original)' : 'Editar'}" aria-label="Editar">${ICONE_LAPIS}</button>`;
         if (opts.comConfirmarOcorrencia) {
-            acoes += `<button class="btn-icon btn-danger" data-act="recusar-ocorrencia" data-id="${trans.id}" title="Não vai acontecer">✗</button>`;
+            confirmaBtns += `<button class="btn-icon btn-danger" data-act="recusar-ocorrencia" data-id="${trans.id}" title="Não vai acontecer">✗</button>`;
         } else if (!trans.quitada) {
             acoes += `<button class="btn-icon btn-danger" data-act="excluir-trans" data-id="${trans.id}" title="Excluir" aria-label="Excluir">${ICONE_LIXEIRA}</button>`;
         }
@@ -1218,6 +1249,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
                 ${quitarCheckbox}
                 ${pagoCheck}
                 ${(metaChip || quandoTag || quitadoTag) ? `<span class="despesa-badges">${metaChip}${quandoTag}${quitadoTag}</span>` : ''}
+                ${confirmaBtns ? `<span class="despesa-confirmar">${confirmaBtns}</span>` : ''}
                 <span class="despesa-linha2">${descTxt}${catChip}${seloDup}</span>
             </div>
             <div class="despesa-actions">${acoes}</div>
@@ -1422,7 +1454,7 @@ function _aplicarLimiteListas(raiz) {
     const pais = new Set();
     raiz.querySelectorAll('.despesa-item').forEach(i => { if (i.parentElement) pais.add(i.parentElement); });
     pais.forEach(pai => {
-        pai.querySelectorAll(':scope > .lista-mais-btn').forEach(b => b.remove());
+        pai.querySelectorAll(':scope > .lista-mais-btn[data-lista-tipo="itens"]').forEach(b => b.remove());
         const itens = [...pai.children].filter(c => c.classList.contains('despesa-item'));
         const chave = _chaveLista(pai);
         const lim = _limitesLista[chave] || 5;
@@ -1432,6 +1464,7 @@ function _aplicarLimiteListas(raiz) {
             btn.type = 'button';
             btn.className = 'busca-ampla-btn lista-mais-btn';
             btn.dataset.listaChave = chave;
+            btn.dataset.listaTipo = 'itens'; // (os botões de lançamentos e de subgrupos do mesmo grupo convivem: cada bloco só mexe no seu)
             btn.textContent = `Carregar mais ${Math.min(5, itens.length - lim)}`;
             itens[itens.length - 1].after(btn);
         }
@@ -1439,7 +1472,7 @@ function _aplicarLimiteListas(raiz) {
     // Próximos: os MESES também aparecem 5 por vez ("Carregar mais 5"); todo subgrupo dentro de um grupo (mês, categoria, forma)
     const meses = [...raiz.querySelectorAll('details.fatura-item[data-pend^="mes:"]' + ', details.subgrupo')].filter(m => m.parentElement);
     new Set(meses.map(m => m.parentElement)).forEach(pai => {
-        pai.querySelectorAll(':scope > .lista-mais-btn').forEach(b => b.remove());
+        pai.querySelectorAll(':scope > .lista-mais-btn[data-lista-tipo="grupos"]').forEach(b => b.remove());
         const lista = meses.filter(m => m.parentElement === pai);
         const chave = _chaveLista(pai) + '>meses';
         const lim = _limitesLista[chave] || 5;
@@ -1449,6 +1482,7 @@ function _aplicarLimiteListas(raiz) {
             btn.type = 'button';
             btn.className = 'busca-ampla-btn lista-mais-btn';
             btn.dataset.listaChave = chave;
+            btn.dataset.listaTipo = 'grupos';
             btn.textContent = `Carregar mais ${Math.min(5, lista.length - lim)}`;
             lista[lista.length - 1].after(btn);
         }

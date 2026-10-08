@@ -627,21 +627,24 @@
   background: var(--surface);
   cursor: pointer;
 }
+/* O ✓ é um desenho SVG (sempre na orientação certa, em qualquer navegador); aparece fraquinho no hover e firme quando marcado */
 .quitar-check input[type="checkbox"]::after, .pago-check input[type="checkbox"]::after {
   content: '';
-  width: .28rem;
-  height: .52rem;
-  margin-top: -.06rem;
-  border: solid var(--primary-contrast, #fff);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg) scale(0);
+  width: 100%;
+  height: 100%;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.6 8.6l2.9 2.9 6-7' fill='none' stroke='%234F46E5' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  opacity: 0;
 }
+.quitar-check input[type="checkbox"]:hover::after, .pago-check input[type="checkbox"]:hover::after { opacity: .45; }
 .quitar-check input[type="checkbox"]:checked, .pago-check input[type="checkbox"]:checked {
   background: var(--primary);
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(129, 140, 248, .35);
 }
-.quitar-check input[type="checkbox"]:checked::after, .pago-check input[type="checkbox"]:checked::after { transform: rotate(45deg) scale(1); }
+.quitar-check input[type="checkbox"]:checked::after, .pago-check input[type="checkbox"]:checked::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.6 8.6l2.9 2.9 6-7' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  opacity: 1;
+}
 .quitar-check input[type="checkbox"]:focus-visible, .pago-check input[type="checkbox"]:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
 /* Diálogo modal */
@@ -915,3 +918,6 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 .selo-dup--original { color: var(--receita-text); }
 .subgrupo-cab .dup-resolver { margin-left: .5rem; order: 1; } /* logo depois do nome (o cabeçalho ordena nome=1, contagem=2, espaço=3, total=4) */
 .despesa-linha2 > .selo-dup { flex: none; align-self: center; }
+/* "A confirmar": ✓ e ✗ na 1ª linha, logo depois do último item dela (forma de pagamento, ou o valor se ela estiver escondida) */
+.despesa-confirmar { display: inline-flex; align-items: center; gap: .3rem; flex: none; }
+.despesa-confirmar .btn-icon { min-width: 22px; width: 22px; height: 22px; padding: 0; font-size: 12px; line-height: 1; border-radius: 999px; }
