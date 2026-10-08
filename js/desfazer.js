@@ -84,3 +84,13 @@ function executarComDesfazer({ texto, ids = [], confirmar, antes, aoDesfazer }) 
 function _confirmarDesfazerPendentes() { [..._desfazerPendentes].forEach(a => a.confirmar()); }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _confirmarDesfazerPendentes(); });
 window.addEventListener('pagehide', _confirmarDesfazerPendentes);
+
+/** Desfazer para uma linha que não é um lançamento (item de menu, histórico...): ela some na hora e volta se desfizer. */
+function executarComDesfazerNaLinha(linha, { texto, confirmar }) {
+    return executarComDesfazer({
+        texto,
+        antes: () => linha && linha.classList.add('desfazendo-linha'),
+        aoDesfazer: () => linha && linha.classList.remove('desfazendo-linha'),
+        confirmar,
+    });
+}

@@ -652,28 +652,22 @@ function excluirHistoricoPluggy(id) {
     const item = _historicoPluggyCache[id];
     const t = item?.transacao;
     if (!t) return;
-    mostrarDialogo({
-        titulo: 'Excluir lançamento?',
-        texto: `Remove <strong>${t.descricao || t.categoria || 'este lançamento'}</strong>. Não dá para desfazer.`,
-        acoes: [
-            { label: 'Cancelar' },
-            { label: 'Excluir', primario: true, perigo: true, onClick: async () => {
-                try {
-                    await deletarTransacaoAPI(t.id);
-                    // Some do histórico junto — sem isso a linha ficaria
-                    // "confirmada" apontando pra uma transação que não existe mais.
-                    await sb.from('transacoes_importadas').update({ status: 'ignorada' }).eq('id', id);
-                    mostrarNotificacao('Lançamento excluído', 'sucesso');
-                    await recarregarDados();
-                    atualizarUI();
-                    await carregarRevisaoPluggy();
-                } catch (e) {
-                    console.error(e);
-                    mostrarNotificacao('Erro ao excluir', 'erro');
-                }
-            } }
-        ]
-    });
+    const linha = document.querySelector(`[data-act="excluir-historico"][data-id="${id}"]`)?.closest('.despesa-item');
+    // some na hora; "Desfazer" por 5 s (js/desfazer.js) e só depois o lançamento vai para a Lixeira
+    executarComDesfazerNaLinha(linha, { texto: `Excluído: ${t.descricao || t.categoria || 'lançamento'}`, confirmar: async () => {
+        try {
+            await deletarTransacaoAPI(t.id);
+            // Some do histórico junto — sem isso a linha ficaria "confirmada" apontando pra uma transação que não existe mais.
+            await sb.from('transacoes_importadas').update({ status: 'ignorada' }).eq('id', id);
+            await recarregarDados();
+            atualizarUI();
+            await carregarRevisaoPluggy();
+        } catch (e) {
+            console.error(e);
+            mostrarNotificacao('Erro ao excluir', 'erro');
+            await carregarRevisaoPluggy();
+        }
+    } });
 }
 
 function _renderRevisaoPluggyPreservandoScroll() {
