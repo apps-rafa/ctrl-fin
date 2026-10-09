@@ -1,6 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { montarLembretes, montarMensagemVencimentos, corpoAvisoVencimentos, diaVencimentoNoMes } from "../supabase/functions/telegram-webhook/lembretes.ts";
+import { montarLembretes, montarMensagemVencimentos, corpoAvisoVencimentos, diaVencimentoNoMes, tecladoPagoVencimentos, rotuloBotaoPago, tratarPagoVencimento } from "../supabase/functions/telegram-webhook/lembretes.ts";
+import { hojeBrasiliaISO } from "../supabase/functions/telegram-webhook/parser.ts";
+
+/** Captura as chamadas ao Telegram (fetch) para conferir o que o bot envia. */
+function capturaTelegram() {
+  const chamadas = [];
+  globalThis.fetch = async (url, init) => {
+    chamadas.push({ metodo: String(url).split("/").pop(), corpo: JSON.parse(init.body) });
+    return { ok: true, text: async () => "" };
+  };
+  return chamadas;
+}
 
 const HOJE = "2026-10-13";
 const antes = "2026-10-01T15:00:00Z";           // criado antes de hoje
@@ -124,12 +135,51 @@ test("lembrete de recorrência: só as que vencem hoje e uma vez só", () => {
   assert.equal(de_novo.length, 0);
 });
 
-test("aviso de vencimentos não tem botões e limpa o teclado de edição deixado na conversa", () => {
+test("aviso de despesa tem o botão Marcar como pago na própria mensagem (sem teclado persistente)", () => {
   const [l] = montarLembretes({ ...base, transacoes: [tx({})] });
   const corpo = corpoAvisoVencimentos(123, HOJE, [l]);
-  assert.deepEqual(corpo.reply_markup, { remove_keyboard: true });
+  assert.deepEqual(corpo.reply_markup, { inline_keyboard: [[{ text: "Marcar como pago", callback_data: "pgmarcar:1" }]] });
   assert.equal(corpo.chat_id, 123);
   assert.match(corpo.text, /Vencimentos de hoje/);
+});
+
+test("aviso só de fatura não tem botões e limpa o teclado de edição deixado na conversa", () => {
+  const fatura = { chave: "lembrete:u1:fat:Crédito Bradesco:2026-10-01", titulo: "💳 Fatura Crédito Bradesco — R$ 10,00", detalhe: "Mês da fatura", valor: 10 };
+  const corpo = corpoAvisoVencimentos(123, HOJE, [fatura]);
+  assert.deepEqual(corpo.reply_markup, { remove_keyboard: true });
+});
+
+test("com vários vencimentos, cada botão leva o nome do lançamento; já marcado vira Desmarcar", () => {
+  const ls = montarLembretes({ ...base, transacoes: [tx({ id: 1, descricao: "Condomínio" }), tx({ id: 2, descricao: "Internet" })] });
+  assert.deepEqual(tecladoPagoVencimentos(ls).inline_keyboard.map((r) => r[0].text), ["Marcar como pago: Condomínio", "Marcar como pago: Internet"]);
+  assert.equal(rotuloBotaoPago(true, "Internet", false), "Desmarcar como pago");
+});
+
+test("tratarPagoVencimento: marca (agendado=false, pago_em=hoje), depois desmarca pelo mesmo botão", async () => {
+  const chamadas = capturaTelegram();
+  const gravacoes = [];
+  let linha = { id: 1, descricao: "Condomínio", categoria: "Casa", agendado: true, pago_em: null };
+  const admin = {
+    from(nome) {
+      const q = {
+        select: () => q, eq: () => q, in: () => q,
+        maybeSingle: async () => ({ data: nome === "telegram_users" ? { user_id: "u1" } : linha }),
+        update: (campos) => { gravacoes.push(campos); linha = { ...linha, ...campos }; return { eq: () => ({ eq: async () => ({ error: null }) }) }; },
+      };
+      return q;
+    },
+  };
+  const cq = { id: "cb1", message: { message_id: 55, reply_markup: { inline_keyboard: [[{ text: "Marcar como pago", callback_data: "pgmarcar:1" }]] } } };
+  await tratarPagoVencimento(admin, "TOKEN", cq, 123, "1");
+  assert.deepEqual(gravacoes[0], { agendado: false, pago_em: hojeBrasiliaISO() });
+  const edicao = chamadas.find((c) => c.metodo === "editMessageReplyMarkup");
+  assert.deepEqual(edicao.corpo.reply_markup.inline_keyboard, [[{ text: "Desmarcar como pago", callback_data: "pgmarcar:1" }]]);
+
+  const cq2 = { ...cq, message: { message_id: 55, reply_markup: edicao.corpo.reply_markup } };
+  await tratarPagoVencimento(admin, "TOKEN", cq2, 123, "1");
+  assert.deepEqual(gravacoes[1], { agendado: true, pago_em: null });
+  const edicao2 = chamadas.filter((c) => c.metodo === "editMessageReplyMarkup").at(-1);
+  assert.equal(edicao2.corpo.reply_markup.inline_keyboard[0][0].text, "Marcar como pago");
 });
 
 test("aviso de recorrência não tem botões e não pergunta pelo rascunho", () => {

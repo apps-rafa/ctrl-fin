@@ -9,6 +9,8 @@
 //    mês (despesas - estornos), se ela não estiver marcada como paga.
 //  - Já marcada como "Pago" (agendado = false) não gera lembrete: o "Pago" pode ser marcado no próprio dia,
 //    antes das 09:00. Lançamento sem data definida (vale como fim do mês) lembra no último dia do mês.
+//  - Cada despesa avisada tem o botão "Marcar como pago" na própria mensagem (ver tecladoPagoVencimentos): marca
+//    o mesmo checkbox do app, que segue marcado até o dia seguinte; o botão vira "Desmarcar como pago" e reverte.
 //  - Receitas não geram lembrete.
 //  - Cada lançamento/fatura é lembrado uma vez só (a chave fica em alertas_bot).
 //  - Todos os vencimentos do dia saem juntos, numa mensagem só.
@@ -27,7 +29,7 @@ export interface TransacaoLembrete {
 export interface MetodoLembrete { nome: string; metodo_kind: string | null; banco: string | null; dia_vencimento: number | null }
 
 /** Um vencimento do dia. Todos saem juntos numa mensagem só (ver montarMensagemVencimentos). */
-export interface Lembrete { chave: string; titulo: string; detalhe: string; valor: number }
+export interface Lembrete { chave: string; titulo: string; detalhe: string; valor: number; transacaoId?: number; nome?: string }
 
 const dataBR = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
@@ -74,6 +76,8 @@ export function montarLembretes(p: {
       titulo: `💸 ${t.descricao || t.categoria || "Despesa"} — ${formatarMoedaBR(valor)}`,
       detalhe: `Categoria: ${t.categoria || "—"} · Forma de pgto.: ${t.metodo || "—"}${t.data_indefinida ? " · sem data definida" : ""}`,
       valor,
+      transacaoId: t.id,
+      nome: t.descricao || t.categoria || "Despesa",
     });
   }
 
@@ -129,10 +133,57 @@ export function montarMensagemVencimentos(hojeISO: string, lembretes: Lembrete[]
   return linhas.join("\n").trimEnd();
 }
 
-/** Corpo do aviso de vencimentos. É só aviso: sem botões, e remove o teclado persistente de edição
- *  ("✏️ Editar" / "❌ Cancelar edição") que ficou na conversa de um rascunho aberto antes. */
+/** Rótulo do botão de um vencimento: "Marcar como pago" ou, já marcado hoje, "Desmarcar como pago". Com vários, ganha o nome. */
+export function rotuloBotaoPago(marcado: boolean, nome: string, varios: boolean): string {
+  const base = marcado ? "Desmarcar como pago" : "Marcar como pago";
+  return varios ? `${base}: ${nome.length > 22 ? nome.slice(0, 21) + "…" : nome}` : base;
+}
+
+/** Um botão "Marcar como pago" por despesa avisada (nulo se o aviso não tem despesa, só fatura). */
+export function tecladoPagoVencimentos(lembretes: Lembrete[]) {
+  const comId = lembretes.filter((l) => l.transacaoId != null);
+  if (!comId.length) return null;
+  return {
+    inline_keyboard: comId.map((l) => [{ text: rotuloBotaoPago(false, l.nome ?? "", comId.length > 1), callback_data: `pgmarcar:${l.transacaoId}` }]),
+  };
+}
+
+/** Corpo do aviso de vencimentos. Com despesas: o botão "Marcar como pago" vai na própria mensagem (inline, sem teclado
+ *  persistente). Só fatura: sem botões, e remove o teclado de edição ("✏️ Editar" / "❌ Cancelar edição") deixado na conversa. */
 export function corpoAvisoVencimentos(chatId: number, hojeISO: string, lembretes: Lembrete[]) {
-  return { chat_id: chatId, text: montarMensagemVencimentos(hojeISO, lembretes), reply_markup: { remove_keyboard: true } };
+  const reply_markup = tecladoPagoVencimentos(lembretes) ?? { remove_keyboard: true };
+  return { chat_id: chatId, text: montarMensagemVencimentos(hojeISO, lembretes), reply_markup };
+}
+
+/** Botão "Marcar como pago" / "Desmarcar como pago" de um vencimento (callback "pgmarcar:<id>"). Mesma regra do checkbox do app:
+ *  marcar põe agendado = false e pago_em = hoje; desmarcar volta agendado = true e pago_em = null. Só o botão tocado muda. */
+export async function tratarPagoVencimento(
+  admin: ReturnType<typeof createClient>, token: string, cq: any, chatId: number, idStr: string,
+): Promise<void> {
+  const id = Number(idStr);
+  const responder = (text: string) => tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text });
+  const { data: tgUser } = await admin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+  if (!tgUser) { await responder("Conta não vinculada"); return; }
+  const userId = (tgUser as { user_id: string }).user_id;
+  const hoje = hojeBrasiliaISO();
+  const { data: t } = await admin.from("transacoes").select("id, descricao, categoria, agendado, pago_em")
+    .eq("id", id).eq("user_id", userId).maybeSingle(); // nunca confia só no id vindo do botão
+  const linha = t as { id: number; descricao: string | null; categoria: string | null; agendado: boolean | null; pago_em: string | null } | null;
+  if (!linha) { await responder("Esse lançamento já não existe mais"); return; }
+  const marcadoHoje = linha.agendado === false && String(linha.pago_em ?? "").slice(0, 10) === hoje;
+  if (linha.agendado === false && !marcadoHoje) { await responder("Já estava marcado como pago"); return; }
+  const marcar = !marcadoHoje;
+  const { error } = await admin.from("transacoes")
+    .update(marcar ? { agendado: false, pago_em: hoje } : { agendado: true, pago_em: null })
+    .eq("id", id).eq("user_id", userId);
+  if (error) { await responder("Não consegui atualizar"); return; }
+  await responder(marcar ? "Marcado como pago ✅" : "Desmarcado");
+  const linhas = (cq.message?.reply_markup?.inline_keyboard ?? []) as { text: string; callback_data: string }[][];
+  const varios = linhas.filter((r) => String(r[0]?.callback_data ?? "").startsWith("pgmarcar:")).length > 1;
+  const novas = linhas.map((r) => (r[0]?.callback_data === `pgmarcar:${id}`
+    ? [{ text: rotuloBotaoPago(marcar, linha.descricao || linha.categoria || "Despesa", varios), callback_data: r[0].callback_data }]
+    : r));
+  await tg(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: cq.message.message_id, reply_markup: { inline_keyboard: novas } });
 }
 
 /** Corpo do aviso de recorrência: também só aviso, sem botões (o rascunho sai pelo app, em "A confirmar"). */

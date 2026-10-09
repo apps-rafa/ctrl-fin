@@ -121,3 +121,9 @@ function deveMostrarPagoRecebido(t, hoje, { credito = false, estorno = false, pa
   if (!t || !t.agendado || t.aConfirmar || parcela || credito || estorno || !t.data) return false;
   return !!t.dataIndefinida || String(t.data).slice(0, 10) <= hoje;
 }
+
+/** Marcado como "Pago"/"Recebido" HOJE (pago_em = hoje): o checkbox segue marcado até o dia seguinte, e desmarcar reverte.
+ *  Vale também para o aviso do Telegram, que marca pelo mesmo campo (ver lembretes.ts). */
+function marcadoPagoHoje(t, hoje) {
+  return !!t && t.agendado === false && !t.aConfirmar && !!t.pagoEm && String(t.pagoEm).slice(0, 10) === hoje;
+}

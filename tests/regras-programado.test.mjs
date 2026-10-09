@@ -10,6 +10,7 @@ import { analisarParecidos, textoParecidos, tecladoParecidos } from "../supabase
 const ctx = vm.createContext({ console });
 vm.runInContext(fs.readFileSync(new URL("../js/recorrencia.js", import.meta.url), "utf8"), ctx);
 const mostra = ctx.deveMostrarPagoRecebido;
+const marcadoHoje = ctx.marcadoPagoHoje;
 
 test("checkbox: só programado, a partir do dia; marcado (agendado=false) some", () => {
   const t = { agendado: true, aConfirmar: false, data: "2026-10-20" };
@@ -17,6 +18,16 @@ test("checkbox: só programado, a partir do dia; marcado (agendado=false) some",
   assert.equal(mostra(t, "2026-10-20"), true, "no dia aparece");
   assert.equal(mostra(t, "2026-10-25"), true, "depois do dia segue até marcar");
   assert.equal(mostra({ ...t, agendado: false }, "2026-10-25"), false, "marcado: some");
+});
+
+test("checkbox: marcado hoje (pago_em) segue marcado até o dia seguinte; desmarcado volta a ser programado", () => {
+  const m = { agendado: false, aConfirmar: false, data: "2026-10-20", pagoEm: "2026-10-20" };
+  assert.equal(marcadoHoje(m, "2026-10-20"), true, "no dia em que foi marcado: fica marcado");
+  assert.equal(marcadoHoje(m, "2026-10-21"), false, "no dia seguinte: some");
+  assert.equal(mostra(m, "2026-10-20"), false, "o checkbox 'marcado' vem de marcadoPagoHoje, não de deveMostrar");
+  assert.equal(marcadoHoje({ ...m, pagoEm: null }, "2026-10-20"), false, "sem pago_em não está marcado");
+  assert.equal(marcadoHoje({ ...m, agendado: true }, "2026-10-20"), false, "programado não está marcado");
+  assert.equal(mostra({ ...m, agendado: true, pagoEm: null }, "2026-10-20"), true, "desmarcado (agendado de novo) volta a aparecer");
 });
 
 test("checkbox: data variável aparece sempre; exceções (rascunho, crédito, parcela, estorno)", () => {
@@ -122,9 +133,12 @@ test("api.js: operações nomeadas montam as consultas certas", async () => {
   igual(chamadas.at(-1).filtros, [["eq", "id", 7]]);
   igual(chamadas.at(-1).campos, { duplicata_ok: true });
   ctxApi.marcarPagoAPI({ id: 9, dataIndefinida: true });
-  igual(chamadas.at(-1).campos, { agendado: false, data: "2026-10-05", data_indefinida: false });
+  igual(chamadas.at(-1).campos, { agendado: false, pago_em: "2026-10-05", data: "2026-10-05", data_indefinida: false });
   ctxApi.marcarPagoAPI({ id: 9, dataIndefinida: false });
-  igual(chamadas.at(-1).campos, { agendado: false });
+  igual(chamadas.at(-1).campos, { agendado: false, pago_em: "2026-10-05" });
+  ctxApi.desmarcarPagoAPI({ id: 9 });
+  igual(chamadas.at(-1).campos, { agendado: true, pago_em: null });
+  igual(chamadas.at(-1).filtros, [["eq", "id", 9]]);
   ctxApi.apagarOcorrenciasDaRecorrenciaAPI(3, "2026-10-05");
   igual(chamadas.at(-1).filtros, [["eq", "recorrencia_id", 3], ["eq", "a_confirmar", true], ["gte", "data", "2026-10-05"]]);
   ctxApi.apagarOcorrenciasDaRecorrenciaAPI(3);
