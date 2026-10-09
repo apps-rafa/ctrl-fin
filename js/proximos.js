@@ -17,8 +17,8 @@ function renderProximasAgrupado(abertos = {}, futurasMeses = []) {
     const despesas = futuras(estadoApp.transacoes.saidas);
     const faturas = _faturasAPagar().filter(f => !f.paga); // mesma lógica do "A pagar"
     const abertosSub = abertos.__sub || {};
-    // Subgrupo (Despesas/Receitas) de um mês: fechado por padrão, mas abre junto do pai quando é o único
-    const aberto = (k, unico) => (abertos[k] !== undefined ? abertos[k] : !!unico);
+    // Nenhum grupo nasce aberto: só fica aberto o que você abriu
+    const aberto = k => !!abertos[k];
     // Compras já feitas no cartão (+ créditos/estornos) que compõem cada fatura em aberto
     const feita = t => _transacaoRealizada(t);
     const estornos = new Set();
@@ -29,7 +29,7 @@ function renderProximasAgrupado(abertos = {}, futurasMeses = []) {
     };
     const totalDespesa = soma(despesas) + faturas.reduce((acc, f) => acc + f.total, 0);
     const grupo = (nome, chave, cor, contagem, total, corpo, unico = false) => `
-        <details class="fatura-item" data-pend="${chave}" style="--cor-cartao:${cor}" ${aberto(chave, unico) ? 'open' : ''}>
+        <details class="fatura-item" data-pend="${chave}" style="--cor-cartao:${cor}" ${aberto(chave) ? 'open' : ''}>
           <summary>
             <span class="fatura-nome">${nome}</span>
             <span class="fatura-contagem">${contagem}</span>
@@ -68,7 +68,7 @@ function renderProximasAgrupado(abertos = {}, futurasMeses = []) {
     futurasMeses.forEach(([comp, recs, desps]) => meses.set(comp, mesCom(comp, recs, desps, false)));
     return [...meses.entries()].filter(([, m]) => m.qtd).sort((a, b) => a[0].localeCompare(b[0]))
         .map(([comp, m]) => `
-        <details class="fatura-item" data-pend="mes:${comp}" ${(abertos['mes:' + comp] !== undefined ? abertos['mes:' + comp] : comp === compSel) ? 'open' : ''}>
+        <details class="fatura-item" data-pend="mes:${comp}" ${abertos['mes:' + comp] ? 'open' : ''}>
           <summary>
             <span class="fatura-nome">${_rotuloMesCurto(comp)}</span>
             <span class="fatura-contagem">${m.qtd}</span>
@@ -138,7 +138,7 @@ function renderPendentesProximas(abertos = {}, termo = '') {
         if (!lista.length) return '';
         const total = lista.reduce((acc, t) => acc + valorDe(t), 0);
         return `
-        <details class="fatura-item" data-pend="${chave}" ${(abertos[chave] !== undefined ? abertos[chave] : !!termo) ? 'open' : ''}>
+        <details class="fatura-item" data-pend="${chave}" ${abertos[chave] ? 'open' : ''}>
           <summary>
             <span class="fatura-nome">${nome}</span>
             <span class="fatura-contagem">${_contarVisuais(lista)}</span>
@@ -219,13 +219,12 @@ function renderFaturasCartao(container, termo = '', soNaoRealizadas = false) {
             const gruposSub = [...mapa.entries()]
                 .map(([nome, its]) => [nome, _ordenarPorGrupo(its, `${chaveFatura}:sub:${nome}`), its.reduce((s, t) => s + valorDe(t), 0)])
                 .sort((a, b) => b[2] - a[2]);
-            const unicoSubgrupo = gruposSub.length === 1;
             itensHTML = gruposSub.map(([nome, its, totalSub]) => {
                 const pctSub = total ? (totalSub / total) * 100 : 0;
                 const corSub = (cfg.corDe ? cfg.corDe(nome) : null) || corPadraoChip(nome);
-                const abertoSub = unicoSubgrupo || abertosSub[nome];
+                const abertoSub = !!abertosSub[nome];
                 return `
-                <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}"${unicoSubgrupo ? ' data-auto="1"' : ''} style="--cor-rec:${corSub}" ${abertoSub ? 'open' : ''}>
+                <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" style="--cor-rec:${corSub}" ${abertoSub ? 'open' : ''}>
                   <summary class="subgrupo-cab">
                     <span class="subgrupo-nome">${nome}</span>
                     <span class="subgrupo-espaco"></span>
@@ -258,7 +257,7 @@ function renderFaturasCartao(container, termo = '', soNaoRealizadas = false) {
         }
 
         return `
-        <details class="fatura-item" data-nome="${rot.replace(/"/g, '&quot;')}" style="--cor-cartao:${cor}" ${(abertos[rot] !== undefined ? abertos[rot] : !!termo) ? 'open' : ''}>
+        <details class="fatura-item" data-nome="${rot.replace(/"/g, '&quot;')}" style="--cor-cartao:${cor}" ${abertos[rot] ? 'open' : ''}>
           <summary>
             <span class="fatura-nome">${rot}</span>
             <span class="fatura-contagem">${despesas.length + estornos.length}</span>

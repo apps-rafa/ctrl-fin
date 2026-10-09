@@ -574,7 +574,7 @@ function _recGrupoHTML(chave, nome, cor, itens, aberto) {
         corpo = subs.map(([sub, lista]) => {
             const k = `${chave}:${modo}:${sub}`;
             const corSub = modo === 'categoria' ? corDaCategoria(sub, chave === 'saidas' ? 'saida' : 'entrada') : corPadraoChip(sub);
-            const abertoSub = _recAbertos[k] !== undefined ? _recAbertos[k] : subs.length === 1; // subgrupo único abre junto do pai
+            const abertoSub = !!_recAbertos[k]; // nenhum grupo nasce aberto
             return `
             <details class="subgrupo" data-rec-chave="${k}" style="--cor-rec:${corSub}" ${abertoSub ? 'open' : ''}>
                 <summary class="subgrupo-cab">
@@ -601,7 +601,7 @@ function _recGrupoHTML(chave, nome, cor, itens, aberto) {
 /** Grupo "Encerradas": subgrupos Despesa e Receita (sem filtros), cada linha com o botão "Voltar". */
 function _recEncerradasHTML(encerradas, aberto) {
     const sub = (chave, nome, cor, lista) => !lista.length ? '' : `
-        <details class="subgrupo" data-rec-chave="${chave}" style="--cor-rec:${cor}" ${(_recAbertos[chave] !== undefined ? _recAbertos[chave] : (!!encerradas.filter(r => r.tipo === 'saidas').length !== !!encerradas.filter(r => r.tipo === 'entradas').length)) ? 'open' : ''}>
+        <details class="subgrupo" data-rec-chave="${chave}" style="--cor-rec:${cor}" ${_recAbertos[chave] ? 'open' : ''}>
             <summary class="subgrupo-cab"><span class="subgrupo-nome">${nome}</span><span class="subgrupo-espaco"></span><span class="subgrupo-contagem">${lista.length}</span></summary>
             ${_recItensHTML(lista)}
         </details>`;
@@ -627,7 +627,7 @@ function renderListaRecorrencias() {
     const despesas = ativas.filter(r => r.tipo === 'saidas');
     const receitas = ativas.filter(r => r.tipo === 'entradas');
     const grupos = [despesas.length, receitas.length, encerradas.length].filter(Boolean).length;
-    const aberto = chave => (_recAbertos[chave] !== undefined ? _recAbertos[chave] : grupos === 1); // um grupo só: abre sozinho
+    const aberto = chave => !!_recAbertos[chave]; // nenhum grupo nasce aberto
     lista.innerHTML = [
         despesas.length ? _recGrupoHTML('saidas', 'Despesa', 'var(--despesa-text)', despesas, aberto('saidas')) : '',
         receitas.length ? _recGrupoHTML('entradas', 'Receita', 'var(--receita-text)', receitas, aberto('entradas')) : '',

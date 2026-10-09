@@ -3,8 +3,12 @@
 // Regras:
 //  - Despesa que NÃO é de cartão: lembra no dia da data do lançamento (o vencimento). Só quem já existia
 //    antes de hoje (o que foi lançado hoje já está na tela) e não veio do banco (Open Finance = já aconteceu).
-//  - Cartão de crédito: nunca pela data da compra; só no dia do vencimento da fatura (dia_vencimento do
-//    cartão), com o total da fatura do mês (despesas - estornos), se ela não estiver marcada como paga.
+//  - Despesa programada no cartão (ex.: conta de luz que você mesmo paga com o cartão, assinatura): lembra no
+//    dia da data, como as outras. Compra comum e parcela não (já aconteceram ou são automáticas).
+//  - Fatura do cartão: no dia do vencimento da fatura (dia_vencimento do cartão), com o total da fatura do
+//    mês (despesas - estornos), se ela não estiver marcada como paga.
+//  - Já marcada como "Pago" (agendado = false) não gera lembrete: o "Pago" pode ser marcado no próprio dia,
+//    antes das 09:00. Lançamento sem data definida (vale como fim do mês) lembra no último dia do mês.
 //  - Receitas não geram lembrete.
 //  - Cada lançamento/fatura é lembrado uma vez só (a chave fica em alertas_bot).
 //  - Todos os vencimentos do dia saem juntos, numa mensagem só.
@@ -18,6 +22,7 @@ export interface TransacaoLembrete {
   id: number; tipo: string; data: string; valor: number | string; categoria: string | null;
   descricao: string | null; metodo: string | null; competencia: string | null; quitada?: boolean | null;
   origem?: string | null; criado_em?: string | null; a_confirmar?: boolean | null;
+  agendado?: boolean | null; data_indefinida?: boolean | null; parcelas_total?: number | null;
 }
 export interface MetodoLembrete { nome: string; metodo_kind: string | null; banco: string | null; dia_vencimento: number | null }
 
@@ -52,11 +57,13 @@ export function montarLembretes(p: {
   const inicioHoje = new Date(inicioDoDiaBrasiliaISO(hojeISO)).getTime();
   const saida: Lembrete[] = [];
 
-  // 1) Despesas fora do cartão que vencem hoje
+  // 1) Despesas que vencem hoje
   for (const t of transacoes) {
     if (t.tipo !== "saidas" || String(t.data).slice(0, 10) !== hojeISO) continue;
-    if (t.metodo && rotulosCartao.has(t.metodo)) continue; // cartão: só pelo vencimento da fatura
+    // cartão: só a despesa programada (não a compra comum nem a parcela)
+    if (t.metodo && rotulosCartao.has(t.metodo) && (t.agendado !== true || t.parcelas_total)) continue;
     if (t.quitada || t.origem === "pluggy") continue;
+    if (t.agendado === false) continue; // já marcada como "Pago" (ou nunca esteve "a pagar")
     if (t.a_confirmar) continue; // ocorrência de recorrência: tem o lembrete próprio (montarLembretesRecorrencia)
     if (t.criado_em && new Date(t.criado_em).getTime() >= inicioHoje) continue; // lançado hoje
     const chave = `lembrete:${userId}:tx:${t.id}`;
@@ -65,7 +72,7 @@ export function montarLembretes(p: {
     saida.push({
       chave,
       titulo: `💸 ${t.descricao || t.categoria || "Despesa"} — ${formatarMoedaBR(valor)}`,
-      detalhe: `Categoria: ${t.categoria || "—"} · Forma de pgto.: ${t.metodo || "—"}`,
+      detalhe: `Categoria: ${t.categoria || "—"} · Forma de pgto.: ${t.metodo || "—"}${t.data_indefinida ? " · sem data definida" : ""}`,
       valor,
     });
   }
@@ -133,9 +140,9 @@ export async function executarLembretes(
   for (const u of (users ?? []) as { user_id: string; chat_id: number }[]) {
     const [{ data: metodos }, { data: doDia }, { data: doMes }, { data: pagas }] = await Promise.all([
       admin.from("menu_itens").select("nome, metodo_kind, banco, dia_vencimento").eq("tipo", "Método").eq("user_id", u.user_id),
-      admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo, competencia, quitada, origem, criado_em, a_confirmar")
+      admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo, competencia, quitada, origem, criado_em, a_confirmar, agendado, data_indefinida, parcelas_total")
         .eq("user_id", u.user_id).eq("tipo", "saidas").eq("data", hojeISO),
-      admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo, competencia, quitada, origem, criado_em, a_confirmar")
+      admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo, competencia, quitada, origem, criado_em, a_confirmar, agendado, data_indefinida, parcelas_total")
         .eq("user_id", u.user_id).eq("competencia", compMes),
       admin.from("faturas_pagas").select("metodo, competencia").eq("user_id", u.user_id).eq("competencia", compMes),
     ]);
