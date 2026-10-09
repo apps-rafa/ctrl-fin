@@ -1204,8 +1204,10 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     // Fora: cartão de crédito, parcelas, estornos e rascunhos "a confirmar".
     const _metTrans = ((estadoApp.menus && estadoApp.menus.metodos) || []).find(m => rotuloMetodo(m) === trans.metodo);
     const _rotPago = tipo === 'entrada' ? 'Recebido' : 'Pago';
-    const pagoCheck = (!opts.semAcoes && deveMostrarPagoRecebido(trans, hojeISO(), { credito: !!(_metTrans && _metTrans.metodoKind === 'Crédito'), estorno: _ehEstornoCartao(trans), parcela: ehParcela }))
-        ? `<label class="pago-check" title="Marcar como ${_rotPago.toLowerCase()}${trans.dataIndefinida ? ' (a data passa a ser hoje)' : ''}"><input type="checkbox" name="marcar-pago" data-act="marcar-pago" data-id="${trans.id}"> ${_rotPago}</label>`
+    // Marcado hoje: continua marcado até o dia seguinte (desmarcar reverte); depois some.
+    const _pagoHoje = !opts.semAcoes && marcadoPagoHoje(trans, hojeISO());
+    const pagoCheck = (!opts.semAcoes && (_pagoHoje || deveMostrarPagoRecebido(trans, hojeISO(), { credito: !!(_metTrans && _metTrans.metodoKind === 'Crédito'), estorno: _ehEstornoCartao(trans), parcela: ehParcela })))
+        ? `<label class="pago-check" title="${_pagoHoje ? `Desmarcar ${_rotPago.toLowerCase()} (volta a ser programado)` : `Marcar como ${_rotPago.toLowerCase()}${trans.dataIndefinida ? ' (a data passa a ser hoje)' : ''}`}"><input type="checkbox" name="marcar-pago" data-act="marcar-pago" data-id="${trans.id}"${_pagoHoje ? ' checked' : ''}> ${_rotPago}</label>`
         : '';
     const quitadoTag = ehParcela && trans.quitadoEm
         ? `<span class="quitado-badge">quitado ${mesTri(String(trans.quitadoEm).slice(5, 7)) + '/' + String(trans.quitadoEm).slice(2, 4)}</span>`
@@ -1300,13 +1302,14 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
         </div>`;
 }
 
-/** Marcar "Pago"/"Recebido": o lançamento deixa de ser "programado" (o checkbox some); se a data era variável, passa a ser hoje. */
+/** Marcar/desmarcar "Pago"/"Recebido". Marcar: o lançamento deixa de ser "programado" e o checkbox fica marcado até o dia
+ *  seguinte; desmarcar (só no mesmo dia) volta a ser programado. Se a data era variável, passa a ser hoje. true se gravou. */
 async function marcarPagoRecebido(trans, marcado) {
-    if (!marcado) return;
-    const { error } = await marcarPagoAPI(trans);
-    if (error) { console.error(error); mostrarNotificacao('Não consegui atualizar', 'erro'); }
+    const { error } = marcado ? await marcarPagoAPI(trans) : await desmarcarPagoAPI(trans);
+    if (error) { console.error(error); mostrarNotificacao('Não consegui atualizar', 'erro'); return false; }
     await recarregarDados();
     atualizarUI();
+    return true;
 }
 
 /** Delegação de clique nas listas de transações */
@@ -1374,9 +1377,9 @@ function onListaTransacaoClick(e) {
             break;
         }
         case 'marcar-pago': {
-            if (!el.checked) break;
-            const receita = el.closest('.despesa-item')?.dataset.tipoTransacao === 'entradas';
-            executarComDesfazer({ texto: receita ? 'Marcado como recebido' : 'Marcado como pago', aoDesfazer: () => { el.checked = false; }, confirmar: () => marcarPagoRecebido(trans, true) });
+            // Sem "Desfazer": o checkbox fica marcado até o dia seguinte, e desmarcar aqui reverte na hora
+            const marcado = el.checked;
+            marcarPagoRecebido(trans, marcado).then(ok => { if (!ok) el.checked = !marcado; });
             break;
         }
         case 'editar-trans': {

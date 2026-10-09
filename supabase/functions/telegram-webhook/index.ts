@@ -53,7 +53,7 @@ import {
   urlMiniApp,
 } from "./lancamentos.ts";
 import { executarBackup } from "./backup.ts";
-import { executarLembretes } from "./lembretes.ts";
+import { executarLembretes, tratarPagoVencimento } from "./lembretes.ts";
 import { responderPendencias, abrirDuplicata, aprovarDuplicata } from "./pendencias.ts";
 import { processarEmailConta, tratarDecisaoEmail, tratarDecisaoSms } from "./email.ts";
 import { analisarParecidos, textoParecidos, tecladoParecidos } from "../_shared/parecidos.ts";
@@ -623,6 +623,12 @@ Deno.serve(async (req: Request) => {
       if (acao === "recdepois" && chatId) {
         await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Segue em a confirmar" });
         await tg(token, "editMessageText", { chat_id: chatId, message_id: cq.message.message_id, text: `${cq.message.text}\n\n⏭️ Segue em "a confirmar" no app` });
+        return json({ ok: true });
+      }
+
+      // "Marcar como pago" no aviso de vencimento: mesmo checkbox do app (ver lembretes.ts)
+      if (acao === "pgmarcar" && chatId) {
+        await tratarPagoVencimento(supabaseAdmin, token, cq, chatId, idStr);
         return json({ ok: true });
       }
 

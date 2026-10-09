@@ -45,6 +45,7 @@ function mapearTransacao(row) {
         aConfirmar: !!row.a_confirmar,               // gerada pela recorrência e ainda sem decisão do usuário
         duplicataOk: !!row.duplicata_ok, // "não é duplicata" confirmado (vale em todos os dispositivos)
         agendado: !!row.agendado, // lançamento programado: o "Pago"/"Recebido" aparece quando a data chega, até ser marcado
+        pagoEm: row.pago_em ? String(row.pago_em).slice(0, 10) : null, // dia em que foi marcado como Pago/Recebido (fica marcado até o dia seguinte)
         dataIndefinida: !!row.data_indefinida, // recorrência mensal "Variável": só o mês é conhecido (mostra ?/mês)
         parcelaNum: row.parcela_num || null,
         parcelasTotal: row.parcelas_total || null,
@@ -442,11 +443,17 @@ function aprovarDuplicatasAPI(ids) {
     return _emIds(sb.from('transacoes').update({ duplicata_ok: true }), ids);
 }
 
-/** "Pago"/"Recebido": o lançamento deixa de ser "programado" (some o checkbox); se a data era variável, passa a ser hoje. */
+/** "Pago"/"Recebido": o lançamento deixa de ser "programado"; o checkbox fica marcado até o dia seguinte (pago_em = hoje).
+ *  Se a data era variável, passa a ser hoje. */
 function marcarPagoAPI(trans) {
-    const campos = { agendado: false };
+    const campos = { agendado: false, pago_em: hojeISO() };
     if (trans.dataIndefinida) { campos.data = hojeISO(); campos.data_indefinida = false; }
     return sb.from('transacoes').update(campos).eq('id', trans.id);
+}
+
+/** Desmarca "Pago"/"Recebido" de hoje: volta a ser programado (o checkbox fica desmarcado, a data não muda). */
+function desmarcarPagoAPI(trans) {
+    return sb.from('transacoes').update({ agendado: true, pago_em: null }).eq('id', trans.id);
 }
 
 /** Apaga lançamento(s) pelo id, sem a regra de parcelas (use deletarTransacaoAPI para isso). */
