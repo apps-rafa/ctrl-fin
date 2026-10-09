@@ -100,7 +100,7 @@ test("vários vencimentos do dia saem numa mensagem só, com total", () => {
 });
 
 // ---- recorrências a confirmar ----
-import { montarLembretesRecorrencia } from "../supabase/functions/telegram-webhook/lembretes.ts";
+import { montarLembretesRecorrencia, corpoAvisoRecorrencia } from "../supabase/functions/telegram-webhook/lembretes.ts";
 
 test("ocorrência a confirmar não gera o lembrete comum de vencimento", () => {
   const l = montarLembretes({
@@ -119,7 +119,7 @@ test("lembrete de recorrência: só as que vencem hoje e uma vez só", () => {
   const l = montarLembretesRecorrencia({ userId: "u", hojeISO: "2026-10-05", ocorrencias: oc, jaEnviados: new Set() });
   assert.equal(l.length, 1);
   assert.equal(l[0].ocorrenciaId, 7);
-  assert.match(l[0].texto, /gere o rascunho/);
+  assert.match(l[0].texto, /A confirmar/);
   const de_novo = montarLembretesRecorrencia({ userId: "u", hojeISO: "2026-10-05", ocorrencias: oc, jaEnviados: new Set([l[0].chave]) });
   assert.equal(de_novo.length, 0);
 });
@@ -130,4 +130,13 @@ test("aviso de vencimentos não tem botões e limpa o teclado de edição deixad
   assert.deepEqual(corpo.reply_markup, { remove_keyboard: true });
   assert.equal(corpo.chat_id, 123);
   assert.match(corpo.text, /Vencimentos de hoje/);
+});
+
+test("aviso de recorrência não tem botões e não pergunta pelo rascunho", () => {
+  const oc = [{ id: 7, tipo: "saidas", data: "2026-10-05", valor: 35, categoria: "Assinaturas", descricao: "Canva", metodo: "Crédito Bradesco" }];
+  const [l] = montarLembretesRecorrencia({ userId: "u", hojeISO: "2026-10-05", ocorrencias: oc, jaEnviados: new Set() });
+  const corpo = corpoAvisoRecorrencia(9, l.texto);
+  assert.deepEqual(corpo.reply_markup, { remove_keyboard: true });
+  assert.doesNotMatch(corpo.text, /Quer que eu gere/);
+  assert.match(corpo.text, /A confirmar/);
 });

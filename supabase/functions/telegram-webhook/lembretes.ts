@@ -115,7 +115,7 @@ export function montarLembretesRecorrencia(p: { userId: string; hojeISO: string;
           `${receita ? "💰" : "💸"} ${o.descricao || o.categoria || (receita ? "Receita" : "Despesa")} — ${formatarMoedaBR(valor)}`,
           `Categoria: ${o.categoria || "—"}${receita ? "" : ` · Forma de pgto.: ${o.metodo || "—"}`}`,
           "",
-          "Quer que eu gere o rascunho para você confirmar?",
+          "Está em \"A confirmar\" no app.",
         ].join("\n"),
       };
     });
@@ -133,6 +133,11 @@ export function montarMensagemVencimentos(hojeISO: string, lembretes: Lembrete[]
  *  ("✏️ Editar" / "❌ Cancelar edição") que ficou na conversa de um rascunho aberto antes. */
 export function corpoAvisoVencimentos(chatId: number, hojeISO: string, lembretes: Lembrete[]) {
   return { chat_id: chatId, text: montarMensagemVencimentos(hojeISO, lembretes), reply_markup: { remove_keyboard: true } };
+}
+
+/** Corpo do aviso de recorrência: também só aviso, sem botões (o rascunho sai pelo app, em "A confirmar"). */
+export function corpoAvisoRecorrencia(chatId: number, texto: string) {
+  return { chat_id: chatId, text: texto, reply_markup: { remove_keyboard: true } };
 }
 
 /** Roda os lembretes de TODOS os usuários vinculados ao Telegram. Devolve quantos vencimentos foram avisados. */
@@ -177,7 +182,7 @@ export async function executarLembretes(
       enviados += novos.length;
     }
 
-    // Recorrências que vencem hoje (a confirmar): pergunta se quer o rascunho. Cada uma é lembrada uma vez só.
+    // Recorrências que vencem hoje (a confirmar): aviso sem botões. Cada uma é lembrada uma vez só.
     const { data: ocs } = await admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo")
       .eq("user_id", u.user_id).eq("a_confirmar", true).not("recorrencia_id", "is", null).eq("data", hojeISO);
     const ocorrencias = (ocs ?? []) as OcorrenciaLembrete[];
@@ -187,13 +192,7 @@ export async function executarLembretes(
     for (const l of lembRec) {
       const { error } = await admin.from("alertas_bot").insert({ chave: l.chave, enviado_em: new Date().toISOString() });
       if (error) continue; // já lembrada (execução concorrente)
-      await tg(token, "sendMessage", {
-        chat_id: u.chat_id, text: l.texto,
-        reply_markup: { inline_keyboard: [[
-          { text: "📝 Gerar rascunho", callback_data: `recrasc:${l.ocorrenciaId}` },
-          { text: "⏭️ Agora não", callback_data: "recdepois" },
-        ]] },
-      });
+      await tg(token, "sendMessage", corpoAvisoRecorrencia(u.chat_id, l.texto));
       enviados += 1;
     }
   }
