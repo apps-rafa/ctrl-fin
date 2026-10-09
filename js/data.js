@@ -218,7 +218,7 @@ function calcularResumoMes() {
             if (t.tipoRecorrencia === 'Semanal' && t.valorMes != null) {
                 realizado = t.valor || 0;                 // X (sessões já ocorridas)
             } else {
-                realizado = (!t.pendente && String(t.data).slice(0, 10) <= hoje) ? tot : 0;
+                realizado = aconteceuAteHoje(t, hoje) ? tot : 0;
             }
             total += tot;
             atual += realizado;
@@ -253,7 +253,7 @@ function calcularResumoMes() {
     const porCartao = new Map();
     estadoApp.transacoes.saidas.forEach(t => {
         const tot = valorDe(t);
-        const jaAconteceu = !t.pendente && String(t.data).slice(0, 10) <= hoje;
+        const jaAconteceu = aconteceuAteHoje(t, hoje);
         if (metodosCredito.has(t.metodo)) {
             if (jaAconteceu) porCartao.set(t.metodo, (porCartao.get(t.metodo) || 0) + tot);
             else avulsos += tot;
@@ -264,7 +264,7 @@ function calcularResumoMes() {
     });
     estornosCartao.forEach(t => {
         const tot = valorDe(t);
-        if (!t.pendente && String(t.data).slice(0, 10) <= hoje) porCartao.set(t.metodo, (porCartao.get(t.metodo) || 0) - tot);
+        if (aconteceuAteHoje(t, hoje)) porCartao.set(t.metodo, (porCartao.get(t.metodo) || 0) - tot);
         else avulsos -= tot;
     });
     let faturaAberta = 0, pagoCredito = 0;

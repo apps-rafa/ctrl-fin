@@ -597,7 +597,7 @@ function _transacaoRealizada(t) {
     // (o vencimento da fatura não muda isso).
     if (t.aConfirmar) return false; // recorrência aguardando decisão: segue em "a pagar"/"a receber", mesmo vencida
     const hoje = hojeISO();
-    return !t.pendente && String(t.data).slice(0, 10) <= hoje;
+    return aconteceuAteHoje(t, hoje);
 }
 
 /** "Cronológica": divide em 2 grupos (Atual / A receber ou A pagar), com
@@ -617,7 +617,7 @@ function _faturasAPagar() {
         .map(m => {
             const rot = rotuloMetodo(m);
             // Só compras JÁ feitas (data <= hoje): as futuras ainda não bateram no cartão e aparecem soltas
-            const feita = t => !t.pendente && String(t.data).slice(0, 10) <= hoje;
+            const feita = t => aconteceuAteHoje(t, hoje);
             const total = (estadoApp.transacoes.saidas || []).filter(t => t.metodo === rot && feita(t)).reduce((a, t) => a + valorDe(t), 0)
                 - (estadoApp.transacoes.entradas || []).filter(t => t.metodo === rot && feita(t)).reduce((a, t) => a + valorDe(t), 0);
             if (!(total > 0.004)) return null;
@@ -1377,9 +1377,11 @@ function onListaTransacaoClick(e) {
             break;
         }
         case 'marcar-pago': {
-            // Sem "Desfazer": o checkbox fica marcado até o dia seguinte, e desmarcar aqui reverte na hora
+            // Marcar fica até o dia seguinte; desmarcar volta a ser programado. As duas ações têm "Desfazer" (5 s)
             const marcado = el.checked;
-            marcarPagoRecebido(trans, marcado).then(ok => { if (!ok) el.checked = !marcado; });
+            const receita = el.closest('.despesa-item')?.dataset.tipoTransacao === 'entradas';
+            const texto = marcado ? (receita ? 'Marcado como recebido' : 'Marcado como pago') : (receita ? 'Desmarcado como recebido' : 'Desmarcado como pago');
+            executarComDesfazer({ texto, aoDesfazer: () => { el.checked = !marcado; }, confirmar: () => marcarPagoRecebido(trans, marcado) });
             break;
         }
         case 'editar-trans': {

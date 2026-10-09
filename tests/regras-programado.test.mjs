@@ -11,6 +11,15 @@ const ctx = vm.createContext({ console });
 vm.runInContext(fs.readFileSync(new URL("../js/recorrencia.js", import.meta.url), "utf8"), ctx);
 const mostra = ctx.deveMostrarPagoRecebido;
 const marcadoHoje = ctx.marcadoPagoHoje;
+const realizado = ctx.aconteceuAteHoje;
+
+test("Pago/Recebido: programado sem marcar é a pagar (mesmo com data passada); marcado ou sem agendado já aconteceu", () => {
+  assert.equal(realizado({ agendado: true, pendente: false, data: "2026-10-09" }, "2026-10-09"), false, "desmarcado no dia: a pagar");
+  assert.equal(realizado({ agendado: false, pendente: false, data: "2026-10-09" }, "2026-10-09"), true, "marcado: pago");
+  assert.equal(realizado({ agendado: false, pendente: false, data: "2026-10-08" }, "2026-10-09"), true, "lançamento comum de ontem: pago");
+  assert.equal(realizado({ agendado: false, pendente: false, data: "2026-10-10" }, "2026-10-09"), false, "data futura: a pagar");
+  assert.equal(realizado({ agendado: false, pendente: true, data: "2026-10-08" }, "2026-10-09"), false, "pendente: a pagar");
+});
 
 test("checkbox: só programado, a partir do dia; marcado (agendado=false) some", () => {
   const t = { agendado: true, aConfirmar: false, data: "2026-10-20" };

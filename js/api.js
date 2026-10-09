@@ -107,7 +107,7 @@ async function carregarIndicadoresMeses(iniISO, fimISO) {
     try {
         const { data, error } = await sb
             .from('transacoes')
-            .select('competencia, data, pendente')
+            .select('competencia, data, pendente, agendado')
             .gte('competencia', iniISO)
             .lt('competencia', fimISO);
         if (error) throw error;
@@ -116,7 +116,7 @@ async function carregarIndicadoresMeses(iniISO, fimISO) {
         const porMes = {};
         (data || []).forEach(row => {
             const chave = String(row.competencia).slice(0, 7); // 'YYYY-MM'
-            const jaAconteceu = !row.pendente && String(row.data).slice(0, 10) <= hoje;
+            const jaAconteceu = aconteceuAteHoje(row, hoje);
             if (!porMes[chave]) porMes[chave] = { passado: false };
             if (jaAconteceu) porMes[chave].passado = true;
         });
