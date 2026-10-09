@@ -289,8 +289,10 @@ function adicionarEstilosDinamicos() {
  * Função global para recarregar aplicação (útil no console)
  */
 window.recarregarApp = async function() {
-    resetarEstado();
-    await carregarDados();
+    // Menus (formas de pagamento, cartões e vencimentos) e lançamentos recarregam juntos e só então a tela é redesenhada.
+    // Antes os menus eram zerados aqui e voltavam por fora, depois do desenho: ao voltar para a aba (o Supabase avisa
+    // SIGNED_IN de novo), a lista saía sem cartões e a fatura sumia até o próximo clique.
+    await Promise.all([carregarMenus(), carregarDados()]);
     atualizarUI();
 };
 

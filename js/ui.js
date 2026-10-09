@@ -807,7 +807,8 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     grupos.forEach(g => _ordenarPorGrupo(g.itens, `${tipoUI}:cronologica:${g.nome}`));
     // Ocorrências de recorrência SEMANAL saem da lista solta e viram um subgrupo por recorrência (nome, quantidade e total),
     // como a fatura do cartão. Os totais dos grupos já foram somados acima, com elas dentro.
-    grupos.forEach(g => {
+    // Despesas não precisam: lá cada forma de pagamento já é um subgrupo e a semanal entra no dela (ex.: Terapia dentro de PIX), contando 1.
+    if (tipoUI === 'entrada') grupos.forEach(g => {
         const porRec = new Map();
         g.itens.filter(t => t.recorrenciaSemanalId).forEach(t => porRec.set(t.recorrenciaSemanalId, [...(porRec.get(t.recorrenciaSemanalId) || []), t]));
         // só agrupa com 2 ou mais da mesma recorrência no mesmo grupo (1 sozinha fica solta)
@@ -831,21 +832,31 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     // Despesas: o que está solto se divide em subgrupos por forma de pagamento (cada PIX, cada cartão);
     // compra de cartão que ainda não bateu na fatura fica em "<cartão> (por vir)".
     const coresMetodo = (estadoApp.menus && estadoApp.menus.cores && estadoApp.menus.cores.metodo) || {};
+    // Cada subgrupo de forma de pagamento tem o seu filtro de Categoria (como a fatura); o grupo de fora (Pago / A pagar) não tem.
     const corpoPorForma = (itens, nomeGrupo) => _renderItensSubagrupados(itens, tipoUI, {
         chaveDe: t => (nomeGrupo === rotuloPendente && faturaDe.has(t.metodo) ? 'Crédito' : t.metodo),
         semChave: 'Sem forma de pagamento',
         campoChip: 'metodo',
         corDe: nome => coresMetodo[nome] || corPadraoChip(nome),
+        corpoDe: (forma, its, padrao) => {
+            const chave = `${nomeGrupo}::${forma}`;
+            const barra = _barraGrupo(_renderOrganizadorInline(tipoUI, 'cronologica', chave, true, its));
+            if (_subModoGrupoDe(tipoUI, 'cronologica', chave) !== 'categoria') return barra + padrao();
+            const opts = { semRelogio: nomeGrupo === rotuloPendente, ..._optsSemChipRedundante(its, 'metodo', forma) };
+            return barra + _renderItensSubagrupados(its, tipoUI, _dimensaoSubmodo('categoria', true), abertosSub, `${tipoUI}:cronologica:${chave}:cat`, undefined, opts);
+        },
     }, abertosSub, `${tipoUI}:cronologica:${nomeGrupo}`, nomeGrupo === nomeAtual ? totalPagoGrupo : totalAPagarGrupo, { semRelogio: nomeGrupo === rotuloPendente }, // em "A pagar" tudo é futuro: o ⏰ seria redundante
         nomeGrupo === nomeAtual ? pagasFat.length : (nomeGrupo === rotuloPendente ? abertasFat.length : 0));
-    // Corpo de um grupo (Pago / A pagar / Recebido / A receber): com o filtro de Categoria ligado, as categorias com mais de um lançamento
-    // viram subgrupos (regra global em _dimensaoAgrupa); sem filtro, despesas por forma de pagamento e receitas em lista
+    // Corpo de um grupo: despesas (Pago / A pagar) sempre por forma de pagamento, com o filtro de Categoria dentro de cada forma;
+    // receitas (Recebido / A receber, tudo PIX) em lista, e com o filtro de Categoria ligado as categorias com mais de um
+    // lançamento viram subgrupos (regra global em _dimensaoAgrupa)
     const corpoDoGrupo = (nome, itens) => {
-        const opcoes = { semRelogio: nome === rotuloPendente };
+        if (tipoUI === 'saida') return corpoPorForma(itens, nome);
+        const opcoes = { semMetodoChip: true, semRelogio: nome === rotuloPendente };
         if (_subModoGrupoDe(tipoUI, 'cronologica', nome) === 'categoria') {
-            return _renderItensSubagrupados(itens, tipoUI, _dimensaoSubmodo('categoria', tipoUI === 'saida'), abertosSub, `${tipoUI}:cronologica:${nome}:cat`, undefined, tipoUI === 'saida' ? opcoes : { ...opcoes, semMetodoChip: true });
+            return _renderItensSubagrupados(itens, tipoUI, _dimensaoSubmodo('categoria', false), abertosSub, `${tipoUI}:cronologica:${nome}:cat`, undefined, opcoes);
         }
-        return tipoUI === 'saida' ? corpoPorForma(itens, nome) : itens.map(t => gerarHTMLTransacao(t, tipoUI, { semMetodoChip: true, semRelogio: nome === rotuloPendente })).join('');
+        return itens.map(t => gerarHTMLTransacao(t, tipoUI, opcoes)).join('');
     };
     const grupoHTML = (nome, cor, itens, total, pct, extraHTML = '', extraContagem = 0) => {
         if (!itens.length && !extraHTML) return `
@@ -863,7 +874,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
             <span class="rec-grupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalGeral ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
           </summary>
           <div class="rec-grupo-itens">
-            ${_barraGrupo(_renderOrganizadorInline(tipoUI, 'cronologica', nome, tipoUI === 'saida', itens))}
+            ${tipoUI === 'entrada' ? _barraGrupo(_renderOrganizadorInline(tipoUI, 'cronologica', nome, false, itens)) : ''}
             ${extraHTML}
             ${corpoDoGrupo(nome, itens)}
           </div>
@@ -895,6 +906,8 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
             _setSubModoGrupo(tipoUI, 'cronologica', grupoChave, subBtn.dataset.submodo === atual ? 'cronologica' : subBtn.dataset.submodo);
             const det = subBtn.closest('details.rec-grupo');
             if (det) det.open = true;
+            const sub = subBtn.closest('details.subgrupo'); // filtro de dentro de uma forma de pagamento: ela continua aberta
+            if (sub) sub.open = true;
             renderListaCronologica(container, transacoes, tipoUI, msgVazia);
             return;
         }
@@ -1036,7 +1049,10 @@ function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, 
             <span class="subgrupo-contagem">${_contarVisuais(its)}</span>
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalGeral ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
           </summary>
-          ${_htmlListaComSemanal(its, t => gerarHTMLTransacao(t, tipoUI, { ...baseOpts, ..._optsSemChipRedundante(its, dimCfg.campoChip, nome) }), cor, tipoUI)}
+          ${(() => {
+              const padrao = () => _htmlListaComSemanal(its, t => gerarHTMLTransacao(t, tipoUI, { ...baseOpts, ..._optsSemChipRedundante(its, dimCfg.campoChip, nome) }), cor, tipoUI);
+              return dimCfg.corpoDe ? dimCfg.corpoDe(nome, its, padrao) : padrao();
+          })()}
         </details>`;
     }).join('') + _ordenarPorGrupo(soltos.slice()).map(t => gerarHTMLTransacao(t, tipoUI, baseOpts)).join('');
 }
