@@ -122,6 +122,12 @@ function deveMostrarPagoRecebido(t, hoje, { credito = false, estorno = false, pa
   return !!t.dataIndefinida || String(t.data).slice(0, 10) <= hoje;
 }
 
+/** Já aconteceu (conta em Pago/Recebido e nos totais): data até hoje e não programado sem marcar. Programado sem marcar é
+ *  "a pagar"/"a receber", igual ao checkbox desmarcado. */
+function aconteceuAteHoje(t, hoje) {
+  return !t.pendente && !t.agendado && String(t.data).slice(0, 10) <= hoje;
+}
+
 /** Marcado como "Pago"/"Recebido" HOJE (pago_em = hoje): o checkbox segue marcado até o dia seguinte, e desmarcar reverte.
  *  Vale também para o aviso do Telegram, que marca pelo mesmo campo (ver lembretes.ts). */
 function marcadoPagoHoje(t, hoje) {
