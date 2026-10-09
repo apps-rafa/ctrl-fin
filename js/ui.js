@@ -338,7 +338,7 @@ window.addEventListener('resize', () => ajustarBotoesTodas());
 document.addEventListener('toggle', e => { if (e.target && e.target.matches && e.target.matches('details')) ajustarBotoesTodas(); }, true);
 
 /** Home de cada mês (nenhuma aba aberta): as duplicatas e as ocorrências "a confirmar" do mês em exibição, Receitas e Despesas
- *  juntas. Sem título e sem texto quando não há nada; os grupos nascem fechados, exceto se for o único. (Para tudo o que está
+ *  juntas. Sem título e sem texto quando não há nada; os grupos nascem sempre fechados. (Para tudo o que está
  *  pendente em todos os meses, ver Pendências.) */
 function renderFilaHome() {
     const box = document.getElementById('filaHome');
@@ -350,9 +350,8 @@ function renderFilaHome() {
     _ligarFilaManual(box, 'home');
     const aberto = nome => _filaManual['home:' + nome]; // só o que VOCÊ abriu/fechou; sem escolha, vale o padrão
     const tipoDe = t => (ent.includes(t) ? 'entrada' : 'saida');
-    const soAC = aConf.length > 0 && !dups.length, soDup = dups.length > 0 && !aConf.length; // nasce aberto só se for o único grupo
-    const htmlAC = _renderGrupoAConfirmar(aConf, tipoDe, aberto('__aconfirmar__') ?? soAC, 'home');
-    const htmlDup = dups.length ? _renderGrupoDuplicatas(null, tipoDe, aberto('__duplicatas__') ?? soDup, dups, 'home') : '';
+    const htmlAC = _renderGrupoAConfirmar(aConf, tipoDe, aberto('__aconfirmar__') ?? false, 'home'); // nenhum grupo nasce aberto
+    const htmlDup = dups.length ? _renderGrupoDuplicatas(null, tipoDe, aberto('__duplicatas__') ?? false, dups, 'home') : '';
     box.innerHTML = htmlAC + htmlDup;
     box._refazer = renderFilaHome;
     box.onclick = onListaTransacaoClick;
@@ -444,8 +443,8 @@ function renderListaPorModo(container, transacoes, tipoUI, modo, msgVazia) {
 
     if (dupContainer) {
         const nDup = (transacoes && transacoes.length) ? _detectarDuplicatas(transacoes).length : 0;
-        const htmlAC = _renderGrupoAConfirmar(aConfirmar, tipoUI, abertoAConfirmar ?? (aConfirmar.length > 0 && !nDup), tipoUI);
-        const htmlDup = nDup ? _renderGrupoDuplicatas(transacoes, tipoUI, abertoDuplicatas ?? !aConfirmar.length, null, tipoUI) : '';
+        const htmlAC = _renderGrupoAConfirmar(aConfirmar, tipoUI, abertoAConfirmar ?? false, tipoUI); // nenhum grupo nasce aberto
+        const htmlDup = nDup ? _renderGrupoDuplicatas(transacoes, tipoUI, abertoDuplicatas ?? false, null, tipoUI) : '';
         dupContainer.innerHTML = htmlAC + htmlDup;
         dupContainer._refazer = () => { dupContainer.innerHTML = _renderGrupoAConfirmar(aConfirmar, tipoUI, true, tipoUI) + htmlDup; ajustarBotoesTodas(); };
         ajustarBotoesTodas();
@@ -701,7 +700,7 @@ function _htmlSubgrupoFatura(f, its, totalRef, tipoUI, abertosSub, estornos, for
         : its.map(item).join('');
     const cor = ((estadoApp.menus && estadoApp.menus.cores && estadoApp.menus.cores.metodo) || {})[f.rot] || corPadraoChip(f.rot);
     return `
-        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}"${forcarAberto ? ' data-auto="1"' : ''} style="--cor-rec:${cor}" ${forcarAberto || abertosSub[nome] ? 'open' : ''}>
+        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" style="--cor-rec:${cor}" ${abertosSub[nome] ? 'open' : ''}>
           <summary class="subgrupo-cab">
             <span class="subgrupo-nome" data-fatura-longo="${nome}" data-fatura-curto="${_nomeCurtoFatura(f)}">${nome}</span>
             <span class="subgrupo-espaco"></span>
@@ -1025,18 +1024,12 @@ function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, 
         .filter(([, its]) => its.length > 1)
         .map(([nome, its]) => [nome, _ordenarPorGrupo(its, `${chavePrefixo}:sub:${nome}`), its.reduce((s, t) => s + valorDe(t), 0)])
         .sort((a, b) => b[2] - a[2]);
-    // Um único subgrupo dentro do grupo = não há escolha real a fazer: já vem aberto,
-    // mesmo que o usuário não tenha aberto manualmente antes (não sobrescreve um "fechado" lembrado, já que aqui nunca houve estado lembrado pra ele ser diferente de aberto).
-    // extraIrmaos conta subgrupos irmãos gerados FORA daqui (ex.: as faturas de cartão em
-    // renderListaCronologica, que ficam soltas ao lado destes) — com algum deles, mesmo só 1
-    // grupo aqui não é mais "o único subgrupo do grupo todo".
-    const unicoSubgrupo = grupos.length === 1 && extraIrmaos === 0;
     return grupos.map(([nome, its, total]) => {
         const pct = totalGeral ? (total / totalGeral) * 100 : 0;
-        const aberto = unicoSubgrupo || (abertos && abertos[nome]);
+        const aberto = !!(abertos && abertos[nome]); // nenhum subgrupo nasce aberto, nem sendo o único
         const cor = (dimCfg.corDe ? dimCfg.corDe(nome) : null) || corPadraoChip(nome);
         return `
-        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}"${unicoSubgrupo ? ' data-auto="1"' : ''} style="--cor-rec:${cor}" ${aberto ? 'open' : ''}>
+        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" style="--cor-rec:${cor}" ${aberto ? 'open' : ''}>
           <summary class="subgrupo-cab">
             <span class="subgrupo-nome">${nome}</span>
             <span class="subgrupo-espaco"></span>

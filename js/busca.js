@@ -154,7 +154,7 @@ function _htmlGruposFilaBusca(acs, dups, chaveBusca, abertos = {}) {
     const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
     const tipoUI = t => (t.tipo === 'entradas' ? 'entrada' : 'saida');
     const grupo = (nome, titulo, cor, lista, opts) => !lista.length ? '' : `
-    <details class="rec-grupo" data-nome="${nome}" style="--cor-rec:${cor}" ${abertos[nome] !== false ? 'open' : ''}>
+    <details class="rec-grupo" data-nome="${nome}" style="--cor-rec:${cor}" ${abertos[nome] ? 'open' : ''}>
       <summary>
         <span class="rec-grupo-nome">${titulo}</span>
         <span class="rec-grupo-contagem">${opts && opts.comAprovarDuplicata ? _numCopiasDuplicatas(lista) : lista.length}</span>
@@ -186,6 +186,8 @@ let _amplaCache = null; // { termo, linhas } — "Carregar mais" não refaz a co
 async function buscarAmpla(termo) {
     const box = document.getElementById('resultadoBusca');
     if (!box) return;
+    // grupos nascem fechados; ao re-renderizar a mesma busca ("Carregar mais"), mantém o que você abriu
+    const abertos = box.dataset.modo === 'ampla' && box.dataset.termoAmpla === termo ? _lerAbertosRecGrupo(box) : {};
     box.dataset.modo = 'ampla'; // impede que a busca da lixeira (assíncrona) sobrescreva o resultado
     const q = _parseConsulta(termo);
     const t = _normalizarBusca(q.texto).trim();
@@ -217,7 +219,7 @@ async function buscarAmpla(termo) {
         const d = lista.filter(i => i.tipo === 'saidas').reduce((x, i) => x + (Number(i.valor) || 0), 0);
         const r = lista.filter(i => i.tipo === 'entradas').reduce((x, i) => x + (Number(i.valor) || 0), 0);
         return `
-        <details class="rec-grupo cor-rec-primary" open>
+        <details class="rec-grupo cor-rec-primary" data-nome="${k}" ${abertos[k] ? 'open' : ''}>
           <summary>
             <span class="rec-grupo-nome">${nomesMes[m - 1].slice(0, 3).toUpperCase()}/${a}</span>
             <span class="rec-grupo-contagem">${lista.length}</span>
@@ -232,7 +234,7 @@ async function buscarAmpla(termo) {
             <span>${itens.length} lançamento${itens.length === 1 ? '' : 's'}${itens.length ? ` · Despesas ${brl(soma('saidas'))} · Receitas ${brl(soma('entradas'))}` : ''}</span>
             ${(q.mes != null || q.ano != null) ? '' : '<button type="button" class="mini-btn" data-busca-mes>← só este mês</button>'}
         </div>
-        ${_htmlGruposFilaBusca(acs, dups, 'a:' + termo)}
+        ${_htmlGruposFilaBusca(acs, dups, 'a:' + termo, abertos)}
         ${(grupos || acs.length) ? grupos : `<div class="rec-grupo rec-grupo--vazio"><span class="rec-grupo-nome">🔎 Nada encontrado pra "${termo}"</span></div>`}`;
     _transacoesExtra = [...acs, ...itens]; // editar/excluir precisam achar lançamentos de qualquer mês
     box.dataset.termoAmpla = termo;
@@ -316,7 +318,7 @@ async function _renderBuscaDoMes(termo, box, abertos) {
     const despesas = achados.filter(x => x.tipo !== 'entradas' || _ehEstornoCartao(x));
 
     const grupo = (nome, titulo, cor, lista, tipoUI) => !lista.length ? '' : `
-    <details class="rec-grupo" data-nome="${nome}" style="--cor-rec:${cor}" ${abertos[nome] !== false ? 'open' : ''}>
+    <details class="rec-grupo" data-nome="${nome}" style="--cor-rec:${cor}" ${abertos[nome] ? 'open' : ''}>
       <summary>
         <span class="rec-grupo-nome">${titulo}</span>
         <span class="rec-grupo-contagem">${lista.length}</span>
@@ -344,7 +346,7 @@ async function _renderBuscaDoMes(termo, box, abertos) {
         if (!lix.length) { if (!html) box.innerHTML = vazio(); return; }
         const total = lix.reduce((s, i) => s + (Number((i.dados || {}).valor) || 0), 0);
         box.innerHTML = linkAmpla + html + `
-        <details class="rec-grupo cor-rec-muted" data-nome="__busca_lixeira__" ${abertos.__busca_lixeira__ !== false ? 'open' : ''}>
+        <details class="rec-grupo cor-rec-muted" data-nome="__busca_lixeira__" ${abertos.__busca_lixeira__ ? 'open' : ''}>
           <summary>
             <span class="rec-grupo-nome">${ICONE_LIXEIRA} Lixeira</span>
             <span class="rec-grupo-contagem">${lix.length}</span>
