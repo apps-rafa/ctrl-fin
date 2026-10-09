@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { montarLembretes, montarMensagemVencimentos, diaVencimentoNoMes } from "../supabase/functions/telegram-webhook/lembretes.ts";
+import { montarLembretes, montarMensagemVencimentos, corpoAvisoVencimentos, diaVencimentoNoMes } from "../supabase/functions/telegram-webhook/lembretes.ts";
 
 const HOJE = "2026-10-13";
 const antes = "2026-10-01T15:00:00Z";           // criado antes de hoje
@@ -122,4 +122,12 @@ test("lembrete de recorrência: só as que vencem hoje e uma vez só", () => {
   assert.match(l[0].texto, /gere o rascunho/);
   const de_novo = montarLembretesRecorrencia({ userId: "u", hojeISO: "2026-10-05", ocorrencias: oc, jaEnviados: new Set([l[0].chave]) });
   assert.equal(de_novo.length, 0);
+});
+
+test("aviso de vencimentos não tem botões e limpa o teclado de edição deixado na conversa", () => {
+  const [l] = montarLembretes({ ...base, transacoes: [tx({})] });
+  const corpo = corpoAvisoVencimentos(123, HOJE, [l]);
+  assert.deepEqual(corpo.reply_markup, { remove_keyboard: true });
+  assert.equal(corpo.chat_id, 123);
+  assert.match(corpo.text, /Vencimentos de hoje/);
 });
