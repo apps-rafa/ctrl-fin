@@ -835,15 +835,14 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     // Cada subgrupo de forma de pagamento tem o seu filtro de Categoria (como a fatura); o grupo de fora (Pago / A pagar) não tem.
     const chaveFormaDe = (t, nomeGrupo) => (nomeGrupo === rotuloPendente && faturaDe.has(t.metodo) ? 'Crédito' : t.metodo) || 'Sem forma de pagamento';
     const corpoPorForma = (itens, nomeGrupo) => {
-        // Regra de subgrupos: se só há uma forma de pagamento, não cria subgrupo (o grupo teria só 1 subgrupo dentro): lista direto, com o mesmo filtro
+        // Só uma forma de pagamento: sem caixinha recolhível, mas o cartãozinho (nome e cor da forma) continua aparecendo
         const formas = new Set(itens.map(t => chaveFormaDe(t, nomeGrupo)));
         if (formas.size === 1) {
             const forma = [...formas][0];
-            const chave = `${nomeGrupo}::${forma}`;
             const opts = { semRelogio: nomeGrupo === rotuloPendente, ..._optsSemChipRedundante(itens, 'metodo', forma) };
-            // Sem subgrupo não há onde pôr o filtro de Categoria (ele fica só dentro dos subgrupos), então a lista vai direto
             const cor = coresMetodo[forma] || corPadraoChip(forma);
-            return _htmlListaComSemanal(itens, t => gerarHTMLTransacao(t, tipoUI, { ...opts, ..._optsSemChipRedundante(itens, 'metodo', forma) }), cor, tipoUI);
+            const totalRef = nomeGrupo === nomeAtual ? totalPagoGrupo : totalAPagarGrupo;
+            return _subgrupoUnico(forma, itens, cor, totalRef, _htmlListaComSemanal(itens, t => gerarHTMLTransacao(t, tipoUI, opts), cor, tipoUI));
         }
         return _renderItensSubagrupados(itens, tipoUI, {
         chaveDe: t => chaveFormaDe(t, nomeGrupo),
@@ -1032,6 +1031,23 @@ function _dimensaoSubmodo(dim, ehDespesa) {
     }
 }
 
+/** Único subgrupo do grupo (ex.: só PIX em Pago): o cabeçalho com o nome/cor da forma e o total continua aparecendo, mas
+ *  fixo (sem caixinha recolhível) — não há um nível a mais pra abrir. */
+function _subgrupoUnico(nome, its, cor, totalRef, conteudo) {
+    const total = its.reduce((s, t) => s + ((t.valorMes != null ? t.valorMes : t.valor) || 0), 0);
+    const pct = totalRef ? (total / totalRef) * 100 : 0;
+    return `
+        <div class="subgrupo subgrupo--unico" style="--cor-rec:${cor}">
+          <div class="subgrupo-cab">
+            <span class="subgrupo-nome">${nome}</span>
+            <span class="subgrupo-espaco"></span>
+            <span class="subgrupo-contagem">${_contarVisuais(its)}</span>
+            <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalRef ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
+          </div>
+          ${conteudo}
+        </div>`;
+}
+
 /** Reorganiza os itens de UM grupo pela dimensão escolhida (maior total
  *  primeiro) em vez de cronológico — cartõezinhos colapsáveis, fechados por
  *  padrão, com contagem e % (igual ao grupo de fora). */
@@ -1050,11 +1066,11 @@ function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, 
         .filter(([, its]) => its.length > 1)
         .map(([nome, its]) => [nome, _ordenarPorGrupo(its, `${chavePrefixo}:sub:${nome}`), its.reduce((s, t) => s + valorDe(t), 0)])
         .sort((a, b) => b[2] - a[2]);
-    // Regra de subgrupos: um único subgrupo e nenhum lançamento solto não se justifica — o grupo fica com a lista direto (sem o cartãozinho)
+    // Regra de subgrupos: um único subgrupo e nenhum lançamento solto não ganha a caixinha recolhível (cabeçalho fixo, ver _subgrupoUnico)
     if (grupos.length === 1 && !soltos.length) {
         const [nome, its] = grupos[0];
         const cor = (dimCfg.corDe ? dimCfg.corDe(nome) : null) || corPadraoChip(nome);
-        return _htmlListaComSemanal(its, t => gerarHTMLTransacao(t, tipoUI, { ...baseOpts, ..._optsSemChipRedundante(its, dimCfg.campoChip, nome) }), cor, tipoUI);
+        return _subgrupoUnico(nome, its, cor, totalRef, _htmlListaComSemanal(its, t => gerarHTMLTransacao(t, tipoUI, { ...baseOpts, ..._optsSemChipRedundante(its, dimCfg.campoChip, nome) }), cor, tipoUI));
     }
     return grupos.map(([nome, its, total]) => {
         const pct = totalGeral ? (total / totalGeral) * 100 : 0;
