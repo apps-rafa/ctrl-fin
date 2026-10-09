@@ -129,6 +129,12 @@ export function montarMensagemVencimentos(hojeISO: string, lembretes: Lembrete[]
   return linhas.join("\n").trimEnd();
 }
 
+/** Corpo do aviso de vencimentos. É só aviso: sem botões, e remove o teclado persistente de edição
+ *  ("✏️ Editar" / "❌ Cancelar edição") que ficou na conversa de um rascunho aberto antes. */
+export function corpoAvisoVencimentos(chatId: number, hojeISO: string, lembretes: Lembrete[]) {
+  return { chat_id: chatId, text: montarMensagemVencimentos(hojeISO, lembretes), reply_markup: { remove_keyboard: true } };
+}
+
 /** Roda os lembretes de TODOS os usuários vinculados ao Telegram. Devolve quantos vencimentos foram avisados. */
 export async function executarLembretes(
   admin: ReturnType<typeof createClient>, token: string, agora: Date = new Date(),
@@ -167,7 +173,7 @@ export async function executarLembretes(
       if (!error) novos.push(l); // erro = já existia (execução concorrente)
     }
     if (novos.length) {
-      await tg(token, "sendMessage", { chat_id: u.chat_id, text: montarMensagemVencimentos(hojeISO, novos) });
+      await tg(token, "sendMessage", corpoAvisoVencimentos(u.chat_id, hojeISO, novos));
       enviados += novos.length;
     }
 
