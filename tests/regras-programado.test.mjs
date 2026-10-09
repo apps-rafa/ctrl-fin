@@ -142,12 +142,17 @@ test("api.js: operações nomeadas montam as consultas certas", async () => {
   igual(chamadas.at(-1).filtros, [["eq", "id", 7]]);
   igual(chamadas.at(-1).campos, { duplicata_ok: true });
   ctxApi.marcarPagoAPI({ id: 9, dataIndefinida: true });
-  igual(chamadas.at(-1).campos, { agendado: false, pago_em: "2026-10-05", data: "2026-10-05", data_indefinida: false });
+  igual(chamadas.at(-1).campos, { agendado: false, pago_em: "2026-10-05", data: "2026-10-05" });
   ctxApi.marcarPagoAPI({ id: 9, dataIndefinida: false });
   igual(chamadas.at(-1).campos, { agendado: false, pago_em: "2026-10-05" });
   ctxApi.desmarcarPagoAPI({ id: 9 });
   igual(chamadas.at(-1).campos, { agendado: true, pago_em: null });
   igual(chamadas.at(-1).filtros, [["eq", "id", 9]]);
+  // sem data definida: ao desmarcar volta a data original (último dia do mês de referência), não a de hoje
+  ctxApi.desmarcarPagoAPI({ id: 9, dataIndefinida: true, competencia: "2026-10-01" });
+  igual(chamadas.at(-1).campos, { agendado: true, pago_em: null, data: "2026-10-31" });
+  ctxApi.desmarcarPagoAPI({ id: 9, dataIndefinida: true, competencia: "2026-02-01" });
+  igual(chamadas.at(-1).campos.data, "2026-02-28");
   ctxApi.apagarOcorrenciasDaRecorrenciaAPI(3, "2026-10-05");
   igual(chamadas.at(-1).filtros, [["eq", "recorrencia_id", 3], ["eq", "a_confirmar", true], ["gte", "data", "2026-10-05"]]);
   ctxApi.apagarOcorrenciasDaRecorrenciaAPI(3);

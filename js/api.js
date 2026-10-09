@@ -447,13 +447,21 @@ function aprovarDuplicatasAPI(ids) {
  *  Se a data era variável, passa a ser hoje. */
 function marcarPagoAPI(trans) {
     const campos = { agendado: false, pago_em: hojeISO() };
-    if (trans.dataIndefinida) { campos.data = hojeISO(); campos.data_indefinida = false; }
+    // Sem data definida: passa a valer hoje (entra em Pago), mas segue marcada como sem data ("?/mês")
+    if (trans.dataIndefinida) campos.data = hojeISO();
     return sb.from('transacoes').update(campos).eq('id', trans.id);
 }
 
-/** Desmarca "Pago"/"Recebido" de hoje: volta a ser programado (o checkbox fica desmarcado, a data não muda). */
+/** Desmarca "Pago"/"Recebido" de hoje: volta a ser programado. Sem data definida, volta a data original:
+ *  o último dia do mês de referência (como na criação, ver utils.js). */
 function desmarcarPagoAPI(trans) {
-    return sb.from('transacoes').update({ agendado: true, pago_em: null }).eq('id', trans.id);
+    const campos = { agendado: true, pago_em: null };
+    if (trans.dataIndefinida && trans.competencia) {
+        const [a, m] = String(trans.competencia).slice(0, 10).split('-').map(Number);
+        const ultimo = new Date(a, m, 0).getDate();
+        campos.data = `${a}-${String(m).padStart(2, '0')}-${String(ultimo).padStart(2, '0')}`;
+    }
+    return sb.from('transacoes').update(campos).eq('id', trans.id);
 }
 
 /** Apaga lançamento(s) pelo id, sem a regra de parcelas (use deletarTransacaoAPI para isso). */
