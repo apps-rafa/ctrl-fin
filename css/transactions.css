@@ -457,6 +457,9 @@
 .subgrupo[open] > .subgrupo-cab::before { content: '▾'; }
 .subgrupo:not([open]) > .subgrupo-cab { border-bottom: 1px dashed var(--border); }
 .subgrupo[open] > .subgrupo-cab { border-bottom: 1px dashed var(--border); margin-bottom: .3rem; }
+/* Único subgrupo do grupo (só uma forma de pagamento): cabeçalho fixo, sem seta nem recolher (ver _subgrupoUnico) */
+.subgrupo--unico > .subgrupo-cab { cursor: default; border-bottom: 1px dashed var(--border); margin-bottom: .3rem; }
+.subgrupo--unico > .subgrupo-cab::before { content: none; }
 .subgrupo-nome { flex: none; text-align: left; }
 .subgrupo-espaco { flex: 1; }
 .subgrupo-contagem {
