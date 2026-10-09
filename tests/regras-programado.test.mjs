@@ -12,6 +12,13 @@ vm.runInContext(fs.readFileSync(new URL("../js/recorrencia.js", import.meta.url)
 const mostra = ctx.deveMostrarPagoRecebido;
 const marcadoHoje = ctx.marcadoPagoHoje;
 const realizado = ctx.aconteceuAteHoje;
+const semDefinicao = ctx.dataSemDefinicao;
+
+test("sem data definida: mostra '?' até marcar como pago; depois da marcação fica o dia; desmarcar volta a '?'", () => {
+  assert.equal(semDefinicao({ dataIndefinida: true, pagoEm: null }), true, "não marcado: '?/mês'");
+  assert.equal(semDefinicao({ dataIndefinida: true, pagoEm: "2026-10-09" }), false, "marcado: fica o dia");
+  assert.equal(semDefinicao({ dataIndefinida: false, pagoEm: null }), false, "com data: normal");
+});
 
 test("Pago/Recebido: programado sem marcar é a pagar (mesmo com data passada); marcado ou sem agendado já aconteceu", () => {
   assert.equal(realizado({ agendado: true, pendente: false, data: "2026-10-09" }, "2026-10-09"), false, "desmarcado no dia: a pagar");

@@ -96,8 +96,8 @@ function iniciarEdicaoTransacao(trans, tipoTransacao) {
         b.classList.toggle('active', b.dataset.tipo === tipoTransacao));
     atualizarLabelsPorTipo();
 
-    document.querySelector(SELECTORS.data).value = trans.dataIndefinida ? '' : isoParaDiaMes(trans.data); // sem data: o campo fica em branco
-    document.querySelector(SELECTORS.data).dataset.vazio = trans.dataIndefinida ? '1' : '';
+    document.querySelector(SELECTORS.data).value = dataSemDefinicao(trans) ? '' : isoParaDiaMes(trans.data); // sem data: o campo fica em branco
+    document.querySelector(SELECTORS.data).dataset.vazio = dataSemDefinicao(trans) ? '1' : '';
     document.querySelector(SELECTORS.valor).value = formatarValorParaCampo(trans.valor);
     document.querySelector(SELECTORS.categoria).value = trans.categoria;
     document.querySelector(SELECTORS.descricao).value = trans.descricao || '';

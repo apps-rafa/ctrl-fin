@@ -128,6 +128,12 @@ function aconteceuAteHoje(t, hoje) {
   return !t.pendente && !t.agendado && String(t.data).slice(0, 10) <= hoje;
 }
 
+/** Sem data definida de verdade: a data original segue "?/mês". Depois de marcado como Pago/Recebido, a data passa a ser o dia
+ *  (pago_em), e volta a "?" só se desmarcar. */
+function dataSemDefinicao(t) {
+  return !!t.dataIndefinida && !t.pagoEm;
+}
+
 /** Marcado como "Pago"/"Recebido" HOJE (pago_em = hoje): o checkbox segue marcado até o dia seguinte, e desmarcar reverte.
  *  Vale também para o aviso do Telegram, que marca pelo mesmo campo (ver lembretes.ts). */
 function marcadoPagoHoje(t, hoje) {
