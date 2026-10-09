@@ -44,9 +44,18 @@ test("sem data definida lembra no último dia do mês e avisa no detalhe", () =>
   assert.match(l.detalhe, /sem data definida/);
 });
 
-test("compra no cartão NÃO lembra pela data da compra", () => {
+test("compra comum no cartão NÃO lembra pela data da compra", () => {
   const r = montarLembretes({ ...base, transacoes: [tx({ id: 6, metodo: "Crédito Bradesco", competencia: "2026-11-01" })] });
   assert.equal(soTx(r).length, 0);
+});
+
+test("despesa programada no cartão lembra no dia; parcela não", () => {
+  const r = soTx(montarLembretes({ ...base, transacoes: [
+    tx({ id: 14, metodo: "Crédito Bradesco", competencia: "2026-11-01", agendado: true, descricao: "Luz Light" }),
+    tx({ id: 15, metodo: "Crédito Bradesco", competencia: "2026-11-01", agendado: true, parcelas_total: 12 }),
+  ] }));
+  assert.deepEqual(r.map((x) => x.chave), ["lembrete:u1:tx:14"]);
+  assert.match(montarMensagemVencimentos(HOJE, r), /Luz Light[\s\S]*Forma de pgto\.: Crédito Bradesco/);
 });
 
 test("fatura do cartão lembra no dia do vencimento, com total (despesas - estornos) do mês", () => {
