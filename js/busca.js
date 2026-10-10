@@ -244,17 +244,6 @@ async function buscarAmpla(termo) {
     };
 }
 
-/** Itens que a aba Próximos mostraria (A receber / A pagar sem cartão + tudo
- *  do cartão de crédito no mês) que batem com o termo. */
-function _itensProximosBusca(termo) {
-    const metodos = (estadoApp.menus && (estadoApp.menus.metodosTodos || estadoApp.menus.metodos)) || [];
-    const credito = new Set(metodos.filter(m => m.metodoKind === 'Crédito').map(m => rotuloMetodo(m)));
-    const todos = [...(estadoApp.transacoes.entradas || []), ...(estadoApp.transacoes.saidas || [])].filter(t => !t.aConfirmar);
-    // Só o que AINDA não aconteceu (vencimento/pagamento não passou) — o que já
-    // aconteceu aparece só em Receitas/Despesas, nunca nos dois grupos.
-    return _filtrarPorBusca(todos, termo).filter(t => !_transacaoRealizada(t));
-}
-
 /** Busca UNIVERSAL: um campo só, de qualquer tela. Com termo, esconde o
  *  conteúdo da aba atual e mostra o resultado agrupado em Receitas / Despesas
  *  / Próximos (o mesmo lançamento pode aparecer em mais de um grupo — cada

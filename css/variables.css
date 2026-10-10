@@ -12,7 +12,6 @@
     --primary: #4F46E5;
     --primary-dark: #4338CA;
     --primary-contrast: #ffffff;
-    --secondary: #06B6D4;
     --success: #10B981;
     --danger: #EF4444;
     --warning: #F59E0B;
@@ -43,7 +42,6 @@
     --gray: var(--text-muted);
 
     /* Espaçamento */
-    --spacing-xs: 0.25rem;
     --spacing-sm: 0.5rem;
     --spacing-md: 1rem;
     --spacing-lg: 1.5rem;
@@ -76,9 +74,7 @@
     --font-weight-bold: 700;
 
     /* Transições */
-    --transition-fast: 0.2s ease;
     --transition-normal: 0.3s ease;
-    --transition-slow: 0.5s ease;
 }
 
 /* ---------- TEMA ESCURO ---------- */

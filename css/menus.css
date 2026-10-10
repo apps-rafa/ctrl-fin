@@ -51,13 +51,11 @@
    caber numa coluna só e quebrava linha; vai direto pro "Pgtos." em vez
    de passar por um meio-termo que ainda não cabe. Num aperto extremo,
    TODO subtab (não só esses 2) vira só o emoji — ver .subtab-texto abaixo. */
-.subtab .met-media, .subtab .met-curto { display: none; }
-.subtab .rec-curto { display: none; }
+.subtab .met-curto { display: none; }
+
 @media (max-width: 700px) {
   .subtab .met-full { display: none; }
   .subtab .met-curto { display: inline; }
-  .subtab .rec-full { display: none; }
-  .subtab .rec-curto { display: inline; }
 }
 @media (max-width: 340px) {
   .subtab .subtab-texto { display: none; }
@@ -435,31 +433,6 @@
   background: rgba(220, 53, 69, 0.1);
 }
 
-.add-item-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-md);
-  background: white;
-  border: 1px dashed #dee2e6;
-  border-radius: var(--radius-sm);
-  margin-top: var(--spacing-md);
-}
-
-.add-item-form input {
-  padding: var(--spacing-sm);
-  border: 1px solid #dee2e6;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-family: inherit;
-}
-
-.add-item-form input:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-}
-
 .btn-add {
   background: linear-gradient(135deg, var(--primary), #6366f1);
   color: white;
@@ -606,18 +579,6 @@
 }
 .item-edit-acoes { display: flex; gap: .4rem; }
 .item-edit-acoes .btn-add { flex: 1; padding: .4rem .8rem; }
-
-/* Coluna de recorrências: sem scroll interno, texto completo */
-.menu-list--livre {
-  max-height: none;
-  overflow: visible;
-}
-.item-descricao--full {
-  max-height: none;
-  overflow: visible;
-  display: block;
-  -webkit-line-clamp: unset;
-}
 
 /* ============ Pluggy (Configurações > Open Finance) ============ */
 .menu-section[data-sub="of"] {
@@ -885,22 +846,6 @@
 .pluggy-telegram-acoes-par > * { flex: 1 1 0; min-width: 0; }
 .pluggy-telegram-link { text-decoration: none; }
 
-/* Campos "soltos" (sem .form-group/.dialogo-corpo em volta) usados nos
-   cards da revisão do Pluggy — sem essa regra caíam no estilo nativo do
-   navegador (fundo branco), destoando de todo o resto do app. */
-.select-mini, .input-mini {
-  box-sizing: border-box;
-  height: 2rem;
-  padding: .3rem .5rem;
-  font-size: .78rem;
-  border: 1px solid var(--border-strong, #D1D5DB);
-  border-radius: var(--radius-xs);
-  background: var(--surface-2);
-  color: var(--text);
-}
-.select-mini:focus, .input-mini:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
-.input-mini::placeholder { color: var(--text-muted); }
-
 /* Colunas de largura fixa na revisão do Pluggy — data/valor/categoria
    com o mesmo tamanho em toda linha, alinhadas verticalmente entre si
    (antes cada select/valor tinha a largura do próprio conteúdo). */
@@ -908,9 +853,6 @@
 #pluggyRevisaoLista .despesa-data { flex: 0 0 3.4rem; }
 #pluggyRevisaoLista .despesa-valor { flex: 0 0 4.4rem; text-align: right; }
 #pluggyRevisaoLista .campo-com-add { flex: 0 0 9.5rem; }
-#pluggyRevisaoLista .select-mini { width: 100%; }
-#pluggyRevisaoLista .despesa-desc-input { flex: 1 1 auto; min-width: 0; }
-#pluggyRevisaoLista .pluggy-historico-categoria { flex: 0 0 9.5rem; }
 
 .campo-metodo-conta { display: flex; align-items: center; gap: .4rem; margin-top: .3rem; }
 .campo-metodo-conta label { font-size: .78rem; color: var(--text-muted); white-space: nowrap; }
@@ -1069,7 +1011,6 @@
   .revisao-tabela th { padding: .3rem .3rem; }
   .revisao-tabela td { padding: .25rem .3rem; }
   .revisao-tabela select { max-width: 92px; padding: .1rem .15rem; font-size: .6rem; }
-  .revisao-tabela .chip-tipo { font-size: .58rem; padding: .02rem .3rem; }
   .revisao-desc { max-width: 110px; }
   .import-x { width: 1.1rem; height: 1.1rem; font-size: .55rem; }
 }
@@ -1089,16 +1030,6 @@
   color: var(--text-muted);
   margin: .4rem 0;
 }
-.chip-tipo {
-  display: inline-block;
-  padding: .05rem .4rem;
-  border-radius: 999px;
-  font-size: .68rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.chip-tipo--entradas { background: var(--receita-bg); color: var(--receita-text); }
-.chip-tipo--saidas { background: var(--despesa-bg); color: var(--despesa-text); }
 
 .revisao-acoes {
   display: flex;
@@ -1303,7 +1234,6 @@ summary [role="button"] { font-family: Arial; text-align: center; }
 
 /* Bolinha de cor menor, na proporção dos ícones ao lado (ordem: ✏️ 🗑️ ⊘ cor) */
 .item-actions button.cor-swatch { width: .9rem; height: .9rem; margin: 0 .2rem; }
-
 
 /* Respiro entre as contas conectadas/desconectadas do Open Finance */
 .pluggy-contas-grupo > .menu-item + .menu-item { margin-top: .6rem; }

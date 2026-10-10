@@ -311,8 +311,3 @@ function feriadosView(categoria, ano) {
   }
   return out.sort((a, b) => a.data.localeCompare(b.data));
 }
-
-/** Quantidade de feriados ATIVOS numa categoria/ano (para o resumo dos menus) */
-function feriadosContagem(categoria, ano) {
-  return feriadosView(categoria, ano).filter(f => f.ativo).length;
-}

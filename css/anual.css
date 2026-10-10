@@ -14,10 +14,6 @@
 .anual-card b.ruim, .anual-tabela .delta.ruim { color: var(--despesa-text); }
 @media (max-width: 600px) { .anual-cards { grid-template-columns: 1fr 1fr; } }
 
-.anual-base { stroke: var(--border); stroke-width: 1; }
-.anual-eixo { fill: var(--text-muted); font-size: 12px; }
-.anual-eixo.atual { fill: var(--text); font-weight: 700; }
-
 .anual-tabela-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
 .anual-tabela { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 760px; font-size: .74rem; font-variant-numeric: tabular-nums; }
 .anual-tabela th, .anual-tabela td { padding: .32rem .4rem; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--border); }
@@ -44,7 +40,6 @@
 .anual-toggle.active { background: var(--primary); border-color: var(--primary); color: var(--primary-contrast, #fff); }
 .anual-cards { grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); }
 .anual-card small { font-size: .65rem; color: var(--text-muted); }
-.anual-legenda { margin: .3rem 0 0; font-size: .72rem; color: var(--text-muted); display: flex; align-items: center; gap: .3rem; }
 .anual-tabela .ant { color: var(--text-muted); }
 .anual-tabela .anual-nome.clicavel { cursor: pointer; }
 .anual-tabela .anual-nome.clicavel:hover span { text-decoration: underline; }
@@ -87,7 +82,6 @@
   .anual-tabela .anual-ponto { margin-right: .3rem; }
   .anual-tabela .grafico-rot .leg { flex-direction: column; align-items: flex-start; gap: .2rem; }
   .anual-tabela .leg i { margin-left: 0; margin-right: .25rem; }
-  .anual-tabela .leg .leg-item { display: inline-flex; align-items: center; }
   .anual-tabela { min-width: 0; }
 
   /* Controles: todos 100% da largura, mesma altura, fonte e espaçamento */

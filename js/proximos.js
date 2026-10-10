@@ -27,7 +27,6 @@ function renderProximasAgrupado(abertos = {}, futurasMeses = []) {
         (estadoApp.transacoes.entradas || []).filter(t => t.metodo === f.rot && feita(t)).forEach(t => { estornos.add(t); compras.push(t); });
         return compras.sort((a, b) => String(b.data).localeCompare(String(a.data)));
     };
-    const totalDespesa = soma(despesas) + faturas.reduce((acc, f) => acc + f.total, 0);
     const grupo = (nome, chave, cor, contagem, total, corpo, unico = false) => `
         <details class="fatura-item" data-pend="${chave}" style="--cor-cartao:${cor}" ${aberto(chave, unico) ? 'open' : ''}>
           <summary>
@@ -56,7 +55,6 @@ function renderProximasAgrupado(abertos = {}, futurasMeses = []) {
     };
     const mesSel = estadoApp.mesAtual || new Date();
     const compSel = `${mesSel.getFullYear()}-${String(mesSel.getMonth() + 1).padStart(2, '0')}`;
-    const rotuloMes = comp => { const [a, m] = comp.split('-').map(Number); const t = new Date(a, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }); return t.charAt(0).toUpperCase() + t.slice(1); };
     // "Novembro/2026" -> "NOV/26" -> "11/26" conforme a largura (ver .mes-longo/.mes-med/.mes-num no CSS)
     const _rotuloMesCurto = comp => {
         const [a, m] = comp.split('-').map(Number);
@@ -121,41 +119,6 @@ async function atualizarProximasTransacoes() {
         console.error('Erro ao atualizar próximas transações:', error);
         container.innerHTML = '<p class="empty-message">Erro ao carregar próximas transações</p>';
     }
-}
-
-/** Grupos "A receber" e "A pagar" da aba Próximos: lançamentos do mês em
- *  exibição que ainda não aconteceram (mesma regra do card de resumo —
- *  _transacaoRealizada), fora os de cartão de crédito, que aparecem em
- *  "Faturas". Abertos por padrão. */
-function renderPendentesProximas(abertos = {}, termo = '') {
-    const metodos = (estadoApp.menus && (estadoApp.menus.metodosTodos || estadoApp.menus.metodos)) || [];
-    const rotulosCredito = new Set(metodos.filter(m => m.metodoKind === 'Crédito').map(m => rotuloMetodo(m)));
-    const valorDe = t => (t.valorMes != null ? t.valorMes : t.valor) || 0;
-    const pend = lista => _filtrarPorBusca(lista || [], termo)
-        .filter(t => !rotulosCredito.has(t.metodo) && !_transacaoRealizada(t) && !t.aConfirmar)
-        .sort((a, b) => String(a.data).localeCompare(String(b.data)));
-    const grupo = (nome, chave, lista, tipoUI) => {
-        if (!lista.length) return '';
-        const total = lista.reduce((acc, t) => acc + valorDe(t), 0);
-        return `
-        <details class="fatura-item" data-pend="${chave}" ${(abertos[chave] !== undefined ? abertos[chave] : !!termo) ? 'open' : ''}>
-          <summary>
-            <span class="fatura-nome">${nome}</span>
-            <span class="fatura-contagem">${_contarVisuais(lista)}</span>
-            <span class="fatura-espaco"></span>
-            <span class="fatura-total">${formatarMoeda(total)}</span>
-          </summary>
-          <div class="fatura-itens">${lista.map(t => gerarHTMLTransacao(t, tipoUI, { semRelogio: true })).join('')}</div>
-        </details>`;
-    };
-    // Despesas a pagar: um grupo por forma de pagamento ("PIX", "Dinheiro"...; todo "PIX <banco>" é PIX)
-    const nomeForma = t => (/^pix(\s|$)/i.test(String(t.metodo || '').trim()) ? 'PIX' : (t.metodo || 'Sem forma de pagamento'));
-    const porForma = new Map();
-    pend(estadoApp.transacoes.saidas).forEach(t => { const k = nomeForma(t); porForma.set(k, [...(porForma.get(k) || []), t]); });
-    const gruposPagar = [...porForma.entries()]
-        .sort((a, b) => b[1].reduce((x, t) => x + valorDe(t), 0) - a[1].reduce((x, t) => x + valorDe(t), 0))
-        .map(([nome, lista]) => grupo(nome, 'pagar:' + nome, lista, 'saida')).join('');
-    return grupo('A receber', 'receber', pend(estadoApp.transacoes.entradas), 'entrada') + gruposPagar;
 }
 
 /** Bloco "Faturas de cartão de crédito": cada cartão com o total lançado no

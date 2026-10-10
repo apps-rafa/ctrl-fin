@@ -173,45 +173,6 @@ async function carregarMenusAPI() {
 }
 
 /**
- * Resumo de um tipo no mês: total + quebra por categoria
- */
-async function carregarResumo(tipo, mes, ano) {
-    try {
-        const [ini, fim] = intervaloDoMes(mes, ano);
-
-        const { data, error } = await sb
-            .from('transacoes')
-            .select('valor, categoria')
-            .eq('tipo', tipo)
-            .gte('competencia', ini)
-            .lt('competencia', fim);
-
-        if (error) throw error;
-
-        let total = 0;
-        const porCat = {};
-        (data || []).forEach(r => {
-            const v = parseFloat(r.valor) || 0;
-            total += v;
-            porCat[r.categoria] = (porCat[r.categoria] || 0) + v;
-        });
-
-        const porCategoria = Object.entries(porCat)
-            .sort((a, b) => b[1] - a[1])
-            .map(([categoria, valor]) => ({
-                categoria,
-                valor: parseFloat(valor.toFixed(2)),
-                percentual: total > 0 ? ((valor / total) * 100).toFixed(1) : 0
-            }));
-
-        return { mes, ano, total: parseFloat(total.toFixed(2)), porCategoria };
-    } catch (error) {
-        console.error('Erro ao carregar resumo:', error);
-        return { total: 0, porCategoria: [], mes, ano };
-    }
-}
-
-/**
  * Monta o registro do banco a partir dos dados do formulário. Só existem 2
  * tipos hoje: Pontual (padrão) e Parcelada (compra de crédito dividida —
  * `dia_recorrencia` aqui é o dia de vencimento de cada parcela).
@@ -260,27 +221,12 @@ async function adicionarTransacaoAPI(dados) {
     return mapearTransacao(data);
 }
 
-/** Número formatado sem símbolo: inteiro sem casas, senão 2 casas com vírgula */
-function numParcela(x) {
-    return Number.isInteger(x) ? String(x) : x.toFixed(2).replace('.', ',');
-}
-
 /** Valor "original" da parcela `num` (1-based) de um total, com n parcelas */
 function valorParcelaOriginal(valorTotal, n, num) {
     const cent = Math.round(valorTotal * 100);
     const base = Math.floor(cent / n);
     const resto = cent - base * n;
     return (base + ((num - 1) < resto ? 1 : 0)) / 100;
-}
-
-/** Nome base da descrição de uma parcela (remove "k/n · ..." e sufixos) */
-function nomeBaseParcela(descricao) {
-    return String(descricao || '').replace(/\s+\d+\/\d+\s+·.*$/, '').trim();
-}
-
-/** Monta a descrição de uma parcela: "Nome k/n · vParc/vTotal" */
-function descParcela(nome, num, n, valorParc, valorTotal, sufixo) {
-    return `${nome} ${num}/${n} · ${numParcela(valorParc)}/${numParcela(valorTotal)}${sufixo ? ' · ' + sufixo : ''}`;
 }
 
 async function adicionarParceladoAPI(dados) {

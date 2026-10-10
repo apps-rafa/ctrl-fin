@@ -49,7 +49,7 @@
                         <span id="userEmail" class="user-email" hidden></span>
                         <button id="btnAnual" type="button" class="month-btn month-btn--tema-header" data-tab="anual" title="Visão anual" aria-label="Visão anual">📈</button>
                         <button id="btnTema" type="button" class="month-btn month-btn--tema-header" title="Alternar tema claro/escuro">🌙</button>
-                        <button id="btnLogout" class="month-btn" hidden title="Sair"><span class="header-emoji sair-ico">🚪</span><span class="sair-texto">Sair</span></button>
+                        <button id="btnLogout" class="month-btn" hidden title="Sair"><span class="header-emoji">🚪</span><span class="sair-texto">Sair</span></button>
                     </div>
                 </div>
             </header>
@@ -75,7 +75,7 @@
             </div>
 
             <!-- Pendências: extensão da barra de meses, colada e fixa (o .topo é sticky); só aparece quando há algo a resolver -->
-            <button type="button" id="barraPendencias" class="barra-pendencias" data-tab="pendencias" hidden><span class="bp-ico" aria-hidden="true">📥</span><span id="barraPendenciasTxt"></span><span class="bp-seta" aria-hidden="true">›</span></button>
+            <button type="button" id="barraPendencias" class="barra-pendencias" data-tab="pendencias" hidden><span aria-hidden="true">📥</span><span id="barraPendenciasTxt"></span><span class="bp-seta" aria-hidden="true">›</span></button>
 
             <!-- Saldo real das contas bancárias (Open Finance): fora do dashboard, logo abaixo do calendário -->
             <div class="saldo-contas" id="saldoContas" hidden title="Saldo atual das contas bancárias conectadas (Open Finance)">
@@ -166,7 +166,7 @@
 
             <!-- Área de conteúdo (faixa abaixo do dashboard): busca universal + abas -->
             <div class="area-conteudo">
-            <section id="resultadoBusca" class="resultado-busca" hidden></section>
+            <section id="resultadoBusca" hidden></section>
             <div id="filaHome"></div>
 
             <!-- Tab: Entradas -->
@@ -389,7 +389,7 @@
                                     <option value="4">QUI</option><option value="5">SEX</option><option value="6">SÁB</option><option value="0">DOM</option>
                                 </select>
                             </div>
-                            <div class="form-group rec-c-inicio" id="recInicioGrupo">
+                            <div class="form-group rec-c-inicio">
                                 <label for="recInicio">Início</label>
                                 <select id="recInicio"></select>
                             </div>
@@ -421,7 +421,7 @@
                             </div>
                           </div>
                         </div>
-                        <div class="rec-linha rec-linha--2">
+                        <div class="rec-linha">
                           <div class="rec-meia">
                             <div class="form-group rec-c-metodo">
                                 <label for="recMetodo">Forma de pagamento</label>
@@ -449,10 +449,10 @@
                         </div>
                     </div>
 
-                    <div id="recErro" class="erro-form"></div>
+                    <div id="recErro"></div>
                     <div class="form-actions">
                         <button type="submit" class="btn-submit rec-btn-salvar">Salvar</button>
-                        <button type="button" id="recCancelar" class="btn-cancelar rec-btn-cancelar" title="Cancelar" aria-label="Cancelar"><span class="rec-cancel-txt">Cancelar</span><span class="rec-cancel-x">✕</span></button>
+                        <button type="button" id="recCancelar" class="btn-cancelar rec-btn-cancelar" title="Cancelar" aria-label="Cancelar"><span>Cancelar</span><span class="rec-cancel-x">✕</span></button>
                     </div>
                 </form>
 

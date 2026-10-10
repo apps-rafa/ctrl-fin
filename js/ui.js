@@ -786,7 +786,6 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     const subFaturaHTML = (f, totalRef, forcarAberto) => _htmlSubgrupoFatura(f, _ordenarPorGrupo(itensFatura.get(f.rot) || []), totalRef, tipoUI, abertosSubFat, estornos, forcarAberto);
     const totalPagoGrupo = soma(atuais) + pagasFat.reduce((acc, f) => acc + f.total, 0);
     const totalAPagarGrupo = soma(pendentes) + abertasFat.reduce((acc, f) => acc + f.total, 0);
-    const nItens = f => (itensFatura.get(f.rot) || []).length;
     // Quantos subgrupos por forma de pagamento os itens soltos (fora das faturas) de um
     // grupo formariam — usado junto com o nº de faturas pra saber se a fatura é o ÚNICO
     // subgrupo do grupo (aí ela já abre sozinha, mesma regra do _renderItensSubagrupados).
@@ -824,7 +823,6 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
 
     const abertos = _lerAbertosRecGrupo(container);
     const abertosSub = _lerAbertosSubgrupo(container);
-    const ehDespesaCron = true; // Despesas e Receitas
     const esc = x => String(x).replace(/"/g, '&quot;');
     // Grupo vazio nunca abre — nem é clicável: sem <details>, é uma linha
     // estática (não tem nada pra mostrar, então não faz sentido nem deixar

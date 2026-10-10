@@ -52,13 +52,6 @@ let estadoApp = {
 };
 
 /**
- * Atualiza o estado com novos dados
- */
-function atualizarEstado(chave, valor) {
-    estadoApp[chave] = valor;
-}
-
-/**
  * Reset completo do estado
  */
 function resetarEstado() {
@@ -67,13 +60,6 @@ function resetarEstado() {
     estadoApp.resumo = { entradas: 0, saidas: 0, balanco: 0 };
     estadoApp.menus = { categorias: [], categoriasDespesa: [], categoriasReceita: [], metodos: [], cores: { categoria: {}, metodo: {} } };
     estadoApp.erro = null;
-}
-
-/**
- * Obtém dados de um tipo específico
- */
-function obterDados(tipo) {
-    return estadoApp.transacoes[tipo] || [];
 }
 
 /**

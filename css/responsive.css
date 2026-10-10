@@ -49,8 +49,6 @@
         text-align: right;
     }
 
-    /* Gráficos */
-
     /* Listas */
 
     /* Seletor de mês */
@@ -97,10 +95,6 @@
         font-size: 0.74rem;
     }
 
-    .tab-badge {
-        display: none;
-    }
-
     .tab-content {
         min-height: 200px;
     }
@@ -122,19 +116,6 @@
     /* Transações */
 
     /* Gráficos */
-
-    .category-item {
-        padding: var(--spacing-sm);
-        gap: var(--spacing-sm);
-    }
-
-    .category-bar {
-        height: 4px;
-    }
-
-    .category-value {
-        font-size: 0.75rem;
-    }
 
     /* Seletor de mês */
 
@@ -284,8 +265,7 @@
    acima davam tamanhos diferentes por acidente de especificidade (Próximos
    saía maior que Lançamento). Mesmo tamanho, Lançamento um pouco maior —
    por último no arquivo de propósito, pra ganhar o empate de especificidade
-   com ".tabs .tab-btn"/".tabs-dir .tab-btn" (mesmo peso, 2 classes cada). */
+   com ".tabs .tab-btn" (mesmo peso, 2 classes cada). */
 @media (max-width: 480px) {
-    .tabs [data-tab="adicionar"],
-    .tabs-dir .tab-btn { font-size: 0.85rem; }
+    .tabs [data-tab="adicionar"] { font-size: 0.85rem; }
 }
