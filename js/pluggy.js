@@ -154,7 +154,7 @@ async function conectarContaPluggy() {
         await widget.init();
     } catch (e) {
         console.error(e);
-        mostrarNotificacao(/Google/.test(e?.message || '') ? e.message : 'Erro ao iniciar conexão com a Pluggy', 'erro');
+        mostrarNotificacao(/com conta/.test(e?.message || '') ? e.message : 'Erro ao iniciar conexão com a Pluggy', 'erro');
     }
 }
 
