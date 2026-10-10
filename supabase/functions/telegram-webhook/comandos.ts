@@ -2,7 +2,7 @@
 
 import type { createClient } from "npm:@supabase/supabase-js@2";
 import { executarBackup } from "./backup.ts";
-import { tg, rotuloMetodo, TELEGRAM_API } from "./util.ts";
+import { tg, rotuloMetodo } from "./util.ts";
 import { competenciaDe, hojeBrasiliaISO, aplicarRespostaAoRascunho, type RascunhoLancamento, type MetodoMenu } from "./parser.ts";
 import { enviarRascunho, carregarListasUsuario, confirmarRascunhoNoBanco, criarCategoria, criarMetodo, textoGastoDiario } from "./lancamentos.ts";
 import { carregarContasPluggy, executarAtualizacaoPluggy, rotuloBotaoConta, BOTAO_TODAS_CONTAS } from "./pluggy.ts";
