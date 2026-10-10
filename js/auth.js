@@ -52,8 +52,9 @@ function montarTelaLogin() {
         #authOverlay .auth-guest {
             background: transparent; border: 0; color: #6B7280;
             font-weight: 500; font-size: .9rem; margin-top: .6rem;
-            text-decoration: underline;
+            text-decoration: underline; flex-direction: column; gap: .15rem;
         }
+        #authOverlay .auth-guest small { display: block; font-size: .72rem; font-weight: 400; text-decoration: none; }
         #authOverlay .auth-msg { margin-top: 1rem; font-size: .9rem; min-height: 1.2em; }
         #authOverlay .auth-msg.ok { color: #059669; }
         #authOverlay .auth-msg.err { color: #DC2626; }
@@ -77,7 +78,7 @@ function montarTelaLogin() {
                 <input type="email" id="authEmail" placeholder="seu@email.com" autocomplete="email" required>
                 <button type="submit" id="authEmailBtn">Receber link de acesso</button>
             </form>
-            <button id="authGuest" class="auth-guest">Testar sem cadastro</button>
+            <button id="authGuest" class="auth-guest">Testar sem cadastro <small>(os dados somem em 7 dias)</small></button>
             <div class="auth-msg" id="authMsg"></div>
         </div>
     `;

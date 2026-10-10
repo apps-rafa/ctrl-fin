@@ -84,7 +84,7 @@ Deno.serve(async (req: Request) => {
     }
     // Conta de teste ("Testar sem cadastro", login anônimo) não usa os segredos globais (Pluggy/Resend) do dono do app
     if (user.is_anonymous) {
-      return json({ error: "Open Finance só está disponível entrando com o Google" }, 403);
+      return json({ error: "Open Finance só está disponível com conta (Google ou link por e-mail)" }, 403);
     }
 
     const apiKey = await getPluggyApiKey(supabaseClient, user.id);
