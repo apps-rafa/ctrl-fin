@@ -133,7 +133,9 @@ async function conectarContaPluggy() {
     try {
         const { data, error } = await sb.functions.invoke('pluggy-connect-token', { body: {} });
         if (error || !data?.accessToken) {
-            throw error || new Error('Resposta sem accessToken');
+            let detalhe = ''; // mensagem da própria função (ex.: conta de teste sem acesso ao Open Finance)
+            try { detalhe = error ? (await error.context.json()).error || '' : ''; } catch (_) { /* sem corpo */ }
+            throw detalhe ? new Error(detalhe) : (error || new Error('Resposta sem accessToken'));
         }
 
         const PluggyConnect = await carregarPluggyConnectSdk();
@@ -152,7 +154,7 @@ async function conectarContaPluggy() {
         await widget.init();
     } catch (e) {
         console.error(e);
-        mostrarNotificacao('Erro ao iniciar conexão com a Pluggy', 'erro');
+        mostrarNotificacao(/Google/.test(e?.message || '') ? e.message : 'Erro ao iniciar conexão com a Pluggy', 'erro');
     }
 }
 

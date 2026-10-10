@@ -85,6 +85,8 @@ Deno.serve(async (req: Request) => {
       { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
     const { data: { user }, error: authError } = await cliente.auth.getUser();
     if (authError || !user) return json({ error: "Não autenticado" }, 401);
+    // Conta de teste ("Testar sem cadastro", login anônimo) não usa os segredos globais (Pluggy/Resend) do dono do app
+    if (user.is_anonymous) return json({ error: "Backup por e-mail só está disponível entrando com o Google" }, 403);
     return json({ ok: true, ...(await enviarBackup(admin, user.id, user.email ?? undefined, chave)) });
   } catch (e) {
     console.error(e);
