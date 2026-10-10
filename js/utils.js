@@ -3,6 +3,11 @@
  * Formatação, validação, notificações
  */
 
+/** Texto (descrição do banco, nome de conta, termo de busca...) pronto para entrar em HTML: nunca vira marcação. */
+function escaparHtml(s) {
+    return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 /**
  * Formata um valor numérico como moeda brasileira
  */

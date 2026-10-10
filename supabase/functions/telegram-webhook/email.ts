@@ -97,7 +97,7 @@ type Admin = ReturnType<typeof createClient>;
 export interface DadosConta { valor: number | null; vencimento: string | null }
 type Marcar = (status: string, extra?: Record<string, unknown>) => unknown;
 
-const CAMPOS = "id, data, valor, tipo, metodo, categoria, descricao, competencia";
+const CAMPOS = "id, data, valor, tipo, metodo, categoria, descricao, competencia, data_indefinida";
 
 /** Palavras da descrição da recorrência ("Internet Predial" -> internet, predial), para comparar com a descrição de um lançamento. */
 function palavrasDe(s: string): string[] {
@@ -217,7 +217,8 @@ export async function executarConta(
   const mudancas: Record<string, unknown> = {};
   if (dados.valor !== null) mudancas.valor = dados.valor;
   const dataAtual = String(linha.data).slice(0, 10);
-  if (dados.vencimento && dados.vencimento !== dataAtual) mudancas.data = dados.vencimento;
+  // vencimento do e-mail: a data passa a ser definida (sai do "?/mês")
+  if (dados.vencimento && (dados.vencimento !== dataAtual || linha.data_indefinida)) { mudancas.data = dados.vencimento; mudancas.data_indefinida = false; }
   if (Object.keys(mudancas).length) {
     const atualizar = (m: Record<string, unknown>) => {
       const q = admin.from("transacoes").update(m).eq("id", ocorrencia!.id).eq("user_id", userId);
@@ -225,7 +226,7 @@ export async function executarConta(
     };
     let { error } = await atualizar(mudancas);
     if (error && mudancas.data) { // data já ocupada por outra ocorrência (índice único): atualiza só o valor
-      delete mudancas.data;
+      delete mudancas.data; delete mudancas.data_indefinida;
       if (Object.keys(mudancas).length) ({ error } = await atualizar(mudancas));
     }
     if (error) console.error("Ocorrência não atualizada pelo e-mail:", error);
@@ -255,7 +256,7 @@ export async function executarConta(
     tipo: linha.tipo === "entradas" ? "entradas" : "saidas", valor: valorFinal, descricao: String(linha.descricao ?? ""), categoria: String(linha.categoria ?? ""),
     metodo: (linha.metodo as string) ?? null, metodoKind: met?.metodo_kind ?? null, diaFechamento: met?.dia_fechamento ?? null,
     data: dataFinal, parcelas: null, competencia: linha.competencia ? String(linha.competencia).slice(0, 10) : null,
-    metodoOrigem: "texto", ocorrenciaId: ocorrencia.id,
+    metodoOrigem: "texto", ocorrenciaId: ocorrencia.id, dataIndefinida: !!linha.data_indefinida && !("data" in mudancas),
   };
   const { data: existentes } = await admin.from("telegram_rascunhos").select("id").eq("user_id", userId).eq("chat_id", chatId).contains("dados", { ocorrenciaId: ocorrencia.id }).limit(1);
   let rascunhoId: number;
@@ -298,13 +299,13 @@ export async function tratarDecisaoEmail(
       const mudancas: Record<string, unknown> = {};
       if (pend().valor !== null && pend().valor !== undefined) mudancas.valor = pend().valor;
       if (pend().vencimento) mudancas.data = pend().vencimento;
-      let erro: unknown = null;
-      if (alvoId && Object.keys(mudancas).length) {
-        ({ error: erro } = await admin.from("transacoes").update(mudancas).eq("id", alvoId).eq("user_id", userId));
-        if (erro && mudancas.data) { delete mudancas.data; if (Object.keys(mudancas).length) ({ error: erro } = await admin.from("transacoes").update(mudancas).eq("id", alvoId).eq("user_id", userId)); }
-      }
-      await marcar("atualizado", { transacao_id: alvoId ?? null });
-      return !erro;
+      // Sem lançamento parecido ou sem valor/vencimento no e-mail: nada a atualizar — responde "não consegui" (edite pelo app)
+      if (!alvoId || !Object.keys(mudancas).length) return false;
+      let { error: erro } = await admin.from("transacoes").update(mudancas).eq("id", alvoId).eq("user_id", userId);
+      if (erro && mudancas.data) { delete mudancas.data; if (Object.keys(mudancas).length) ({ error: erro } = await admin.from("transacoes").update(mudancas).eq("id", alvoId).eq("user_id", userId)); }
+      if (erro) return false;
+      await marcar("atualizado", { transacao_id: alvoId });
+      return true;
     },
     outro: async () => {
       await marcar("outro");

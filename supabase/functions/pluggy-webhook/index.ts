@@ -85,7 +85,7 @@ function limparLinks(t: string): string {
   return String(t ?? "").replace(/(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+)\.(?:com|net|org|io|app|co|me|tv|gov|edu|br)(?:\.[a-z]{2})?(?:\/\S*)?/gi, (_m, nome: string) => nome.charAt(0).toUpperCase() + nome.slice(1));
 }
 
-async function enviarMensagemTelegram(token: string, chatId: number, texto: string, botoes: unknown[][], markdown = true) {
+async function enviarMensagemTelegram(token: string, chatId: number, texto: string, botoes: unknown[][], html = true) {
   try {
     const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
@@ -93,7 +93,7 @@ async function enviarMensagemTelegram(token: string, chatId: number, texto: stri
       body: JSON.stringify({
         chat_id: chatId,
         text: texto,
-        ...(markdown ? { parse_mode: "Markdown" } : {}),
+        ...(html ? { parse_mode: "HTML" } : {}),
         link_preview_options: { is_disabled: true },
         reply_markup: { inline_keyboard: botoes },
       }),

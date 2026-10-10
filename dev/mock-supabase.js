@@ -76,7 +76,24 @@
       from: builder, auth,
       functions: { invoke: async (nome) => ({ data: nome === 'recorrencias' ? { ok: true, criadas: 0 } : {}, error: null }) },
       channel: () => ({ on() { return this; }, subscribe() { return this; } }), removeChannel() {},
-      rpc: async () => ({ data: null, error: null }),
+      rpc: async (nome, p = {}) => {
+        // Mesma regra da função do banco (supabase/migrations/20261018_quitar_parcelamento.sql)
+        if (nome !== 'quitar_parcelamento') return { data: null, error: null };
+        const tx = tables.transacoes || [];
+        const alvo = tx.find(r => r.id === p.p_id);
+        if (!alvo || !alvo.grupo_id || alvo.tipo_recorrencia !== 'Parcelada') return { data: null, error: { message: 'Não é um parcelamento' } };
+        const grupo = tx.filter(r => r.grupo_id === alvo.grupo_id);
+        const n = alvo.parcelas_total || grupo.length, cent = Math.round(alvo.valor_total * 100), base = Math.floor(cent / n), resto = cent - base * n;
+        const orig = num => (base + (num - 1 < resto ? 1 : 0)) / 100;
+        if (p.p_quitar) {
+          const saldo = Math.round(grupo.filter(r => r.parcela_num >= alvo.parcela_num).reduce((s, r) => s + orig(r.parcela_num), 0) * 100) / 100;
+          grupo.forEach(r => {
+            if (r.parcela_num === alvo.parcela_num) Object.assign(r, { valor: saldo, quitada: false, quitado_em: alvo.competencia });
+            else if (r.parcela_num > alvo.parcela_num) Object.assign(r, { valor: 0, quitada: true, quitado_em: alvo.competencia });
+          });
+        } else grupo.forEach(r => Object.assign(r, { valor: orig(r.parcela_num), quitada: false, quitado_em: null }));
+        return { data: null, error: null };
+      },
     }),
   };
   console.log('🧪 Supabase simulado (dev/) — dados de exemplo');

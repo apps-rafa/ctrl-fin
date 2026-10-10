@@ -148,9 +148,18 @@ export async function tratarRascunhoConfirmarOuCancelar(c: ContextoCallback): Pr
       return;
     }
 
+    // Reserva o rascunho ANTES de gravar (update condicional, atômico): com dois toques seguidos no Confirmar
+    // (ou o Telegram reenviando o update), só o primeiro grava — o outro não acha mais o rascunho pendente.
+    const { data: reservado } = await supabaseAdmin.from("telegram_rascunhos").update({ status: "descartado" })
+      .eq("id", rascunhoId).eq("status", "pendente").select("id");
+    if (!reservado || !reservado.length) {
+      await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Esse rascunho já foi lançado" });
+      return;
+    }
     const { erro: insertError } = await confirmarRascunhoNoBanco(supabaseAdmin, tgUser.user_id, rascunho.dados as RascunhoLancamento);
     if (!insertError) await supabaseAdmin.from("telegram_rascunhos").delete().eq("id", rascunhoId);
     if (insertError) {
+      await supabaseAdmin.from("telegram_rascunhos").update({ status: "pendente" }).eq("id", rascunhoId); // não gravou: segue pendente
       console.error(insertError);
       await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: ehOcorrencia ? String((insertError as Error)?.message || "Erro ao confirmar").slice(0, 190) : "Erro ao confirmar" });
       return;
@@ -224,7 +233,7 @@ export async function tratarRecorrenciaRascunho(c: ContextoCallback): Promise<vo
     await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Conta não vinculada" });
     return;
   }
-  const { data: t } = await supabaseAdmin.from("transacoes").select("id, tipo, data, valor, metodo, categoria, descricao, competencia")
+  const { data: t } = await supabaseAdmin.from("transacoes").select("id, tipo, data, valor, metodo, categoria, descricao, competencia, data_indefinida")
     .eq("id", txId).eq("user_id", tgUser.user_id).eq("a_confirmar", true).not("recorrencia_id", "is", null).maybeSingle();
   if (!t) {
     await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Esse lançamento já foi confirmado ou apagado" });
@@ -244,7 +253,7 @@ export async function tratarRecorrenciaRascunho(c: ContextoCallback): Promise<vo
       tipo: t.tipo === "entradas" ? "entradas" : "saidas", valor: Number(t.valor), descricao: t.descricao || "", categoria: t.categoria,
       metodo: t.metodo, metodoKind: met?.metodo_kind ?? null, diaFechamento: met?.dia_fechamento ?? null,
       data: String(t.data).slice(0, 10), parcelas: null, competencia: t.competencia ? String(t.competencia).slice(0, 10) : null,
-      metodoOrigem: "texto", ocorrenciaId: txId,
+      metodoOrigem: "texto", ocorrenciaId: txId, dataIndefinida: !!t.data_indefinida,
     };
     const { data: novo, error } = await supabaseAdmin.from("telegram_rascunhos").insert({ user_id: tgUser.user_id, chat_id: chatId, dados }).select("id").single();
     if (error || !novo) {

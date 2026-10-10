@@ -715,7 +715,7 @@ function _htmlSubgrupoFatura(f, its, totalRef, tipoUI, abertosSub, estornos, for
 
 /** Subgrupo "<nome> · semanal": as ocorrências de uma recorrência semanal num grupo só, com a quantidade e o total. */
 function _htmlSubgrupoSemanal(id, lista, cor, tipoUI, semRelogio, abertos, htmlItem, onde) {
-    const nome = lista[0].descricao || lista[0].categoria || 'Recorrência';
+    const nome = escaparHtml(lista[0].descricao || lista[0].categoria || 'Recorrência');
     const chave = `Semanal ${id}`;
     if (onde) abertos = { ...abertos, [chave]: _filaManual[onde + ':' + chave] ?? abertos[chave] };
     const total = lista.reduce((acc, t) => acc + ((t.valorMes != null ? t.valorMes : t.valor) || 0), 0);
@@ -1261,7 +1261,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
         ? chip(corDaCategoria(trans.categoria, (tipo === 'entrada' && !_ehEstornoCartao(trans)) ? 'entradas' : 'saidas'), _htmlNomeCategoriaChip(trans.categoria)) : '';
     // descReservada (Recentes): a descrição sempre ocupa 2 linhas, mesmo vazia, pra todas as linhas terem a mesma altura
     // A linha da descrição existe sempre (a 2ª linha do lançamento), mesmo em branco: assim todos os lançamentos têm a mesma estrutura/altura
-    const descTxt = `<span class="despesa-desc${opts.descReservada ? ' despesa-desc--reserva' : ''}${trans.descricao ? '' : ' despesa-desc--vazia'}">${recNaDesc ? seloRec : ''}${trans.descricao || '&nbsp;'}</span>`;
+    const descTxt = `<span class="despesa-desc${opts.descReservada ? ' despesa-desc--reserva' : ''}${trans.descricao ? '' : ' despesa-desc--vazia'}">${recNaDesc ? seloRec : ''}${trans.descricao ? escaparHtml(trans.descricao) : '&nbsp;'}</span>`;
 
     // Ações
     let acoes = '';

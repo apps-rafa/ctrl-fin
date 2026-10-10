@@ -87,7 +87,7 @@ function perguntarExcluirRecorrente(trans) {
         };
         mostrarDialogo({
             titulo: 'Apagar lançamento recorrente',
-            texto: `<strong>${trans.descricao || trans.categoria || 'Este lançamento'}</strong> faz parte de uma recorrência. Apagar só este mês ou encerrar a recorrência?`,
+            texto: `<strong>${escaparHtml(trans.descricao || trans.categoria || 'Este lançamento')}</strong> faz parte de uma recorrência. Apagar só este mês ou encerrar a recorrência?`,
             acoes: [
                 { label: 'Cancelar', onClick: () => resolve(false) },
                 { label: 'Só este mês', primario: true, onClick: () => {
@@ -468,7 +468,9 @@ async function _recSalvarEdicao(id, campos, novoInicio = null) {
         return;
     }
     const mudouAgenda = atual.frequencia !== campos.frequencia || (atual.diaSemana ?? null) !== campos.dia_semana || (atual.diaMes ?? null) !== campos.dia_mes || (atual.meses || null) !== campos.meses || (atual.competenciaOffset || 0) !== campos.competencia_offset;
-    const { error } = await atualizarRecorrenciaAPI(id, campos);
+    // Valor mudado à mão: passa a ser a referência dos próximos meses (no lugar do último confirmado guardado)
+    const mudouValor = Number(atual.valor) !== Number(campos.valor);
+    const { error } = await atualizarRecorrenciaAPI(id, mudouValor ? { ...campos, valor_referencia: null, valor_referencia_data: null } : campos);
     if (error) throw error;
     const comuns = { valor: campos.valor, metodo: campos.metodo, categoria: campos.categoria, descricao: campos.descricao };
     await atualizarOcorrenciasDaRecorrenciaAPI(id, comuns, hoje);
@@ -530,7 +532,7 @@ function _recCardHTML(r) {
                 ? '<button type="button" class="rec-toggle rec-toggle--play" data-rec-act="voltar" title="Voltar (reativar a recorrência)" aria-label="Reativar"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.8"/><path fill="currentColor" d="M10 7.8v8.4l6.6-4.2z"/></svg></button>'
                 : '<button type="button" class="rec-toggle rec-toggle--stop" data-rec-act="encerrar" title="Encerrar a recorrência" aria-label="Encerrar"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="8.5" y="8.5" width="7" height="7" rx="1.2" fill="currentColor"/></svg></button>'}
             <div class="despesa-conteudo">
-                <span class="rec-nome">${r.descricao || r.categoria}</span>
+                <span class="rec-nome">${escaparHtml(r.descricao || r.categoria)}</span>
                 <span class="despesa-valor">${despesa ? '-' : '+'} ${formatarMoeda(r.valor)}</span>
                 <span class="despesa-badges"><span class="chip" style="background:${corMet}">${r.metodo}</span></span>
                 <span class="despesa-linha2"><span class="despesa-desc">${_recRotuloFrequencia(r).replace(' · ', ' ').toLowerCase()}${r.competenciaOffset ? ` • mês de referência: ${r.competenciaOffset > 0 ? 'próximo' : 'anterior'}` : ''}</span><span class="chip" style="background:${corCat}">${r.categoria}</span></span>

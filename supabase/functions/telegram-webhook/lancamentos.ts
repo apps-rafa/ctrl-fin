@@ -20,7 +20,8 @@ export async function confirmarRascunhoNoBanco(
   if (d.ocorrenciaId) {
     const { data: atualizadas, error: erroOc } = await supabaseAdmin.from("transacoes").update({
       tipo: d.tipo, data: d.data, valor: d.valor, metodo: d.metodo, categoria: d.categoria, descricao: d.descricao,
-      competencia, a_confirmar: false, ...(d.data > hojeBrasiliaISO() ? { agendado: true } : {}),
+      competencia, a_confirmar: false, data_indefinida: !!d.dataIndefinida, // data escolhida no bot deixa de ser "?/mês"
+      ...(d.data > hojeBrasiliaISO() ? { agendado: true } : {}),
     }).eq("id", d.ocorrenciaId).eq("user_id", userId).eq("a_confirmar", true).select("id");
     if (erroOc) return { erro: erroOc };
     if (!atualizadas || !atualizadas.length) return { erro: new Error("Essa ocorrência já foi confirmada ou apagada no app") };

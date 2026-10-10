@@ -263,7 +263,7 @@ function atualizarResumo() {
             const aberto = varias && !!estadoApp.saldoContasAberto && estadoApp.saldoContas != null && saldoContasLigado();
             detalhe.hidden = !aberto;
             detalhe.innerHTML = aberto
-                ? lista.map(c => `<div class="sc-linha"><span>${c.nome}</span><b>${mask(formatarMoeda(c.saldo))}</b></div>`).join('')
+                ? lista.map(c => `<div class="sc-linha"><span>${escaparHtml(c.nome)}</span><b>${mask(formatarMoeda(c.saldo))}</b></div>`).join('')
                 : '';
         }
     }

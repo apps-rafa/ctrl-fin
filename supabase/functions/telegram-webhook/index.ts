@@ -656,6 +656,15 @@ Deno.serve(async (req: Request) => {
         return json({ ok: true });
       }
 
+      // Reserva a importada ANTES de gravar (update condicional, atômico): dois toques seguidos no Confirmar (ou o
+      // Telegram reenviando o update) não criam o lançamento duas vezes — só quem reservou grava.
+      const { data: reservada } = await supabaseAdmin.from("transacoes_importadas").update({ status: "confirmada" })
+        .eq("id", importadaId).eq("user_id", tgUser.user_id).eq("status", "pendente").select("id");
+      if (!reservada || !reservada.length) {
+        await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Já foi tratado antes" });
+        return json({ ok: true });
+      }
+
       let metodoObj: { nome: string; metodo_kind: string | null; banco: string | null; dia_fechamento: number | null } | null = null;
       if (item.metodo_sugerido) {
         const { data: m } = await supabaseAdmin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("id", item.metodo_sugerido).maybeSingle();
@@ -695,11 +704,12 @@ Deno.serve(async (req: Request) => {
         .single();
       if (insertError) {
         console.error(insertError);
+        await supabaseAdmin.from("transacoes_importadas").update({ status: "pendente" }).eq("id", importadaId); // não gravou: segue pendente
         await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Erro ao confirmar" });
         return json({ ok: true });
       }
 
-      await supabaseAdmin.from("transacoes_importadas").update({ status: "confirmada", transacao_id: nova.id }).eq("id", importadaId);
+      await supabaseAdmin.from("transacoes_importadas").update({ transacao_id: nova.id }).eq("id", importadaId);
       await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Confirmado ✅" });
       await tg(token, "editMessageText", {
         chat_id: chatId, message_id: cq.message.message_id,

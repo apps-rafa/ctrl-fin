@@ -272,44 +272,10 @@ async function adicionarParceladoAPI(dados) {
  * quitar=false: restaura os valores originais de todas as parcelas do grupo.
  */
 async function quitarParcelamentoAPI(id, quitar) {
-    const { data: alvo, error: e1 } = await sb.from('transacoes')
-        .select('grupo_id, competencia, parcela_num, parcelas_total, valor_total, tipo_recorrencia')
-        .eq('id', id).single();
-    if (e1) throw e1;
-    if (!alvo.grupo_id || alvo.tipo_recorrencia !== 'Parcelada') throw new Error('Não é um parcelamento');
-
-    const { data: rows, error: e2 } = await sb.from('transacoes')
-        .select('id, parcela_num')
-        .eq('grupo_id', alvo.grupo_id).order('parcela_num');
-    if (e2) throw e2;
-
-    const n = alvo.parcelas_total || rows.length;
-    const total = alvo.valor_total;
-
-    let updates;
-    if (quitar) {
-        const k = alvo.parcela_num;
-        const saldo = rows.filter(r => r.parcela_num >= k)
-            .reduce((s, r) => s + valorParcelaOriginal(total, n, r.parcela_num), 0);
-        const saldoR = Math.round(saldo * 100) / 100;
-
-        updates = rows.filter(r => r.parcela_num >= k).map(r => r.parcela_num === k
-            ? { id: r.id, patch: { valor: saldoR, quitada: false, quitado_em: alvo.competencia } }
-            : { id: r.id, patch: { valor: 0, quitada: true, quitado_em: alvo.competencia } });
-    } else {
-        updates = rows.map(r => ({
-            id: r.id,
-            patch: {
-                valor: valorParcelaOriginal(total, n, r.parcela_num),
-                quitada: false, quitado_em: null
-            }
-        }));
-    }
-
-    for (const u of updates) {
-        const { error } = await sb.from('transacoes').update(u.patch).eq('id', u.id);
-        if (error) throw error;
-    }
+    // Tudo numa transação só no banco (ver supabase/migrations/20261018_quitar_parcelamento.sql): ou todas as
+    // parcelas mudam, ou nenhuma — antes eram vários UPDATEs e uma falha no meio deixava o grupo pela metade.
+    const { error } = await sb.rpc('quitar_parcelamento', { p_id: id, p_quitar: !!quitar });
+    if (error) throw error;
     return { mensagem: quitar ? 'Parcelamento quitado' : 'Quitação desfeita' };
 }
 
