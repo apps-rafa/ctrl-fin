@@ -760,34 +760,46 @@ async function importarProntasPluggy() {
             const competencia = item.competencia_fatura
                 ? String(item.competencia_fatura).slice(0, 10)
                 : competenciaDe(item.data, metodoObj && metodoObj.metodoKind === 'Crédito' ? metodoObj.diaFechamento : null);
+            // Reserva a linha antes de gravar (update condicional): se ela já foi confirmada/ignorada em outro lugar
+            // (ex.: no Telegram, com esta tela aberta), não importa de novo.
+            const { data: reservada, error: erroRes } = await sb.from('transacoes_importadas')
+                .update({ status: 'confirmada' }).eq('id', item.id).eq('status', 'pendente').select('id');
+            if (erroRes) throw erroRes;
+            if (!reservada || !reservada.length) { delete _revisaoPluggyCache[item.id]; continue; }
             const ehParcela = item.parcelas_total > 1 && item.parcela_num >= 1 && item.tipo === 'saidas';
             if (ehParcela) parcelasN++;
             const adicionar = ehParcela ? dados => _adicionarParcelaPluggyAPI(dados, item) : adicionarTransacaoAPI;
-            const nova = await adicionar({
-                tipo: item.tipo,
-                data: item.data,
-                valor: item.valor,
-                metodo: metodoObj ? rotuloMetodo(metodoObj) : (item.tipo === 'entradas' ? (rotuloPixPadrao() || null) : null), // receita: PIX
-                categoria: _categoriaAoVivoPluggy(item),
-                descricao: _descricaoAoVivoPluggy(item),
-                formaPagamento: 'À vista',
-                tipoRecorrencia: 'Pontual',
-                competencia,
-                origem: 'pluggy',
-                // Snapshot de como a Pluggy mandou, antes de qualquer ajuste
-                // feito aqui na revisão (categoria/descrição escolhidas acima
-                // podem já ser diferentes do que veio sugerido).
-                dadosOriginais: {
-                    pluggy_transaction_id: item.pluggy_transaction_id,
+            let nova;
+            try {
+                nova = await adicionar({
+                    tipo: item.tipo,
                     data: item.data,
                     valor: item.valor,
-                    tipo: item.tipo,
-                    descricao_banco: item.descricao_banco,
-                    categoria_pluggy: item.categoria_pluggy,
-                    categoria_sugerida: item.categoria_sugerida,
-                },
-            });
-            const { error } = await sb.from('transacoes_importadas').update({ status: 'confirmada', transacao_id: nova.id }).eq('id', item.id);
+                    metodo: metodoObj ? rotuloMetodo(metodoObj) : (item.tipo === 'entradas' ? (rotuloPixPadrao() || null) : null), // receita: PIX
+                    categoria: _categoriaAoVivoPluggy(item),
+                    descricao: _descricaoAoVivoPluggy(item),
+                    formaPagamento: 'À vista',
+                    tipoRecorrencia: 'Pontual',
+                    competencia,
+                    origem: 'pluggy',
+                    // Snapshot de como a Pluggy mandou, antes de qualquer ajuste
+                    // feito aqui na revisão (categoria/descrição escolhidas acima
+                    // podem já ser diferentes do que veio sugerido).
+                    dadosOriginais: {
+                        pluggy_transaction_id: item.pluggy_transaction_id,
+                        data: item.data,
+                        valor: item.valor,
+                        tipo: item.tipo,
+                        descricao_banco: item.descricao_banco,
+                        categoria_pluggy: item.categoria_pluggy,
+                        categoria_sugerida: item.categoria_sugerida,
+                    },
+                });
+            } catch (erroAdd) { // não gravou: devolve a linha para pendente
+                await sb.from('transacoes_importadas').update({ status: 'pendente' }).eq('id', item.id);
+                throw erroAdd;
+            }
+            const { error } = await sb.from('transacoes_importadas').update({ transacao_id: nova.id }).eq('id', item.id);
             if (error) throw error;
             delete _categoriaEscolhidaPluggy[item.id];
             delete _descricaoEditadaPluggy[item.id];
