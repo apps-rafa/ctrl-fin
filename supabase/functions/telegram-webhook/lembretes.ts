@@ -5,8 +5,9 @@
 //    antes de hoje (o que foi lançado hoje já está na tela) e não veio do banco (Open Finance = já aconteceu).
 //  - Despesa programada no cartão (ex.: conta de luz que você mesmo paga com o cartão, assinatura): lembra no
 //    dia da data, como as outras. Compra comum e parcela não (já aconteceram ou são automáticas).
-//  - Fatura do cartão: no dia do vencimento da fatura (dia_vencimento do cartão), com o total da fatura do
-//    mês (despesas - estornos), se ela não estiver marcada como paga.
+//  - Fatura do cartão: no dia do vencimento da fatura (dia_vencimento do cartão; fim de semana/feriado vai para o
+//    próximo dia útil, como no app — js/recorrencia.js:dataVencimento), com o total da fatura (despesas - estornos),
+//    se ela não estiver marcada como paga.
 //  - Já marcada como "Pago" (agendado = false) não gera lembrete: o "Pago" pode ser marcado no próprio dia,
 //    antes das 09:00. Lançamento sem data definida (vale como fim do mês) lembra no último dia do mês.
 //  - Cada despesa avisada tem o botão "Marcar como pago" na própria mensagem (ver tecladoPagoVencimentos): marca
@@ -19,6 +20,7 @@ import type { createClient } from "npm:@supabase/supabase-js@2";
 import { tg, formatarMoedaBR, rotuloMetodo } from "./util.ts";
 import { hojeBrasiliaISO } from "./parser.ts";
 import { mesAbrevAno } from "./lancamentos.ts";
+import { proximoDiaUtil, criarEhFeriado, type LinhaFeriado } from "../_shared/diautil.ts";
 
 export interface TransacaoLembrete {
   id: number; tipo: string; data: string; valor: number | string; categoria: string | null;
@@ -38,6 +40,17 @@ export function inicioDoDiaBrasiliaISO(hojeISO: string): string {
   return `${hojeISO}T03:00:00.000Z`;
 }
 
+/** Competência ('YYYY-MM-01') do mês anterior. */
+export function competenciaAnterior(comp: string): string {
+  const [a, m] = comp.split("-").map(Number);
+  return m === 1 ? `${a - 1}-12-01` : `${a}-${String(m - 1).padStart(2, "0")}-01`;
+}
+
+/** Vencimento da fatura de uma competência: o dia do cartão (limitado ao fim do mês), no próximo dia útil. */
+export function vencimentoFatura(comp: string, dia: number, ehFeriado: (d: string) => boolean = () => false): string {
+  return proximoDiaUtil(`${comp.slice(0, 8)}${String(diaVencimentoNoMes(dia, comp)).padStart(2, "0")}`, ehFeriado);
+}
+
 /** Dia de vencimento efetivo no mês (cartão com vencimento dia 31 vence no último dia de fevereiro etc.). */
 export function diaVencimentoNoMes(dia: number, hojeISO: string): number {
   const [a, m] = hojeISO.split("-").map(Number);
@@ -52,8 +65,9 @@ export function montarLembretes(p: {
   metodos: MetodoLembrete[];
   faturasPagas: { metodo: string; competencia: string }[];
   jaEnviados: Set<string>;
+  ehFeriado?: (d: string) => boolean;    // feriados do usuário (fim de semana já conta); sem isso, só fim de semana
 }): Lembrete[] {
-  const { userId, hojeISO, transacoes, metodos, faturasPagas, jaEnviados } = p;
+  const { userId, hojeISO, transacoes, metodos, faturasPagas, jaEnviados, ehFeriado } = p;
   const cartoes = metodos.filter((m) => m.metodo_kind === "Crédito");
   const rotulosCartao = new Set(cartoes.map((m) => rotuloMetodo(m)));
   const inicioHoje = new Date(inicioDoDiaBrasiliaISO(hojeISO)).getTime();
@@ -81,10 +95,13 @@ export function montarLembretes(p: {
     });
   }
 
-  // 2) Fatura de cada cartão cujo vencimento é hoje
-  const compMes = `${hojeISO.slice(0, 7)}-01`;
+  // 2) Fatura de cada cartão cujo vencimento (no dia útil) é hoje. A do mês anterior entra quando o dia útil a empurrou
+  //    para este mês (ex.: vence 31/10, sábado -> segunda 02/11).
+  const compAtual = `${hojeISO.slice(0, 7)}-01`;
   for (const c of cartoes) {
-    if (!c.dia_vencimento || diaVencimentoNoMes(Number(c.dia_vencimento), hojeISO) !== Number(hojeISO.slice(8, 10))) continue;
+    if (!c.dia_vencimento) continue;
+    const compMes = [compAtual, competenciaAnterior(compAtual)].find((comp) => vencimentoFatura(comp, Number(c.dia_vencimento), ehFeriado) === hojeISO);
+    if (!compMes) continue;
     const rot = rotuloMetodo(c);
     const chave = `lembrete:${userId}:fat:${rot}:${compMes}`;
     if (jaEnviados.has(chave)) continue;
@@ -197,22 +214,24 @@ export async function executarLembretes(
 ): Promise<number> {
   const hojeISO = hojeBrasiliaISO(agora);
   const compMes = `${hojeISO.slice(0, 7)}-01`;
+  const compAnt = competenciaAnterior(compMes); // fatura do mês anterior empurrada para este mês pelo dia útil
   const { data: users } = await admin.from("telegram_users").select("user_id, chat_id");
   let enviados = 0;
   for (const u of (users ?? []) as { user_id: string; chat_id: number }[]) {
-    const [{ data: metodos }, { data: doDia }, { data: doMes }, { data: pagas }] = await Promise.all([
+    const [{ data: metodos }, { data: doDia }, { data: doMes }, { data: pagas }, { data: feriados }] = await Promise.all([
       admin.from("menu_itens").select("nome, metodo_kind, banco, dia_vencimento").eq("tipo", "Método").eq("user_id", u.user_id),
       admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo, competencia, quitada, origem, criado_em, a_confirmar, agendado, data_indefinida, parcelas_total")
         .eq("user_id", u.user_id).eq("tipo", "saidas").eq("data", hojeISO),
       admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo, competencia, quitada, origem, criado_em, a_confirmar, agendado, data_indefinida, parcelas_total")
-        .eq("user_id", u.user_id).eq("competencia", compMes),
-      admin.from("faturas_pagas").select("metodo, competencia").eq("user_id", u.user_id).eq("competencia", compMes),
+        .eq("user_id", u.user_id).in("competencia", [compAnt, compMes]),
+      admin.from("faturas_pagas").select("metodo, competencia").eq("user_id", u.user_id).in("competencia", [compAnt, compMes]),
+      admin.from("feriados").select("data, origem, ativo").eq("user_id", u.user_id),
     ]);
     const candidatas = [...((doDia ?? []) as TransacaoLembrete[]), ...((doMes ?? []) as TransacaoLembrete[])];
     const unicas = [...new Map(candidatas.map((t) => [t.id, t])).values()];
     const chavesPossiveis = [
       ...unicas.map((t) => `lembrete:${u.user_id}:tx:${t.id}`),
-      ...((metodos ?? []) as MetodoLembrete[]).map((m) => `lembrete:${u.user_id}:fat:${rotuloMetodo(m)}:${compMes}`),
+      ...((metodos ?? []) as MetodoLembrete[]).flatMap((m) => [compAnt, compMes].map((comp) => `lembrete:${u.user_id}:fat:${rotuloMetodo(m)}:${comp}`)),
     ];
     const { data: ja } = chavesPossiveis.length
       ? await admin.from("alertas_bot").select("chave").in("chave", chavesPossiveis)
@@ -221,6 +240,7 @@ export async function executarLembretes(
       userId: u.user_id, hojeISO, transacoes: unicas, metodos: (metodos ?? []) as MetodoLembrete[],
       faturasPagas: (pagas ?? []) as { metodo: string; competencia: string }[],
       jaEnviados: new Set(((ja ?? []) as { chave: string }[]).map((x) => x.chave)),
+      ehFeriado: criarEhFeriado((feriados ?? []) as LinhaFeriado[]),
     });
     // marca ANTES de enviar: numa falha de rede perde-se um lembrete, mas nunca se manda em dobro
     const novos: Lembrete[] = [];

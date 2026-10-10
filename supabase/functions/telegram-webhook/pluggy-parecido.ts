@@ -46,7 +46,7 @@ export async function tratarDecisaoPluggy(
         metodoTxt = m ? rotuloMetodo(m) : null;
       }
       const { texto, botoes } = montarAvisoPluggy(item, metodoTxt, limparLinks);
-      await tg(token, "sendMessage", { chat_id: chatId, text: texto, parse_mode: "Markdown", reply_markup: { inline_keyboard: botoes } });
+      await tg(token, "sendMessage", { chat_id: chatId, text: texto, parse_mode: "HTML", reply_markup: { inline_keyboard: botoes } });
     },
   });
 }

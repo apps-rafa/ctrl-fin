@@ -21,6 +21,7 @@ export interface RecorrenciaLinha {
   dia_semana: number | null; dia_mes: number | null; valor: number | string; meses: number | null;
   metodo: string; categoria: string; descricao: string; inicio: string; status: string; gerado_ate: string | null;
   competencia_offset?: number | null; // -1 = mês anterior, 0 = mesmo mês, 1 = mês seguinte ao da data do lançamento
+  valor_referencia?: number | string | null; // valor da última ocorrência confirmada já solta (ver gerarOcorrencias)
 }
 
 const MS_DIA = 86400000;
@@ -149,7 +150,9 @@ export async function gerarOcorrencias(
     const fech = met?.metodo_kind === "Crédito" ? met.dia_fechamento : null;
     // Cartão de crédito vale qualquer dia (fim de semana/feriado incluídos); as demais formas vão para o próximo dia útil
     const ajustar = met?.metodo_kind === "Crédito" ? (d: string) => d : (d: string) => proximoDiaUtil(d, ehFeriado);
-    const valorRef = (ultimas && ultimas[0]) ? Number(ultimas[0].valor) : Number(r.valor); // último confirmado vira a referência
+    // Último confirmado vira a referência: o que ainda está ligado à recorrência ou, se já foi solto, o guardado nela
+    const valorRef = (ultimas && ultimas[0]) ? Number(ultimas[0].valor)
+      : r.valor_referencia != null ? Number(r.valor_referencia) : Number(r.valor);
     const novas = ocorrenciasParaGerar(r, hoje, ajustar);
     const datas = novas.map((o) => o.data);
     if (datas.length) {
@@ -170,7 +173,21 @@ export async function gerarOcorrencias(
     }
     if (recorrenciaConcluida(r, hoje, ajustar)) await admin.from("recorrencias").update({ status: "encerrada", encerrada_em: hoje }).eq("id", r.id);
   }
-  // O que já passou e foi confirmado deixa de ser recorrente (não é mais afetado por edições da recorrência)
+  // O que já passou e foi confirmado deixa de ser recorrente (não é mais afetado por edições da recorrência).
+  // Antes de soltar, guarda na recorrência o valor da ocorrência confirmada mais recente (referência do próximo mês).
+  let s = admin.from("transacoes").select("recorrencia_id, valor, data").not("recorrencia_id", "is", null).eq("a_confirmar", false).lt("data", hoje);
+  if (userId) s = s.eq("user_id", userId);
+  const { data: soltas } = await s;
+  const maisRecente = new Map<number, { valor: number | string; data: string }>();
+  for (const t of (soltas ?? []) as { recorrencia_id: number; valor: number | string; data: string }[]) {
+    const atual = maisRecente.get(t.recorrencia_id);
+    if (!atual || t.data > atual.data) maisRecente.set(t.recorrencia_id, t);
+  }
+  for (const [recId, t] of maisRecente) {
+    // só substitui uma referência mais antiga (confirmar um mês atrasado não passa por cima do mais recente)
+    await admin.from("recorrencias").update({ valor_referencia: Number(t.valor), valor_referencia_data: String(t.data).slice(0, 10) })
+      .eq("id", recId).or(`valor_referencia_data.is.null,valor_referencia_data.lte.${String(t.data).slice(0, 10)}`);
+  }
   let d = admin.from("transacoes").update({ recorrencia_id: null }).not("recorrencia_id", "is", null).eq("a_confirmar", false).lt("data", hoje);
   if (userId) d = d.eq("user_id", userId);
   await d;

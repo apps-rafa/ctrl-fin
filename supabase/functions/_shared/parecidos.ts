@@ -70,6 +70,10 @@ export function tecladoParecidos(origem: OrigemAviso, id: number | string, podeA
 }
 
 /** Aviso padrão de lançamento novo vindo do banco (Pluggy), com Confirmar/Ignorar. */
+/** Texto para mensagem com parse_mode HTML: descrição do banco com "_", "*", "<"... nunca quebra o envio. */
+const escHtml = (s: string) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** Aviso de lançamento novo da Pluggy (enviar com parse_mode "HTML"). */
 export function montarAvisoPluggy(
   item: { id: number; tipo: string; valor: number; data: string; descricao_banco: string | null; categoria_sugerida: string | null },
   metodoTxt: string | null, limpar: (t: string) => string,
@@ -78,11 +82,11 @@ export function montarAvisoPluggy(
   const emoji = item.tipo === "entradas" ? "💰" : "💸";
   const dataFmt = new Date(`${item.data}T00:00:00`).toLocaleDateString("pt-BR");
   const texto = [
-    `${emoji} *Novo lançamento via Pluggy*`,
+    `${emoji} <b>Novo lançamento via Pluggy</b>`,
     `${sinal} ${moeda(item.valor)} — ${dataFmt}`,
-    item.descricao_banco ? `_${limpar(item.descricao_banco)}_` : null,
-    item.categoria_sugerida ? `Categoria sugerida: ${item.categoria_sugerida}` : "Sem sugestão de categoria — confirme pelo app",
-    metodoTxt ? `Método: ${metodoTxt}` : null,
+    item.descricao_banco ? `<i>${escHtml(limpar(item.descricao_banco))}</i>` : null,
+    item.categoria_sugerida ? `Categoria sugerida: ${escHtml(item.categoria_sugerida)}` : "Sem sugestão de categoria — confirme pelo app",
+    metodoTxt ? `Método: ${escHtml(metodoTxt)}` : null,
   ].filter(Boolean).join("\n");
   const botoes = item.categoria_sugerida
     ? [[{ text: "✅ Confirmar", callback_data: `confirmar:${item.id}` }, { text: "❌ Ignorar", callback_data: `ignorar:${item.id}` }]]

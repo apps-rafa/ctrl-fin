@@ -235,7 +235,7 @@ async function buscarAmpla(termo) {
             ${(q.mes != null || q.ano != null) ? '' : '<button type="button" class="mini-btn" data-busca-mes>← só este mês</button>'}
         </div>
         ${_htmlGruposFilaBusca(acs, dups, 'a:' + termo, abertos)}
-        ${(grupos || acs.length) ? grupos : `<div class="rec-grupo rec-grupo--vazio"><span class="rec-grupo-nome">🔎 Nada encontrado pra "${termo}"</span></div>`}`;
+        ${(grupos || acs.length) ? grupos : `<div class="rec-grupo rec-grupo--vazio"><span class="rec-grupo-nome">🔎 Nada encontrado pra "${escaparHtml(termo)}"</span></div>`}`;
     _transacoesExtra = [...acs, ...itens]; // editar/excluir precisam achar lançamentos de qualquer mês
     box.dataset.termoAmpla = termo;
     box.onclick = e => {
@@ -328,7 +328,7 @@ async function _renderBuscaDoMes(termo, box, abertos) {
     };
 
     // A lixeira (excluídos nos últimos 30 dias) também entra na busca.
-    const vazio = () => `${linkAmpla}<div class="rec-grupo rec-grupo--vazio"><span class="rec-grupo-nome">🔎 Nada encontrado neste mês pra "${termo}"</span></div>`;
+    const vazio = () => `${linkAmpla}<div class="rec-grupo rec-grupo--vazio"><span class="rec-grupo-nome">🔎 Nada encontrado neste mês pra "${escaparHtml(termo)}"</span></div>`;
     if (typeof buscarLixeira !== 'function') { if (!html) box.innerHTML = vazio(); return; }
     buscarLixeira(termo).then(lix => {
         if (!atual()) return;

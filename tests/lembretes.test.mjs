@@ -190,3 +190,28 @@ test("aviso de recorrência não tem botões e não pergunta pelo rascunho", () 
   assert.doesNotMatch(corpo.text, /Quer que eu gere/);
   assert.match(corpo.text, /A confirmar/);
 });
+
+test("fatura que vence no fim de semana lembra no próximo dia útil (como o app)", () => {
+  // Bradesco vence dia 13; em dez/2026 o dia 13 é domingo -> segunda 14
+  const compras = [tx({ id: 20, data: "2026-11-20", valor: 80, metodo: "Crédito Bradesco", competencia: "2026-12-01" })];
+  const no = (hojeISO) => soFat(montarLembretes({ ...base, hojeISO, transacoes: compras }));
+  assert.equal(no("2026-12-13").length, 0);
+  assert.equal(no("2026-12-14").length, 1);
+});
+
+test("fatura empurrada para o mês seguinte pelo dia útil lembra no novo mês, com a competência original", () => {
+  // vence dia 31; out/2026 termina num sábado -> segunda 02/11, ainda a fatura de outubro
+  const cartao = [{ nome: "Crédito — Inter", metodo_kind: "Crédito", banco: "Inter", dia_vencimento: 31 }];
+  const compras = [tx({ id: 21, data: "2026-10-05", valor: 120, metodo: "Crédito Inter", competencia: "2026-10-01" })];
+  const no = (hojeISO) => soFat(montarLembretes({ ...base, metodos: cartao, hojeISO, transacoes: compras }));
+  assert.equal(no("2026-10-31").length, 0);
+  const [l] = no("2026-11-02");
+  assert.equal(l.chave, "lembrete:u1:fat:Crédito Inter:2026-10-01");
+});
+
+test("feriado do usuário também empurra o vencimento da fatura", () => {
+  const compras = [tx({ id: 22, valor: 90, metodo: "Crédito Bradesco" })];
+  const ehFeriado = (d) => d === "2026-10-13";
+  assert.equal(soFat(montarLembretes({ ...base, transacoes: compras, ehFeriado })).length, 0);
+  assert.equal(soFat(montarLembretes({ ...base, hojeISO: "2026-10-14", transacoes: compras, ehFeriado })).length, 1);
+});
