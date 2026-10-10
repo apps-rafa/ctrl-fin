@@ -317,12 +317,11 @@ Deno.serve(async (req: Request) => {
     const agruparRendimentos = modoRendimentos === "agrupar";
     const ignorarRendimentos = modoRendimentos === "ignorar";
 
-    // ID determinístico (SHA-256 formatado como uuid) pro lançamento
-    // consolidado de rendimentos — mesma semente (conta + janela buscada)
-    // sempre gera o mesmo id, então rodar o sync de novo pra uma janela já
-    // coberta atualiza a mesma linha em vez de duplicar.
-    async function idRendimentosAgrupados(contaId: number, dateFrom: string, ultimaData: string): Promise<string> {
-      const semente = `rendimentos-agrupados-${contaId}-${dateFrom}-${ultimaData}`;
+    // ID determinístico (SHA-256 formatado como uuid) pro lançamento consolidado de rendimentos.
+    // Um agrupado por conta e por MÊS (id fixo): a janela de busca anda todo dia (últimos DIAS_RETROATIVOS dias), e um id
+    // que dependesse dela criava a cada sincronização outro "Rendimentos (agrupados)" somando de novo os mesmos dias.
+    async function idRendimentosAgrupados(contaId: number, mes: string): Promise<string> {
+      const semente = `rendimentos-agrupados-${contaId}-${mes}`;
       const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(semente));
       const hex = Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
       return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
@@ -461,8 +460,8 @@ Deno.serve(async (req: Request) => {
         const linhas: Record<string, unknown>[] = [];
         // Acumulado dos "Rendimentos e dividendos" desta conta nesta
         // sincronização, quando agruparRendimentos está ligado — vira um
-        // único lançamento no final, em vez de um por transação.
-        let rendimentosAgrupados: { soma: number; contagem: number; ultimaData: string } | null = null;
+        // lançamento por mês no final, em vez de um por transação.
+        const rendimentosPorMes = new Map<string, { soma: number; contagem: number; ultimaData: string }>();
         // /transactions (offset) foi descontinuado pela Pluggy (410
         // ENDPOINT_DEPRECATED) — /v2/transactions pagina por cursor: cada
         // resposta traz "next" com a query string pronta pra próxima página.
@@ -493,12 +492,14 @@ Deno.serve(async (req: Request) => {
             }
             if (agruparRendimentos && categoriaTraduzida === "Rendimentos e dividendos") {
               const valorAbs = Math.abs(Number(t.amount) || 0);
-              if (!rendimentosAgrupados) {
-                rendimentosAgrupados = { soma: valorAbs, contagem: 1, ultimaData: dataTransacao };
+              const mes = dataTransacao.slice(0, 7);
+              const ag = rendimentosPorMes.get(mes);
+              if (!ag) {
+                rendimentosPorMes.set(mes, { soma: valorAbs, contagem: 1, ultimaData: dataTransacao });
               } else {
-                rendimentosAgrupados.soma += valorAbs;
-                rendimentosAgrupados.contagem += 1;
-                if (dataTransacao > rendimentosAgrupados.ultimaData) rendimentosAgrupados.ultimaData = dataTransacao;
+                ag.soma += valorAbs;
+                ag.contagem += 1;
+                if (dataTransacao > ag.ultimaData) ag.ultimaData = dataTransacao;
               }
               continue;
             }
@@ -536,24 +537,6 @@ Deno.serve(async (req: Request) => {
           path = resp.next ? `/v2/transactions?${String(resp.next).replace(/^\?/, "")}` : null;
         }
 
-        if (agruparRendimentos && rendimentosAgrupados) {
-          const { soma, contagem, ultimaData } = rendimentosAgrupados;
-          const descricaoBanco = `Rendimentos (${contagem} lançamento${contagem > 1 ? "s" : ""} agrupado${contagem > 1 ? "s" : ""})`;
-          linhas.push({
-            pluggy_transaction_id: await idRendimentosAgrupados(conta.id, dateFrom, ultimaData),
-            conta_id: conta.id,
-            data: ultimaData,
-            valor: soma,
-            tipo: "entradas",
-            descricao_banco: descricaoBanco,
-            categoria_pluggy: "Rendimentos e dividendos",
-            categoria_sugerida: sugerirCategoria("Rendimentos e dividendos", descricaoBanco, "entradas", categoriasApp ?? []),
-            metodo_sugerido: conta.metodo_id ?? null,
-            status: "pendente",
-            user_id: user.id,
-          });
-        }
-
         if (linhas.length) {
           const { data: inseridas, error: upsertError } = await supabaseClient
             .from("transacoes_importadas")
@@ -562,11 +545,33 @@ Deno.serve(async (req: Request) => {
           if (upsertError) throw upsertError;
           // só as "pendente" contam como novas pra revisar (ignoradas = movimentos internos)
           novasNoTotal += (inseridas ?? []).filter((i) => i.status === "pendente").length;
-          // Sem aviso no Telegram aqui de propósito — "Sincronizar agora" é
-          // um clique do usuário DENTRO do app (ele já está olhando a tela);
-          // o Telegram é só pro caso oposto, quando a Pluggy avisa sozinha
-          // via pluggy-webhook enquanto o usuário está fora do app.
         }
+
+        // Rendimentos agrupados: uma linha por mês. Se ela já existe e segue pendente, só atualiza quando a soma
+        // cresceu (a janela pode cobrir o mês só em parte; a maior soma vista é a mais completa). Confirmada/ignorada: não mexe.
+        for (const [mes, { soma, contagem, ultimaData }] of rendimentosPorMes) {
+          const idAg = await idRendimentosAgrupados(conta.id, mes);
+          const descricaoBanco = `Rendimentos (${contagem} lançamento${contagem > 1 ? "s" : ""} agrupado${contagem > 1 ? "s" : ""})`;
+          const valor = Math.round(soma * 100) / 100;
+          const { data: existente } = await supabaseClient.from("transacoes_importadas").select("id, valor, status")
+            .eq("user_id", user.id).eq("pluggy_transaction_id", idAg).maybeSingle();
+          if (!existente) {
+            const { error: erroAg } = await supabaseClient.from("transacoes_importadas").insert({
+              pluggy_transaction_id: idAg, conta_id: conta.id, data: ultimaData, valor, tipo: "entradas", descricao_banco: descricaoBanco,
+              categoria_pluggy: "Rendimentos e dividendos",
+              categoria_sugerida: sugerirCategoria("Rendimentos e dividendos", descricaoBanco, "entradas", categoriasApp ?? []),
+              metodo_sugerido: conta.metodo_id ?? null, status: "pendente", user_id: user.id,
+            });
+            if (erroAg) throw erroAg;
+            novasNoTotal += 1;
+          } else if (existente.status === "pendente" && valor > Number(existente.valor)) {
+            await supabaseClient.from("transacoes_importadas").update({ valor, data: ultimaData, descricao_banco: descricaoBanco }).eq("id", existente.id);
+          }
+        }
+        // Sem aviso no Telegram aqui de propósito — "Sincronizar agora" é
+        // um clique do usuário DENTRO do app (ele já está olhando a tela);
+        // o Telegram é só pro caso oposto, quando a Pluggy avisa sozinha
+        // via pluggy-webhook enquanto o usuário está fora do app.
 
         // Saldo atual da conta (dashboard "Saldo em contas"); falhar aqui não
         // derruba o sync.
