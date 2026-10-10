@@ -98,7 +98,6 @@ export interface DadosConta { valor: number | null; vencimento: string | null }
 type Marcar = (status: string, extra?: Record<string, unknown>) => unknown;
 
 const CAMPOS = "id, data, valor, tipo, metodo, categoria, descricao, competencia";
-const fmtData = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
 /** Palavras da descrição da recorrência ("Internet Predial" -> internet, predial), para comparar com a descrição de um lançamento. */
 function palavrasDe(s: string): string[] {

@@ -225,13 +225,11 @@ export async function textoGastoDiario(admin: ReturnType<typeof createClient>, u
 async function calcularGastoDiario(admin: ReturnType<typeof createClient>, userId: string): Promise<string> {
   const hoje = hojeBrasiliaISO();
   const [ano, mes, dia] = hoje.split("-").map(Number);
-  const { data: mets } = await admin.from("menu_itens").select("nome, metodo_kind, banco").eq("tipo", "Método").eq("user_id", userId);
-  const credito = new Set(((mets ?? []) as { nome: string; metodo_kind: string | null; banco: string | null }[]).filter((m) => m.metodo_kind === "Crédito").map(rotuloMetodo));
   const comp = `${ano}-${String(mes).padStart(2, "0")}-01`;
-  const { data: linhas, error } = await admin.from("transacoes").select("tipo, valor, metodo").eq("user_id", userId).eq("competencia", comp).limit(5000);
+  const { data: linhas, error } = await admin.from("transacoes").select("tipo, valor").eq("user_id", userId).eq("competencia", comp).limit(5000);
   if (error) { console.error(error); return ""; }
   let balanco = 0;
-  for (const t of (linhas ?? []) as { tipo: string; valor: number; metodo: string | null }[]) {
+  for (const t of (linhas ?? []) as { tipo: string; valor: number }[]) {
     const v = Number(t.valor) || 0;
     if (t.tipo === "entradas") balanco += v; // entrada no cartão (estorno) também soma: abate a despesa
     else balanco -= v;

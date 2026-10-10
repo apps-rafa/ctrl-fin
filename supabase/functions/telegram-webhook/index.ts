@@ -18,39 +18,14 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 import {
-  TELEGRAM_API,
   json,
   tg,
   rotuloMetodo,
-  escaparHtml,
   formatarMoedaBR,
 } from "./util.ts";
 import {
-  PLUGGY_API_URL,
-  type ContaPluggy,
-  normalizarBanco,
-  linhasContaPluggy,
-  BOTAO_TODAS_CONTAS,
-  rotuloBotaoConta,
-  tituloContaPluggyDetalhado,
-  carregarContasPluggy,
-  ehRendimentoPluggy,
-  executarAtualizacaoPluggy,
-  getPluggyApiKey,
-  pluggyGet,
-} from "./pluggy.ts";
-import {
   enviarRascunho,
   limparRascunhosAntigos,
-  confirmarRascunhoNoBanco,
-  PALETA_CHIPS,
-  corPadraoChip,
-  criarCategoria,
-  criarMetodo,
-  MINIAPP_URL,
-  type ListasUsuario,
-  carregarListasUsuario,
-  urlMiniApp,
 } from "./lancamentos.ts";
 import { executarBackup } from "./backup.ts";
 import { executarLembretes, tratarPagoVencimento } from "./lembretes.ts";
@@ -71,29 +46,17 @@ import {
   categoriaCadastradaNoTexto,
   montarDescricao,
   limparLinks,
-  PALAVRAS_CHAVE_CATEGORIA,
-  sugerirCategoriaPorPalavraChave,
   sugerirCategoriaTexto,
-  escaparRegex,
-  normalizarTexto,
-  PALAVRAS_FORMA,
   detectarMetodoNoTexto,
   hojeBrasiliaISO,
-  MESES_EXTENSO,
-  somarDiasISO,
-  extrairData,
-  VERBOS_RECEITA,
-  VERBOS_DESPESA,
   interpretarValorETipo,
   interpretarSmsCartao,
   competenciaDe,
   addMeses,
   type RascunhoLancamento,
   type MetodoMenu,
-  type LancamentoDetectado,
 } from "./parser.ts";
 
-const CODIGO_VALIDADE_MIN = 10;
 
 // ---------- Comandos de consulta: /resumo /diario /credito /pix ----------
 // Mesmas contas do dashboard do app (js/data.js:calcularResumoMes): mês = campo
