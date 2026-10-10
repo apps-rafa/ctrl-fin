@@ -163,7 +163,7 @@ const DOCS_SECOES = [
   {
     id: 'openfinance', emoji: '🏦', titulo: 'Open Finance (Pluggy)',
     itens: [
-      { t: 'Conectar contas', r: 'Conecte suas contas e cartões pela Pluggy para trazer as movimentações do banco.',
+      { t: 'Conectar contas', r: 'Conecte suas contas e cartões pela Pluggy para trazer as movimentações do banco (só entrando com o Google; no "Testar sem cadastro" o Open Finance e o backup por e-mail ficam indisponíveis).',
         m: 'Cada conexão vira contas que você pode sincronizar, reconectar, desconectar ou apagar.' },
       { t: 'Forma de pagamento da conta', r: 'Cada conta precisa estar ligada a uma forma de pagamento do app para sincronizar.',
         m: 'Sem essa ligação ("Selecione...") a sincronização é bloqueada, para nunca importar lançamentos sem forma. Escolha quais contas entram na sincronização.' },

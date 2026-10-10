@@ -82,6 +82,10 @@ Deno.serve(async (req: Request) => {
     if (authError || !user) {
       return json({ error: "Não autenticado" }, 401);
     }
+    // Conta de teste ("Testar sem cadastro", login anônimo) não usa os segredos globais (Pluggy/Resend) do dono do app
+    if (user.is_anonymous) {
+      return json({ error: "Open Finance só está disponível entrando com o Google" }, 403);
+    }
 
     const apiKey = await getPluggyApiKey(supabaseClient, user.id);
 

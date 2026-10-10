@@ -274,6 +274,10 @@ Deno.serve(async (req: Request) => {
     if (authError || !user) {
       return json({ error: "Não autenticado" }, 401);
     }
+    // Conta de teste ("Testar sem cadastro", login anônimo) não usa os segredos globais (Pluggy/Resend) do dono do app
+    if (user.is_anonymous) {
+      return json({ error: "Open Finance só está disponível entrando com o Google" }, 403);
+    }
 
     // dateFrom/dateTo opcionais vindos do client (seletor "Desde" mês/ano
     // na aba Revisão) — quando informados, ignora o ultimo_sync de cada
