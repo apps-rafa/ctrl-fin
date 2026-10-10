@@ -45,6 +45,7 @@ function mapearTransacao(row) {
         aConfirmar: !!row.a_confirmar,               // gerada pela recorrência e ainda sem decisão do usuário
         duplicataOk: !!row.duplicata_ok, // "não é duplicata" confirmado (vale em todos os dispositivos)
         agendado: !!row.agendado, // lançamento programado: o "Pago"/"Recebido" aparece quando a data chega, até ser marcado
+        pagoEm: row.pago_em ? String(row.pago_em).slice(0, 10) : null, // dia em que foi marcado como Pago/Recebido (fica marcado até o dia seguinte)
         dataIndefinida: !!row.data_indefinida, // recorrência mensal "Variável": só o mês é conhecido (mostra ?/mês)
         parcelaNum: row.parcela_num || null,
         parcelasTotal: row.parcelas_total || null,
@@ -106,7 +107,7 @@ async function carregarIndicadoresMeses(iniISO, fimISO) {
     try {
         const { data, error } = await sb
             .from('transacoes')
-            .select('competencia, data, pendente')
+            .select('competencia, data, pendente, agendado')
             .gte('competencia', iniISO)
             .lt('competencia', fimISO);
         if (error) throw error;
@@ -115,7 +116,7 @@ async function carregarIndicadoresMeses(iniISO, fimISO) {
         const porMes = {};
         (data || []).forEach(row => {
             const chave = String(row.competencia).slice(0, 7); // 'YYYY-MM'
-            const jaAconteceu = !row.pendente && String(row.data).slice(0, 10) <= hoje;
+            const jaAconteceu = aconteceuAteHoje(row, hoje);
             if (!porMes[chave]) porMes[chave] = { passado: false };
             if (jaAconteceu) porMes[chave].passado = true;
         });
@@ -388,10 +389,24 @@ function aprovarDuplicatasAPI(ids) {
     return _emIds(sb.from('transacoes').update({ duplicata_ok: true }), ids);
 }
 
-/** "Pago"/"Recebido": o lançamento deixa de ser "programado" (some o checkbox); se a data era variável, passa a ser hoje. */
+/** "Pago"/"Recebido": o lançamento deixa de ser "programado"; o checkbox fica marcado até o dia seguinte (pago_em = hoje).
+ *  Se a data era variável, passa a ser hoje. */
 function marcarPagoAPI(trans) {
-    const campos = { agendado: false };
-    if (trans.dataIndefinida) { campos.data = hojeISO(); campos.data_indefinida = false; }
+    const campos = { agendado: false, pago_em: hojeISO() };
+    // Sem data definida: passa a valer hoje (entra em Pago), mas segue marcada como sem data ("?/mês")
+    if (trans.dataIndefinida) campos.data = hojeISO();
+    return sb.from('transacoes').update(campos).eq('id', trans.id);
+}
+
+/** Desmarca "Pago"/"Recebido" de hoje: volta a ser programado. Sem data definida, volta a data original:
+ *  o último dia do mês de referência (como na criação, ver utils.js). */
+function desmarcarPagoAPI(trans) {
+    const campos = { agendado: true, pago_em: null };
+    if (trans.dataIndefinida && trans.competencia) {
+        const [a, m] = String(trans.competencia).slice(0, 10).split('-').map(Number);
+        const ultimo = new Date(a, m, 0).getDate();
+        campos.data = `${a}-${String(m).padStart(2, '0')}-${String(ultimo).padStart(2, '0')}`;
+    }
     return sb.from('transacoes').update(campos).eq('id', trans.id);
 }
 

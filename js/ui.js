@@ -338,7 +338,7 @@ window.addEventListener('resize', () => ajustarBotoesTodas());
 document.addEventListener('toggle', e => { if (e.target && e.target.matches && e.target.matches('details')) ajustarBotoesTodas(); }, true);
 
 /** Home de cada mês (nenhuma aba aberta): as duplicatas e as ocorrências "a confirmar" do mês em exibição, Receitas e Despesas
- *  juntas. Sem título e sem texto quando não há nada; os grupos nascem fechados, exceto se for o único. (Para tudo o que está
+ *  juntas. Sem título e sem texto quando não há nada; os grupos nascem sempre fechados. (Para tudo o que está
  *  pendente em todos os meses, ver Pendências.) */
 function renderFilaHome() {
     const box = document.getElementById('filaHome');
@@ -350,9 +350,8 @@ function renderFilaHome() {
     _ligarFilaManual(box, 'home');
     const aberto = nome => _filaManual['home:' + nome]; // só o que VOCÊ abriu/fechou; sem escolha, vale o padrão
     const tipoDe = t => (ent.includes(t) ? 'entrada' : 'saida');
-    const soAC = aConf.length > 0 && !dups.length, soDup = dups.length > 0 && !aConf.length; // nasce aberto só se for o único grupo
-    const htmlAC = _renderGrupoAConfirmar(aConf, tipoDe, aberto('__aconfirmar__') ?? soAC, 'home');
-    const htmlDup = dups.length ? _renderGrupoDuplicatas(null, tipoDe, aberto('__duplicatas__') ?? soDup, dups, 'home') : '';
+    const htmlAC = _renderGrupoAConfirmar(aConf, tipoDe, aberto('__aconfirmar__') ?? false, 'home'); // nenhum grupo nasce aberto
+    const htmlDup = dups.length ? _renderGrupoDuplicatas(null, tipoDe, aberto('__duplicatas__') ?? false, dups, 'home') : '';
     box.innerHTML = htmlAC + htmlDup;
     box._refazer = renderFilaHome;
     box.onclick = onListaTransacaoClick;
@@ -444,8 +443,8 @@ function renderListaPorModo(container, transacoes, tipoUI, modo, msgVazia) {
 
     if (dupContainer) {
         const nDup = (transacoes && transacoes.length) ? _detectarDuplicatas(transacoes).length : 0;
-        const htmlAC = _renderGrupoAConfirmar(aConfirmar, tipoUI, abertoAConfirmar ?? (aConfirmar.length > 0 && !nDup), tipoUI);
-        const htmlDup = nDup ? _renderGrupoDuplicatas(transacoes, tipoUI, abertoDuplicatas ?? !aConfirmar.length, null, tipoUI) : '';
+        const htmlAC = _renderGrupoAConfirmar(aConfirmar, tipoUI, abertoAConfirmar ?? false, tipoUI); // nenhum grupo nasce aberto
+        const htmlDup = nDup ? _renderGrupoDuplicatas(transacoes, tipoUI, abertoDuplicatas ?? false, null, tipoUI) : '';
         dupContainer.innerHTML = htmlAC + htmlDup;
         dupContainer._refazer = () => { dupContainer.innerHTML = _renderGrupoAConfirmar(aConfirmar, tipoUI, true, tipoUI) + htmlDup; ajustarBotoesTodas(); };
         ajustarBotoesTodas();
@@ -598,7 +597,7 @@ function _transacaoRealizada(t) {
     // (o vencimento da fatura não muda isso).
     if (t.aConfirmar) return false; // recorrência aguardando decisão: segue em "a pagar"/"a receber", mesmo vencida
     const hoje = hojeISO();
-    return !t.pendente && String(t.data).slice(0, 10) <= hoje;
+    return aconteceuAteHoje(t, hoje);
 }
 
 /** "Cronológica": divide em 2 grupos (Atual / A receber ou A pagar), com
@@ -618,7 +617,7 @@ function _faturasAPagar() {
         .map(m => {
             const rot = rotuloMetodo(m);
             // Só compras JÁ feitas (data <= hoje): as futuras ainda não bateram no cartão e aparecem soltas
-            const feita = t => !t.pendente && String(t.data).slice(0, 10) <= hoje;
+            const feita = t => aconteceuAteHoje(t, hoje);
             const total = (estadoApp.transacoes.saidas || []).filter(t => t.metodo === rot && feita(t)).reduce((a, t) => a + valorDe(t), 0)
                 - (estadoApp.transacoes.entradas || []).filter(t => t.metodo === rot && feita(t)).reduce((a, t) => a + valorDe(t), 0);
             if (!(total > 0.004)) return null;
@@ -701,7 +700,7 @@ function _htmlSubgrupoFatura(f, its, totalRef, tipoUI, abertosSub, estornos, for
         : its.map(item).join('');
     const cor = ((estadoApp.menus && estadoApp.menus.cores && estadoApp.menus.cores.metodo) || {})[f.rot] || corPadraoChip(f.rot);
     return `
-        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}"${forcarAberto ? ' data-auto="1"' : ''} style="--cor-rec:${cor}" ${forcarAberto || abertosSub[nome] ? 'open' : ''}>
+        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" style="--cor-rec:${cor}" ${abertosSub[nome] ? 'open' : ''}>
           <summary class="subgrupo-cab">
             <span class="subgrupo-nome" data-fatura-longo="${nome}" data-fatura-curto="${_nomeCurtoFatura(f)}">${nome}</span>
             <span class="subgrupo-espaco"></span>
@@ -807,7 +806,8 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     grupos.forEach(g => _ordenarPorGrupo(g.itens, `${tipoUI}:cronologica:${g.nome}`));
     // Ocorrências de recorrência SEMANAL saem da lista solta e viram um subgrupo por recorrência (nome, quantidade e total),
     // como a fatura do cartão. Os totais dos grupos já foram somados acima, com elas dentro.
-    grupos.forEach(g => {
+    // Despesas não precisam: lá cada forma de pagamento já é um subgrupo e a semanal entra no dela (ex.: Terapia dentro de PIX), contando 1.
+    if (tipoUI === 'entrada') grupos.forEach(g => {
         const porRec = new Map();
         g.itens.filter(t => t.recorrenciaSemanalId).forEach(t => porRec.set(t.recorrenciaSemanalId, [...(porRec.get(t.recorrenciaSemanalId) || []), t]));
         // só agrupa com 2 ou mais da mesma recorrência no mesmo grupo (1 sozinha fica solta)
@@ -830,21 +830,43 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     // Despesas: o que está solto se divide em subgrupos por forma de pagamento (cada PIX, cada cartão);
     // compra de cartão que ainda não bateu na fatura fica em "<cartão> (por vir)".
     const coresMetodo = (estadoApp.menus && estadoApp.menus.cores && estadoApp.menus.cores.metodo) || {};
-    const corpoPorForma = (itens, nomeGrupo) => _renderItensSubagrupados(itens, tipoUI, {
-        chaveDe: t => (nomeGrupo === rotuloPendente && faturaDe.has(t.metodo) ? 'Crédito' : t.metodo),
+    // Cada subgrupo de forma de pagamento tem o seu filtro de Categoria (como a fatura); o grupo de fora (Pago / A pagar) não tem.
+    const chaveFormaDe = (t, nomeGrupo) => (nomeGrupo === rotuloPendente && faturaDe.has(t.metodo) ? 'Crédito' : t.metodo) || 'Sem forma de pagamento';
+    const corpoPorForma = (itens, nomeGrupo) => {
+        // Só uma forma de pagamento: sem caixinha recolhível, mas o cartãozinho (nome e cor da forma) continua aparecendo
+        const formas = new Set(itens.map(t => chaveFormaDe(t, nomeGrupo)));
+        if (formas.size === 1) {
+            const forma = [...formas][0];
+            const opts = { semRelogio: nomeGrupo === rotuloPendente, ..._optsSemChipRedundante(itens, 'metodo', forma) };
+            const cor = coresMetodo[forma] || corPadraoChip(forma);
+            const totalRef = nomeGrupo === nomeAtual ? totalPagoGrupo : totalAPagarGrupo;
+            return _subgrupoUnico(forma, itens, cor, totalRef, _htmlListaComSemanal(itens, t => gerarHTMLTransacao(t, tipoUI, opts), cor, tipoUI));
+        }
+        return _renderItensSubagrupados(itens, tipoUI, {
+        chaveDe: t => chaveFormaDe(t, nomeGrupo),
         semChave: 'Sem forma de pagamento',
         campoChip: 'metodo',
         corDe: nome => coresMetodo[nome] || corPadraoChip(nome),
+        corpoDe: (forma, its, padrao) => {
+            const chave = `${nomeGrupo}::${forma}`;
+            const barra = _barraGrupo(_renderOrganizadorInline(tipoUI, 'cronologica', chave, true, its));
+            if (_subModoGrupoDe(tipoUI, 'cronologica', chave) !== 'categoria') return barra + padrao();
+            const opts = { semRelogio: nomeGrupo === rotuloPendente, ..._optsSemChipRedundante(its, 'metodo', forma) };
+            return barra + _renderItensSubagrupados(its, tipoUI, _dimensaoSubmodo('categoria', true), abertosSub, `${tipoUI}:cronologica:${chave}:cat`, undefined, opts);
+        },
     }, abertosSub, `${tipoUI}:cronologica:${nomeGrupo}`, nomeGrupo === nomeAtual ? totalPagoGrupo : totalAPagarGrupo, { semRelogio: nomeGrupo === rotuloPendente }, // em "A pagar" tudo é futuro: o ⏰ seria redundante
         nomeGrupo === nomeAtual ? pagasFat.length : (nomeGrupo === rotuloPendente ? abertasFat.length : 0));
-    // Corpo de um grupo (Pago / A pagar / Recebido / A receber): com o filtro de Categoria ligado, as categorias com mais de um lançamento
-    // viram subgrupos (regra global em _dimensaoAgrupa); sem filtro, despesas por forma de pagamento e receitas em lista
+    };
+    // Corpo de um grupo: despesas (Pago / A pagar) sempre por forma de pagamento, com o filtro de Categoria dentro de cada forma;
+    // receitas (Recebido / A receber, tudo PIX) em lista, e com o filtro de Categoria ligado as categorias com mais de um
+    // lançamento viram subgrupos (regra global em _dimensaoAgrupa)
     const corpoDoGrupo = (nome, itens) => {
-        const opcoes = { semRelogio: nome === rotuloPendente };
+        if (tipoUI === 'saida') return corpoPorForma(itens, nome);
+        const opcoes = { semMetodoChip: true, semRelogio: nome === rotuloPendente };
         if (_subModoGrupoDe(tipoUI, 'cronologica', nome) === 'categoria') {
-            return _renderItensSubagrupados(itens, tipoUI, _dimensaoSubmodo('categoria', tipoUI === 'saida'), abertosSub, `${tipoUI}:cronologica:${nome}:cat`, undefined, tipoUI === 'saida' ? opcoes : { ...opcoes, semMetodoChip: true });
+            return _renderItensSubagrupados(itens, tipoUI, _dimensaoSubmodo('categoria', false), abertosSub, `${tipoUI}:cronologica:${nome}:cat`, undefined, opcoes);
         }
-        return tipoUI === 'saida' ? corpoPorForma(itens, nome) : itens.map(t => gerarHTMLTransacao(t, tipoUI, { semMetodoChip: true, semRelogio: nome === rotuloPendente })).join('');
+        return itens.map(t => gerarHTMLTransacao(t, tipoUI, opcoes)).join('');
     };
     const grupoHTML = (nome, cor, itens, total, pct, extraHTML = '', extraContagem = 0) => {
         if (!itens.length && !extraHTML) return `
@@ -862,7 +884,7 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
             <span class="rec-grupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalGeral ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
           </summary>
           <div class="rec-grupo-itens">
-            ${_barraGrupo(_renderOrganizadorInline(tipoUI, 'cronologica', nome, tipoUI === 'saida', itens))}
+            ${tipoUI === 'entrada' ? _barraGrupo(_renderOrganizadorInline(tipoUI, 'cronologica', nome, false, itens)) : ''}
             ${extraHTML}
             ${corpoDoGrupo(nome, itens)}
           </div>
@@ -894,6 +916,8 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
             _setSubModoGrupo(tipoUI, 'cronologica', grupoChave, subBtn.dataset.submodo === atual ? 'cronologica' : subBtn.dataset.submodo);
             const det = subBtn.closest('details.rec-grupo');
             if (det) det.open = true;
+            const sub = subBtn.closest('details.subgrupo'); // filtro de dentro de uma forma de pagamento: ela continua aberta
+            if (sub) sub.open = true;
             renderListaCronologica(container, transacoes, tipoUI, msgVazia);
             return;
         }
@@ -1005,6 +1029,23 @@ function _dimensaoSubmodo(dim, ehDespesa) {
     }
 }
 
+/** Único subgrupo do grupo (ex.: só PIX em Pago): o cabeçalho com o nome/cor da forma e o total continua aparecendo, mas
+ *  fixo (sem caixinha recolhível) — não há um nível a mais pra abrir. */
+function _subgrupoUnico(nome, its, cor, totalRef, conteudo) {
+    const total = its.reduce((s, t) => s + ((t.valorMes != null ? t.valorMes : t.valor) || 0), 0);
+    const pct = totalRef ? (total / totalRef) * 100 : 0;
+    return `
+        <div class="subgrupo subgrupo--unico" style="--cor-rec:${cor}">
+          <div class="subgrupo-cab">
+            <span class="subgrupo-nome">${nome}</span>
+            <span class="subgrupo-espaco"></span>
+            <span class="subgrupo-contagem">${_contarVisuais(its)}</span>
+            <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalRef ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
+          </div>
+          ${conteudo}
+        </div>`;
+}
+
 /** Reorganiza os itens de UM grupo pela dimensão escolhida (maior total
  *  primeiro) em vez de cronológico — cartõezinhos colapsáveis, fechados por
  *  padrão, com contagem e % (igual ao grupo de fora). */
@@ -1023,25 +1064,28 @@ function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, 
         .filter(([, its]) => its.length > 1)
         .map(([nome, its]) => [nome, _ordenarPorGrupo(its, `${chavePrefixo}:sub:${nome}`), its.reduce((s, t) => s + valorDe(t), 0)])
         .sort((a, b) => b[2] - a[2]);
-    // Um único subgrupo dentro do grupo = não há escolha real a fazer: já vem aberto,
-    // mesmo que o usuário não tenha aberto manualmente antes (não sobrescreve um "fechado" lembrado, já que aqui nunca houve estado lembrado pra ele ser diferente de aberto).
-    // extraIrmaos conta subgrupos irmãos gerados FORA daqui (ex.: as faturas de cartão em
-    // renderListaCronologica, que ficam soltas ao lado destes) — com algum deles, mesmo só 1
-    // grupo aqui não é mais "o único subgrupo do grupo todo".
-    const unicoSubgrupo = grupos.length === 1 && extraIrmaos === 0;
+    // Regra de subgrupos: um único subgrupo e nenhum lançamento solto não ganha a caixinha recolhível (cabeçalho fixo, ver _subgrupoUnico)
+    if (grupos.length === 1 && !soltos.length) {
+        const [nome, its] = grupos[0];
+        const cor = (dimCfg.corDe ? dimCfg.corDe(nome) : null) || corPadraoChip(nome);
+        return _subgrupoUnico(nome, its, cor, totalRef, _htmlListaComSemanal(its, t => gerarHTMLTransacao(t, tipoUI, { ...baseOpts, ..._optsSemChipRedundante(its, dimCfg.campoChip, nome) }), cor, tipoUI));
+    }
     return grupos.map(([nome, its, total]) => {
         const pct = totalGeral ? (total / totalGeral) * 100 : 0;
-        const aberto = unicoSubgrupo || (abertos && abertos[nome]);
+        const aberto = !!(abertos && abertos[nome]); // nenhum subgrupo nasce aberto, nem sendo o único
         const cor = (dimCfg.corDe ? dimCfg.corDe(nome) : null) || corPadraoChip(nome);
         return `
-        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}"${unicoSubgrupo ? ' data-auto="1"' : ''} style="--cor-rec:${cor}" ${aberto ? 'open' : ''}>
+        <details class="subgrupo" data-nome="${String(nome).replace(/"/g, '&quot;')}" style="--cor-rec:${cor}" ${aberto ? 'open' : ''}>
           <summary class="subgrupo-cab">
             <span class="subgrupo-nome">${nome}</span>
             <span class="subgrupo-espaco"></span>
             <span class="subgrupo-contagem">${_contarVisuais(its)}</span>
             <span class="subgrupo-total"><span class="tot-valor">${formatarMoeda(total)}</span>${totalGeral ? `<span class="tot-pct"><i class="tot-sep"> · </i>${formatarPct(pct)}%</span>` : ''}</span>
           </summary>
-          ${_htmlListaComSemanal(its, t => gerarHTMLTransacao(t, tipoUI, { ...baseOpts, ..._optsSemChipRedundante(its, dimCfg.campoChip, nome) }), cor, tipoUI)}
+          ${(() => {
+              const padrao = () => _htmlListaComSemanal(its, t => gerarHTMLTransacao(t, tipoUI, { ...baseOpts, ..._optsSemChipRedundante(its, dimCfg.campoChip, nome) }), cor, tipoUI);
+              return dimCfg.corpoDe ? dimCfg.corpoDe(nome, its, padrao) : padrao();
+          })()}
         </details>`;
     }).join('') + _ordenarPorGrupo(soltos.slice()).map(t => gerarHTMLTransacao(t, tipoUI, baseOpts)).join('');
 }
@@ -1134,9 +1178,10 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     // tricode do dia da semana (ex.: 26/9 SÁB).
     const _dowTri = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
     const _dt = trans.data ? parseDataLocal(trans.data) : null;
-    // Data indefinida (recorrência mensal "Variável"): só o mês, "?/10"
-    const diaFormatado = _dt ? `${trans.dataIndefinida ? '?' : String(_dt.getDate()).padStart(2, '0')}/${String(_dt.getMonth() + 1).padStart(2, '0')}` : '--';
-    const dowFormatado = _dt && !trans.dataIndefinida ? _dowTri[_dt.getDay()] : '';
+    // Data indefinida (recorrência mensal "Variável"): só o mês, "?/10" — até ser marcada como paga (aí fica o dia)
+    const semDefinicao = dataSemDefinicao(trans);
+    const diaFormatado = _dt ? `${semDefinicao ? '?' : String(_dt.getDate()).padStart(2, '0')}/${String(_dt.getMonth() + 1).padStart(2, '0')}` : '--';
+    const dowFormatado = _dt && !semDefinicao ? _dowTri[_dt.getDay()] : '';
 
     const seloDup = opts.seloDuplicata === 'copia'
         ? '<span class="selo-dup selo-dup--copia" title="O sistema sugere que esta é a duplicata (seria apagada)">duplicata</span>'
@@ -1158,8 +1203,10 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     // Fora: cartão de crédito, parcelas, estornos e rascunhos "a confirmar".
     const _metTrans = ((estadoApp.menus && estadoApp.menus.metodos) || []).find(m => rotuloMetodo(m) === trans.metodo);
     const _rotPago = tipo === 'entrada' ? 'Recebido' : 'Pago';
-    const pagoCheck = (!opts.semAcoes && deveMostrarPagoRecebido(trans, hojeISO(), { credito: !!(_metTrans && _metTrans.metodoKind === 'Crédito'), estorno: _ehEstornoCartao(trans), parcela: ehParcela }))
-        ? `<label class="pago-check" title="Marcar como ${_rotPago.toLowerCase()}${trans.dataIndefinida ? ' (a data passa a ser hoje)' : ''}"><input type="checkbox" name="marcar-pago" data-act="marcar-pago" data-id="${trans.id}"> ${_rotPago}</label>`
+    // Marcado hoje: continua marcado até o dia seguinte (desmarcar reverte); depois some.
+    const _pagoHoje = !opts.semAcoes && marcadoPagoHoje(trans, hojeISO());
+    const pagoCheck = (!opts.semAcoes && (_pagoHoje || deveMostrarPagoRecebido(trans, hojeISO(), { credito: !!(_metTrans && _metTrans.metodoKind === 'Crédito'), estorno: _ehEstornoCartao(trans), parcela: ehParcela })))
+        ? `<label class="pago-check" title="${_pagoHoje ? `Desmarcar ${_rotPago.toLowerCase()} (volta a ser programado)` : `Marcar como ${_rotPago.toLowerCase()}${semDefinicao ? ' (a data passa a ser hoje)' : ''}`}"><input type="checkbox" name="marcar-pago" data-act="marcar-pago" data-id="${trans.id}"${_pagoHoje ? ' checked' : ''}> ${_rotPago}</label>`
         : '';
     const quitadoTag = ehParcela && trans.quitadoEm
         ? `<span class="quitado-badge">quitado ${mesTri(String(trans.quitadoEm).slice(5, 7)) + '/' + String(trans.quitadoEm).slice(2, 4)}</span>`
@@ -1254,13 +1301,14 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
         </div>`;
 }
 
-/** Marcar "Pago"/"Recebido": o lançamento deixa de ser "programado" (o checkbox some); se a data era variável, passa a ser hoje. */
+/** Marcar/desmarcar "Pago"/"Recebido". Marcar: o lançamento deixa de ser "programado" e o checkbox fica marcado até o dia
+ *  seguinte; desmarcar (só no mesmo dia) volta a ser programado. Se a data era variável, passa a ser hoje. true se gravou. */
 async function marcarPagoRecebido(trans, marcado) {
-    if (!marcado) return;
-    const { error } = await marcarPagoAPI(trans);
-    if (error) { console.error(error); mostrarNotificacao('Não consegui atualizar', 'erro'); }
+    const { error } = marcado ? await marcarPagoAPI(trans) : await desmarcarPagoAPI(trans);
+    if (error) { console.error(error); mostrarNotificacao('Não consegui atualizar', 'erro'); return false; }
     await recarregarDados();
     atualizarUI();
+    return true;
 }
 
 /** Delegação de clique nas listas de transações */
@@ -1328,9 +1376,11 @@ function onListaTransacaoClick(e) {
             break;
         }
         case 'marcar-pago': {
-            if (!el.checked) break;
+            // Marcar fica até o dia seguinte; desmarcar volta a ser programado. As duas ações têm "Desfazer" (5 s)
+            const marcado = el.checked;
             const receita = el.closest('.despesa-item')?.dataset.tipoTransacao === 'entradas';
-            executarComDesfazer({ texto: receita ? 'Marcado como recebido' : 'Marcado como pago', aoDesfazer: () => { el.checked = false; }, confirmar: () => marcarPagoRecebido(trans, true) });
+            const texto = marcado ? (receita ? 'Marcado como recebido' : 'Marcado como pago') : (receita ? 'Desmarcado como recebido' : 'Desmarcado como pago');
+            executarComDesfazer({ texto, aoDesfazer: () => { el.checked = !marcado; }, confirmar: () => marcarPagoRecebido(trans, marcado) });
             break;
         }
         case 'editar-trans': {

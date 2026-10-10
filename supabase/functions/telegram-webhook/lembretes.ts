@@ -3,8 +3,14 @@
 // Regras:
 //  - Despesa que NÃO é de cartão: lembra no dia da data do lançamento (o vencimento). Só quem já existia
 //    antes de hoje (o que foi lançado hoje já está na tela) e não veio do banco (Open Finance = já aconteceu).
-//  - Cartão de crédito: nunca pela data da compra; só no dia do vencimento da fatura (dia_vencimento do
-//    cartão), com o total da fatura do mês (despesas - estornos), se ela não estiver marcada como paga.
+//  - Despesa programada no cartão (ex.: conta de luz que você mesmo paga com o cartão, assinatura): lembra no
+//    dia da data, como as outras. Compra comum e parcela não (já aconteceram ou são automáticas).
+//  - Fatura do cartão: no dia do vencimento da fatura (dia_vencimento do cartão), com o total da fatura do
+//    mês (despesas - estornos), se ela não estiver marcada como paga.
+//  - Já marcada como "Pago" (agendado = false) não gera lembrete: o "Pago" pode ser marcado no próprio dia,
+//    antes das 09:00. Lançamento sem data definida (vale como fim do mês) lembra no último dia do mês.
+//  - Cada despesa avisada tem o botão "Marcar como pago" na própria mensagem (ver tecladoPagoVencimentos): marca
+//    o mesmo checkbox do app, que segue marcado até o dia seguinte; o botão vira "Desmarcar como pago" e reverte.
 //  - Receitas não geram lembrete.
 //  - Cada lançamento/fatura é lembrado uma vez só (a chave fica em alertas_bot).
 //  - Todos os vencimentos do dia saem juntos, numa mensagem só.
@@ -18,11 +24,12 @@ export interface TransacaoLembrete {
   id: number; tipo: string; data: string; valor: number | string; categoria: string | null;
   descricao: string | null; metodo: string | null; competencia: string | null; quitada?: boolean | null;
   origem?: string | null; criado_em?: string | null; a_confirmar?: boolean | null;
+  agendado?: boolean | null; data_indefinida?: boolean | null; parcelas_total?: number | null;
 }
 export interface MetodoLembrete { nome: string; metodo_kind: string | null; banco: string | null; dia_vencimento: number | null }
 
 /** Um vencimento do dia. Todos saem juntos numa mensagem só (ver montarMensagemVencimentos). */
-export interface Lembrete { chave: string; titulo: string; detalhe: string; valor: number }
+export interface Lembrete { chave: string; titulo: string; detalhe: string; valor: number; transacaoId?: number; nome?: string }
 
 const dataBR = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
@@ -52,11 +59,13 @@ export function montarLembretes(p: {
   const inicioHoje = new Date(inicioDoDiaBrasiliaISO(hojeISO)).getTime();
   const saida: Lembrete[] = [];
 
-  // 1) Despesas fora do cartão que vencem hoje
+  // 1) Despesas que vencem hoje
   for (const t of transacoes) {
     if (t.tipo !== "saidas" || String(t.data).slice(0, 10) !== hojeISO) continue;
-    if (t.metodo && rotulosCartao.has(t.metodo)) continue; // cartão: só pelo vencimento da fatura
+    // cartão: só a despesa programada (não a compra comum nem a parcela)
+    if (t.metodo && rotulosCartao.has(t.metodo) && (t.agendado !== true || t.parcelas_total)) continue;
     if (t.quitada || t.origem === "pluggy") continue;
+    if (t.agendado === false) continue; // já marcada como "Pago" (ou nunca esteve "a pagar")
     if (t.a_confirmar) continue; // ocorrência de recorrência: tem o lembrete próprio (montarLembretesRecorrencia)
     if (t.criado_em && new Date(t.criado_em).getTime() >= inicioHoje) continue; // lançado hoje
     const chave = `lembrete:${userId}:tx:${t.id}`;
@@ -65,8 +74,10 @@ export function montarLembretes(p: {
     saida.push({
       chave,
       titulo: `💸 ${t.descricao || t.categoria || "Despesa"} — ${formatarMoedaBR(valor)}`,
-      detalhe: `Categoria: ${t.categoria || "—"} · Forma de pgto.: ${t.metodo || "—"}`,
+      detalhe: `Categoria: ${t.categoria || "—"} · Forma de pgto.: ${t.metodo || "—"}${t.data_indefinida ? " · sem data definida" : ""}`,
       valor,
+      transacaoId: t.id,
+      nome: t.descricao || t.categoria || "Despesa",
     });
   }
 
@@ -108,7 +119,7 @@ export function montarLembretesRecorrencia(p: { userId: string; hojeISO: string;
           `${receita ? "💰" : "💸"} ${o.descricao || o.categoria || (receita ? "Receita" : "Despesa")} — ${formatarMoedaBR(valor)}`,
           `Categoria: ${o.categoria || "—"}${receita ? "" : ` · Forma de pgto.: ${o.metodo || "—"}`}`,
           "",
-          "Quer que eu gere o rascunho para você confirmar?",
+          "Está em \"A confirmar\" no app.",
         ].join("\n"),
       };
     });
@@ -122,6 +133,64 @@ export function montarMensagemVencimentos(hojeISO: string, lembretes: Lembrete[]
   return linhas.join("\n").trimEnd();
 }
 
+/** Rótulo do botão de um vencimento: "Marcar como pago" ou, já marcado hoje, "Desmarcar como pago". Com vários, ganha o nome. */
+export function rotuloBotaoPago(marcado: boolean, nome: string, varios: boolean): string {
+  const base = marcado ? "Desmarcar como pago" : "Marcar como pago";
+  return varios ? `${base}: ${nome.length > 22 ? nome.slice(0, 21) + "…" : nome}` : base;
+}
+
+/** Um botão "Marcar como pago" por despesa avisada (nulo se o aviso não tem despesa, só fatura). */
+export function tecladoPagoVencimentos(lembretes: Lembrete[]) {
+  const comId = lembretes.filter((l) => l.transacaoId != null);
+  if (!comId.length) return null;
+  return {
+    inline_keyboard: comId.map((l) => [{ text: rotuloBotaoPago(false, l.nome ?? "", comId.length > 1), callback_data: `pgmarcar:${l.transacaoId}` }]),
+  };
+}
+
+/** Corpo do aviso de vencimentos. Com despesas: o botão "Marcar como pago" vai na própria mensagem (inline, sem teclado
+ *  persistente). Só fatura: sem botões, e remove o teclado de edição ("✏️ Editar" / "❌ Cancelar edição") deixado na conversa. */
+export function corpoAvisoVencimentos(chatId: number, hojeISO: string, lembretes: Lembrete[]) {
+  const reply_markup = tecladoPagoVencimentos(lembretes) ?? { remove_keyboard: true };
+  return { chat_id: chatId, text: montarMensagemVencimentos(hojeISO, lembretes), reply_markup };
+}
+
+/** Botão "Marcar como pago" / "Desmarcar como pago" de um vencimento (callback "pgmarcar:<id>"). Mesma regra do checkbox do app:
+ *  marcar põe agendado = false e pago_em = hoje; desmarcar volta agendado = true e pago_em = null. Só o botão tocado muda. */
+export async function tratarPagoVencimento(
+  admin: ReturnType<typeof createClient>, token: string, cq: any, chatId: number, idStr: string,
+): Promise<void> {
+  const id = Number(idStr);
+  const responder = (text: string) => tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text });
+  const { data: tgUser } = await admin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+  if (!tgUser) { await responder("Conta não vinculada"); return; }
+  const userId = (tgUser as { user_id: string }).user_id;
+  const hoje = hojeBrasiliaISO();
+  const { data: t } = await admin.from("transacoes").select("id, descricao, categoria, agendado, pago_em")
+    .eq("id", id).eq("user_id", userId).maybeSingle(); // nunca confia só no id vindo do botão
+  const linha = t as { id: number; descricao: string | null; categoria: string | null; agendado: boolean | null; pago_em: string | null } | null;
+  if (!linha) { await responder("Esse lançamento já não existe mais"); return; }
+  const marcadoHoje = linha.agendado === false && String(linha.pago_em ?? "").slice(0, 10) === hoje;
+  if (linha.agendado === false && !marcadoHoje) { await responder("Já estava marcado como pago"); return; }
+  const marcar = !marcadoHoje;
+  const { error } = await admin.from("transacoes")
+    .update(marcar ? { agendado: false, pago_em: hoje } : { agendado: true, pago_em: null })
+    .eq("id", id).eq("user_id", userId);
+  if (error) { await responder("Não consegui atualizar"); return; }
+  await responder(marcar ? "Marcado como pago ✅" : "Desmarcado");
+  const linhas = (cq.message?.reply_markup?.inline_keyboard ?? []) as { text: string; callback_data: string }[][];
+  const varios = linhas.filter((r) => String(r[0]?.callback_data ?? "").startsWith("pgmarcar:")).length > 1;
+  const novas = linhas.map((r) => (r[0]?.callback_data === `pgmarcar:${id}`
+    ? [{ text: rotuloBotaoPago(marcar, linha.descricao || linha.categoria || "Despesa", varios), callback_data: r[0].callback_data }]
+    : r));
+  await tg(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: cq.message.message_id, reply_markup: { inline_keyboard: novas } });
+}
+
+/** Corpo do aviso de recorrência: também só aviso, sem botões (o rascunho sai pelo app, em "A confirmar"). */
+export function corpoAvisoRecorrencia(chatId: number, texto: string) {
+  return { chat_id: chatId, text: texto, reply_markup: { remove_keyboard: true } };
+}
+
 /** Roda os lembretes de TODOS os usuários vinculados ao Telegram. Devolve quantos vencimentos foram avisados. */
 export async function executarLembretes(
   admin: ReturnType<typeof createClient>, token: string, agora: Date = new Date(),
@@ -133,9 +202,9 @@ export async function executarLembretes(
   for (const u of (users ?? []) as { user_id: string; chat_id: number }[]) {
     const [{ data: metodos }, { data: doDia }, { data: doMes }, { data: pagas }] = await Promise.all([
       admin.from("menu_itens").select("nome, metodo_kind, banco, dia_vencimento").eq("tipo", "Método").eq("user_id", u.user_id),
-      admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo, competencia, quitada, origem, criado_em, a_confirmar")
+      admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo, competencia, quitada, origem, criado_em, a_confirmar, agendado, data_indefinida, parcelas_total")
         .eq("user_id", u.user_id).eq("tipo", "saidas").eq("data", hojeISO),
-      admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo, competencia, quitada, origem, criado_em, a_confirmar")
+      admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo, competencia, quitada, origem, criado_em, a_confirmar, agendado, data_indefinida, parcelas_total")
         .eq("user_id", u.user_id).eq("competencia", compMes),
       admin.from("faturas_pagas").select("metodo, competencia").eq("user_id", u.user_id).eq("competencia", compMes),
     ]);
@@ -160,11 +229,11 @@ export async function executarLembretes(
       if (!error) novos.push(l); // erro = já existia (execução concorrente)
     }
     if (novos.length) {
-      await tg(token, "sendMessage", { chat_id: u.chat_id, text: montarMensagemVencimentos(hojeISO, novos) });
+      await tg(token, "sendMessage", corpoAvisoVencimentos(u.chat_id, hojeISO, novos));
       enviados += novos.length;
     }
 
-    // Recorrências que vencem hoje (a confirmar): pergunta se quer o rascunho. Cada uma é lembrada uma vez só.
+    // Recorrências que vencem hoje (a confirmar): aviso sem botões. Cada uma é lembrada uma vez só.
     const { data: ocs } = await admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo")
       .eq("user_id", u.user_id).eq("a_confirmar", true).not("recorrencia_id", "is", null).eq("data", hojeISO);
     const ocorrencias = (ocs ?? []) as OcorrenciaLembrete[];
@@ -174,13 +243,7 @@ export async function executarLembretes(
     for (const l of lembRec) {
       const { error } = await admin.from("alertas_bot").insert({ chave: l.chave, enviado_em: new Date().toISOString() });
       if (error) continue; // já lembrada (execução concorrente)
-      await tg(token, "sendMessage", {
-        chat_id: u.chat_id, text: l.texto,
-        reply_markup: { inline_keyboard: [[
-          { text: "📝 Gerar rascunho", callback_data: `recrasc:${l.ocorrenciaId}` },
-          { text: "⏭️ Agora não", callback_data: "recdepois" },
-        ]] },
-      });
+      await tg(token, "sendMessage", corpoAvisoRecorrencia(u.chat_id, l.texto));
       enviados += 1;
     }
   }

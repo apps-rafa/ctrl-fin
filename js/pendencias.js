@@ -104,7 +104,7 @@ function renderPendencias() {
         const contados = opts && opts.comAprovarDuplicata ? _listaCopiasDuplicatas(itens) : itens;
         const total = contados.reduce((acc, t) => acc + valorDe(t), 0);
         return `
-        <details class="fatura-item" data-pend="${chave}" style="--cor-cartao:${cor}" ${aberto(chave, !!abrir) ? 'open' : ''}>
+        <details class="fatura-item" data-pend="${chave}" style="--cor-cartao:${cor}" ${aberto(chave, false) ? 'open' : ''}>
           <summary>
             <span class="fatura-nome">${nome}</span>
             <span class="fatura-contagem">${contados.length}</span>
@@ -120,7 +120,7 @@ function renderPendencias() {
             + grupo(`pend:${comp}:dup`, '📑 Duplicatas', 'var(--despesa-text)', m.dups, { comAprovarDuplicata: true }, comp === compSel, _botoesTodasDuplicatas(m.dups));
         if (!corpo) return '';
         return `
-        <details class="fatura-item" data-pend="mes:${comp}" ${aberto('mes:' + comp, comp === compSel) ? 'open' : ''}>
+        <details class="fatura-item" data-pend="mes:${comp}" ${aberto('mes:' + comp, false) ? 'open' : ''}>
           <summary>
             <span class="fatura-nome">${_rotuloMesPend(comp)}</span>
             <span class="fatura-contagem">${m.ac.length + _numCopiasDuplicatas(m.dups)}</span>

@@ -160,7 +160,7 @@ function _renderExtratoFiltro(ano) {
         const lista = porMes.get(m);
         const tot = lista.reduce((a, t) => a + Math.abs(Number(t.valor) || 0), 0);
         const chave = `${ano}|${estadoAnual.filtro}|${m}`;
-        const aberto = mesesOrdem.length === 1 || abertos[m];
+        const aberto = !!abertos[m]; // nenhum grupo nasce aberto
         return `
         <details class="subgrupo" data-mes="${m}" data-nome="mes-${m}" style="--cor-rec:${cor}" ${aberto ? 'open' : ''}>
           <summary class="subgrupo-cab">

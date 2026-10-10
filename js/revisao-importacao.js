@@ -116,7 +116,7 @@ function _diffDias(iso1, iso2) {
 /** Grupo colapsável (<details>) — aberto/fechado por padrão conforme
  *  `padraoAberto`; depois disso o estado manual, lido de `abertos`, vence. */
 function _grupoColapsavelConciliar({ id, abertos, padraoAberto, titulo, corpo }) {
-    const aberto = abertos[id] !== undefined ? abertos[id] : padraoAberto;
+    const aberto = !!abertos[id]; // nenhum grupo nasce aberto (padraoAberto não abre mais nada)
     return `
         <details class="revisao-grupo" data-grupo-id="${id}" ${aberto ? 'open' : ''}>
           <summary class="revisao-grupo-titulo">${titulo}</summary>

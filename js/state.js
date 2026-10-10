@@ -52,17 +52,6 @@ let estadoApp = {
 };
 
 /**
- * Reset completo do estado
- */
-function resetarEstado() {
-    estadoApp.transacoes.entradas = [];
-    estadoApp.transacoes.saidas = [];
-    estadoApp.resumo = { entradas: 0, saidas: 0, balanco: 0 };
-    estadoApp.menus = { categorias: [], categoriasDespesa: [], categoriasReceita: [], metodos: [], cores: { categoria: {}, metodo: {} } };
-    estadoApp.erro = null;
-}
-
-/**
  * Obtém resumo formatado
  */
 function obterResumoFormatado() {
