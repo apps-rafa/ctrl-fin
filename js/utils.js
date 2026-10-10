@@ -18,24 +18,6 @@ function formatarMoeda(valor) {
 }
 
 /**
- * Formata uma data para o padrão português
- */
-function formatarData(dataStr) {
-    const data = new Date(dataStr);
-    return data.toLocaleDateString('pt-BR');
-}
-
-/**
- * Calcula dias até uma data
- */
-function calcularDiasAte(dataStr) {
-    const data = new Date(dataStr);
-    const hoje = new Date();
-    const diferenca = data - hoje;
-    return Math.ceil(diferenca / (1000 * 60 * 60 * 24));
-}
-
-/**
  * Valida se um campo está preenchido
  */
 function validarCampo(valor) {
@@ -253,17 +235,6 @@ function parseDataBR(str) {
     return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
-/** 'YYYY-MM-DD' -> 'dd/mm/aaaa' */
-function isoParaDataBR(iso) {
-    const m = String(iso).slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
-}
-
-function dataHojeBR() {
-    const d = new Date();
-    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-}
-
 /** Mantém um input só com dígitos, limitado a `max` caracteres */
 function soNumeros(input, max) {
     input.value = input.value.replace(/\D/g, '').slice(0, max);
@@ -309,26 +280,10 @@ const ICONE_LIXEIRA = '<svg class="ico-lixeira" viewBox="0 0 24 24" width="1.1em
 /** Ícone de lápis (SVG, herda a cor do texto) — usado no lugar do emoji nos botões de editar. */
 const ICONE_LAPIS = '<svg class="ico-lapis" viewBox="0 0 24 24" width="1.1em" height="1.1em" fill="none" aria-hidden="true"><path d="M18 2L22 6M2 22L3.2764 17.3199C3.35968 17.0145 3.40131 16.8619 3.46523 16.7195C3.52199 16.5931 3.59172 16.4729 3.67332 16.3609C3.76521 16.2348 3.87711 16.1229 4.1009 15.8991L14.4343 5.56569C14.6323 5.36768 14.7313 5.26867 14.8455 5.23158C14.9459 5.19895 15.0541 5.19895 15.1545 5.23158C15.2687 5.26867 15.3677 5.36768 15.5657 5.56569L18.4343 8.43431C18.6323 8.63232 18.7313 8.73133 18.7684 8.84549C18.8011 8.94591 18.8011 9.05409 18.7684 9.15451C18.7313 9.26867 18.6323 9.36768 18.4343 9.56569L8.1009 19.8991C7.87711 20.1229 7.76521 20.2348 7.63908 20.3267C7.52709 20.4083 7.40692 20.478 7.28052 20.5348C7.13815 20.5987 6.98548 20.6403 6.68014 20.7236L2 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
-/** Máscara mm/aaaa */
-function mascaraCompetencia(input) {
-    let v = input.value.replace(/\D/g, '').slice(0, 6);
-    if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2);
-    input.value = v;
-}
-
 /** Texto vindo do banco sem endereço de site ("apple.com/bill" -> "Apple"): campos preenchidos
  *  sozinhos não devem trazer link (no Telegram viravam link com pré-visualização). */
 function limparLinks(t) {
     return String(t == null ? '' : t).replace(/(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+)\.(?:com|net|org|io|app|co|me|tv|gov|edu|br)(?:\.[a-z]{2})?(?:\/\S*)?/gi, (_m, nome) => nome.charAt(0).toUpperCase() + nome.slice(1));
-}
-
-/** 'mm/aaaa' -> 'YYYY-MM-01' (ou '') */
-function parseCompetencia(str) {
-    const m = String(str).trim().match(/^(\d{1,2})\/(\d{4})$/);
-    if (!m) return '';
-    const mo = +m[1];
-    if (mo < 1 || mo > 12) return '';
-    return `${m[2]}-${String(mo).padStart(2, '0')}-01`;
 }
 
 /** 'YYYY-MM-01' -> 'mm/aaaa' */
@@ -352,11 +307,6 @@ function competenciaDeMes(mm) {
         ? estadoApp.mesAtual.getFullYear()
         : new Date().getFullYear());
     return `${ano}-${String(mo).padStart(2, '0')}-01`;
-}
-
-/** Máscara de mês: só números, 2 dígitos */
-function mascaraMes(input) {
-    input.value = input.value.replace(/\D/g, '').slice(0, 2);
 }
 
 /**
@@ -401,25 +351,10 @@ function mostrarNotificacao(mensagem, tipo = 'sucesso') {
     }, CONFIG.NOTIFICACAO_DURACAO);
 }
 
-/**
- * Obtém mês/ano formatados
- */
-function obterMesAnoFormatado(data) {
-    const opcoes = { month: 'long', year: 'numeric' };
-    const mesFormatado = data.toLocaleDateString('pt-BR', opcoes);
-    return mesFormatado.charAt(0).toUpperCase() + mesFormatado.slice(1);
-}
-
 /** Versão curta: "SET/2026" (para telas estreitas) */
 function obterMesAnoCurto(data) {
     const m = data.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
     return `${m}/${data.getFullYear()}`;
-}
-
-/** Versão mínima: "09/26" (para telas muito estreitas) */
-function obterMesAnoMini(data) {
-    const mm = String(data.getMonth() + 1).padStart(2, '0');
-    return `${mm}/${String(data.getFullYear()).slice(-2)}`;
 }
 
 /**

@@ -3,7 +3,6 @@
  * Listagem de transações (entradas e saídas)
  */
 
-.despesas-lista,
 .transacoes-lista {
     display: grid;
     gap: var(--spacing-md);
@@ -410,15 +409,6 @@
     color: var(--text);
 }
 
-@media (max-width: 900px) {
-}
-@media (max-width: 640px) {
-}
-@media (max-width: 480px) {
-}
-@media (max-width: 360px) {
-}
-
 /* Cartãozinho de cada subgrupo (categoria/forma de pgto.) dentro de um
    grupo de recorrência — colapsável (<details>), fechado por padrão, igual
    ao .rec-grupo de fora, só que sem borda própria (já vive dentro de um
@@ -525,23 +515,6 @@
     box-shadow: var(--shadow-sm);
 }
 
-/* Animação de entrada */
-@keyframes slideInLeft {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-/* Efeito ao hover com ícone de ação */
-.despesa-item.interativo:hover {
-    cursor: pointer;
-    background: rgba(79, 70, 229, 0.05);
-    border-left-color: var(--primary);
-}
-
 /* Breakpoints */
 @media (max-width: 768px) {
 
@@ -549,9 +522,6 @@
         width: auto;
         text-align: right;
     }
-}
-
-@media (max-width: 480px) {
 }
 
 /* Ações por transação (editar / excluir): coluna própria, largura fixa,
@@ -591,7 +561,6 @@
 }
 
 /* Parcela quitada (zerada) */
-.despesa-item.quitada .despesa-descricao,
 .despesa-item.quitada .despesa-valor {
   text-decoration: line-through;
   opacity: .55;
@@ -673,22 +642,6 @@
 .dialogo-acoes > button:not(.btn-cancelar) { border-color: transparent; } /* mesma altura: todos têm 1px de borda */
 
 .despesa-valor .valor-meta { font-weight: 400; opacity: .6; }
-
-/* Agrupamento Fixas / Pontuais */
-.grupo-cab {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin: 1.25rem 0 .5rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .5px;
-  font-size: .8rem;
-  color: var(--dark);
-  border-bottom: 2px solid var(--light);
-  padding-bottom: .3rem;
-}
-.grupo-cab:first-child { margin-top: 0; }
 
 /* Busca universal: com termo, o resultado agrupado ocupa o lugar do conteúdo
    de qualquer aba (inclusive Configurações) */
@@ -835,11 +788,6 @@ body .despesa-item { padding-left: 1.55rem !important; }
 
 /* Subgrupo da fatura: sem tracejado entre o cabeçalho e o box do vencimento */
 .subgrupo-cab:has(+ .fatura-virtual) { border-bottom: 0 !important; margin-bottom: 0 !important; }
-
-/* Selo 🔁 embaixo do ⏰ quando os dois aparecem */
-/* ⏰ no alto e 🔁 embaixo: aproveitam a altura toda da linha (que ganha uma altura mínima) */
-.despesa-item > .despesa-conteudo > .conc-selo.conc-selo--baixo { top: auto; bottom: .55rem; }
-@media (max-width: 480px) { .despesa-item > .despesa-conteudo > .conc-selo.conc-selo--baixo { top: auto; bottom: .5rem; } }
 
 /* Subgrupos nunca levam a borda lateral esquerda: ela fica só no grupo pai (sem borda dupla) */
 .subgrupo, .rec-grupo .rec-grupo { border-left: 0 !important; }

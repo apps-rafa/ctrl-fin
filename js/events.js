@@ -375,21 +375,6 @@ function ligarReajusteResponsivo() {
 }
 
 /**
- * Se o mês "digitado"/escolhido no formulário de lançamento for diferente do
- * mês em exibição no topo, a navegação acompanha (some meses no formulário
- * — Data, Comp., mês de referência do dia útil — não têm campo de ano; o
- * ano usado é sempre o do mês em exibição, só o mês pode mudar por aqui).
- * Não mexe durante edição de um lançamento existente.
- */
-function sincronizarMesComFormulario(mes) {
-    if (typeof estadoApp === 'undefined' || !estadoApp.mesAtual || estadoApp.editandoId) return;
-    if (!(mes >= 1 && mes <= 12)) return;
-    if (estadoApp.mesAtual.getMonth() + 1 === mes) return;
-    estadoApp.mesAtual = new Date(estadoApp.mesAtual.getFullYear(), mes - 1, 1);
-    recarregarDados();
-}
-
-/**
  * Muda tipo de transação (entrada/saída)
  */
 function mudarTipoTransacao(tipo) {

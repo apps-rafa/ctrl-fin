@@ -5,7 +5,6 @@
  * 1 mês à frente no mensal e 5 semanas no semanal. Aqui ficam a página de cadastro e as ações sobre elas.
  */
 
-const _DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 const _DIAS_TRI = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
 let _recorrencias = [];
 let _recEditandoId = null;

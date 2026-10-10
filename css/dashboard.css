@@ -164,7 +164,6 @@
    detecta que faltou espaço, porque quem cede é sempre este aqui. */
 .card-titulo-txt { flex: 0 0 auto; }
 
-
 .summary-card .amount {
     /* Tamanho-base (cqw) — ver comentário em .card-linhas .linha.total
        .amount acima: JS encolhe em cima disso se ainda não couber. */
@@ -222,58 +221,6 @@
 
 .summary-card.balanco:hover {
     box-shadow: 0 8px 16px rgba(245, 158, 11, 0.2);
-}
-
-/* Informações adicionais */
-.summary-card-info {
-    font-size: var(--font-size-sm);
-    margin-top: var(--spacing-md);
-    opacity: 0.8;
-}
-
-.summary-card-detail {
-    display: flex;
-    justify-content: space-between;
-    font-size: var(--font-size-sm);
-    margin-top: var(--spacing-sm);
-    padding-top: var(--spacing-sm);
-    border-top: 1px solid currentColor;
-    opacity: 0.8;
-}
-
-/* Indicadores */
-.indicator {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-right: var(--spacing-sm);
-}
-
-.indicator.positive {
-    background: var(--success);
-}
-
-.indicator.negative {
-    background: var(--danger);
-}
-
-.indicator.neutral {
-    background: var(--warning);
-}
-
-/* Animação de atualização */
-@keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
-    }
-}
-
-.summary-card.updating {
-    animation: pulse 1s ease-in-out;
 }
 
 /* Breakpoints: tamanho de fonte de .amount já escala sozinho por cqw (ver

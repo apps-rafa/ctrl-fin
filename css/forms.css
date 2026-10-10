@@ -31,23 +31,6 @@
     padding: 0;
 }
 
-/* Título de "Próximas": 4 níveis de texto conforme o espaço aperta — só um
-   fica visível por vez (ver os spans montados em atualizarProximasTransacoes). */
-.prox-titulo-media, .prox-titulo-curto, .prox-titulo-mini { display: none; }
-@media (max-width: 768px) {
-    .prox-titulo-full { display: none; }
-    .prox-titulo-media { display: inline; }
-}
-@media (max-width: 480px) {
-    .prox-titulo-media { display: none; }
-    .prox-titulo-curto { display: inline; }
-}
-@media (max-width: 320px) {
-    .prox-titulo-curto { display: none; }
-    .prox-titulo-mini { display: inline; }
-}
-
-
 /* Seletor de tipo: ao lado do título, dividindo o espaço que sobrar */
 .tipo-selector {
     display: flex;
@@ -232,14 +215,6 @@
     font-size: 7px;
 }
 
-.form-group.full-width {
-    grid-column: 1 / -1;
-}
-
-.form-group.half-width {
-    grid-column: span 1;
-}
-
 .form-group label {
     display: block;
     margin-bottom: 0.25rem;
@@ -392,24 +367,6 @@
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
-.form-error {
-    color: var(--danger);
-    font-size: var(--font-size-sm);
-    margin-top: var(--spacing-sm);
-    display: none;
-}
-
-.form-group.error .form-error {
-    display: block;
-}
-
-/* Dica de campo */
-.form-hint {
-    color: var(--gray);
-    font-size: var(--font-size-sm);
-    margin-top: var(--spacing-sm);
-}
-
 /* Animações */
 @keyframes slideDown {
     from {
@@ -471,44 +428,7 @@
 
 [hidden] { display: none !important; }
 
-/* "pagar no vcto." como chip toggle (não selecionado por default) */
-/* ".form-group label.chip-toggle" (2 classes + elemento) pra vencer
-   ".form-group label" (2 classes) — sem isso o chip herdava o
-   font-size/weight do label normal (0.76rem/600) em vez do dele próprio. */
-.chip-toggle,
-.form-group label.chip-toggle {
-    display: inline-flex;
-    align-items: center;
-    margin: 0;
-    padding: .1rem .45rem;
-    border: 1px solid var(--border-strong);
-    border-radius: 999px;
-    background: var(--surface-2);
-    color: var(--text-muted);
-    font-size: .6rem;
-    font-weight: 400;
-    line-height: 1.4;
-    white-space: nowrap;
-    cursor: pointer;
-    user-select: none;
-    transition: background var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
-}
-.chip-toggle:hover { border-color: var(--primary); color: var(--primary); }
-.chip-toggle:has(input:checked) {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: var(--primary-contrast);
-}
-
-/* 2º rótulo dentro do mesmo form-group (ex.: "Data (automática)") */
-.rotulo-secundario { margin-top: .5rem; }
-
-/* add-item-form: campos empilhados com label externo (design de Categorias) */
-.add-item-form {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-}
+/* Campos empilhados com label externo (design de Categorias) */
 .campo {
     display: flex;
     flex-direction: column;
@@ -521,11 +441,9 @@
 }
 .campo label .opt { font-weight: 400; opacity: .8; }
 .campo input,
-.campo select,
-.add-item-form > input {
+.campo select {
     width: 100%;
 }
-.add-item-form .btn-add { width: 100%; }
 
 .dialogo-corpo #dlgMetCartao { display: flex; flex-direction: column; gap: .5rem; }
 
@@ -563,41 +481,6 @@
 }
 .btn-excluir-lancamento:hover { background: rgba(220, 38, 38, .1); }
 
-/* Chips de semanas (recorrência Semanal) */
-.hint-inline { font-weight: 400; color: #6B7280; font-size: .85em; }
-.semanas-chips {
-  display: flex;
-  flex-wrap: nowrap;      /* nunca passa de 1 linha */
-  gap: .3rem;
-}
-.semanas-chips .chip {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 2.2rem;   /* mesma altura dos inputs de preenchimento */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  border: 1px solid #D1D5DB;
-  background: #fff;
-  color: #374151;
-  border-radius: var(--radius-sm);   /* mesmo canto dos campos */
-  padding: 0 .3rem;
-  font-size: .8rem;
-  line-height: 1.2;
-  cursor: pointer;
-  user-select: none;
-}
-.semanas-chips .chip.on {
-  background: #4F46E5;
-  border-color: #4F46E5;
-  color: #fff;
-}
-.semanas-chips .chip.passada:not(.on) {
-  opacity: .6;
-}
-.semanas-resumo { display: none; }   /* total agora vem do campo "Total" ao lado do Valor */
-
 /* Campo travado por valor automático (aparência de desabilitado) */
 .form-group input.campo-travado,
 .form-group input[readonly].campo-travado {
@@ -634,8 +517,6 @@
   font-size: .85rem;
   width: 100%;
 }
-.dialogo-corpo .dialogo-linha { display: flex; gap: .4rem; flex-wrap: wrap; }
-.dialogo-corpo .dialogo-linha input { flex: 1 1 6rem; }
 
 /* Telas estreitas: "Categoria"/"Descrição" viram 1 campo por linha (cada um
    100% de largura) em vez de dividir espaço. "Data"+"Valor" e a linha da

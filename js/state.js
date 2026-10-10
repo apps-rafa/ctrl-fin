@@ -52,20 +52,6 @@ let estadoApp = {
 };
 
 /**
- * Atualiza o estado com novos dados
- */
-function atualizarEstado(chave, valor) {
-    estadoApp[chave] = valor;
-}
-
-/**
- * Obtém dados de um tipo específico
- */
-function obterDados(tipo) {
-    return estadoApp.transacoes[tipo] || [];
-}
-
-/**
  * Obtém resumo formatado
  */
 function obterResumoFormatado() {

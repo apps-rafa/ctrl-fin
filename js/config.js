@@ -98,25 +98,6 @@ function corDaCategoria(nome, tipo) {
     return mapa[nome] || (c.categoria || {})[nome] || corPadraoChip(nome);
 }
 
-// Temas de cores para balanço
-const TEMAS_BALANCO = {
-  negativo: {
-    bg: 'var(--despesa-bg)',
-    border: 'var(--despesa-border)',
-    color: 'var(--despesa-text)'
-  },
-  positivo: {
-    bg: 'var(--receita-bg)',
-    border: 'var(--receita-border)',
-    color: 'var(--receita-text)'
-  },
-  neutro: {
-    bg: 'var(--balanco-bg)',
-    border: 'var(--balanco-border)',
-    color: 'var(--balanco-text)'
-  }
-};
-
 // Seletores do DOM (centralizados)
 const SELECTORS = {
   // Resumo

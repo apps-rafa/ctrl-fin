@@ -8,8 +8,7 @@
     border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--border)); }
 .rec-btn-criar:hover { color: var(--primary); }
 @media (max-width: 542px) { .rec-btn-criar { font-size: .66rem; } }
-.rec-btn-criar[hidden], .rec-aviso[hidden], .rec-lista[hidden] { display: none; }
-.rec-aviso { margin: 0 0 var(--spacing-md); font-size: .74rem; color: var(--text-muted); }
+.rec-btn-criar[hidden], .rec-lista[hidden] { display: none; }
 
 .rec-form { margin-bottom: var(--spacing-md); }
 .rec-form[hidden] { display: none; }

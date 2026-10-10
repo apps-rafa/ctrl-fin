@@ -410,15 +410,12 @@ footer.footer {
 }
 
 /* Containers de conteúdo */
-.resumo-container,
 .transacoes-container,
 .proximas-container,
-.chart-container,
 .form-transacao {
     margin-bottom: var(--spacing-xl);
 }
 
-.resumo-container h2,
 .transacoes-container h2,
 .proximas-container h2 {
     margin-bottom: var(--spacing-lg);
@@ -447,20 +444,8 @@ main.main {
     margin-top: var(--spacing-md);
 }
 
-.mb {
-    margin-bottom: var(--spacing-md);
-}
-
 .p {
     padding: var(--spacing-md);
-}
-
-.pt {
-    padding-top: var(--spacing-md);
-}
-
-.pb {
-    padding-bottom: var(--spacing-md);
 }
 
 /* Swipe de mês: o painel que sai pelo lado não gera rolagem horizontal */

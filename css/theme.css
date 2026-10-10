@@ -16,7 +16,6 @@ header.header {
     border-bottom-color: var(--primary-dark);
 }
 header.header h1,
-header.header .current-month,
 header.header .month-btn { color: var(--header-text); }
 
 main.main { background: transparent; color: var(--text); }
@@ -34,9 +33,7 @@ footer.footer {
 .menu-item,
 .despesa-item,
 .dialogo,
-.sugestoes,
-.chart-container,
-.category-item {
+.sugestoes {
     background-color: var(--surface);
     color: var(--text);
     border-color: var(--border);
@@ -49,7 +46,6 @@ footer.footer {
 
 .despesa-item:hover,
 .menu-item:hover,
-.category-item:hover,
 .sugestao-item:hover { background-color: var(--surface-3); }
 
 /* Cards coloridos: mesmo verde/vermelho dos botões "Receitas"/"Despesas" ativos */
@@ -65,16 +61,12 @@ footer.footer {
 /* (o tingimento agora é da .area-conteudo — ver layout.css) */
 
 /* ---------- Texto ---------- */
-h1, h2, h3, h4, label, .item-nome, .despesa-categoria, .amount { color: var(--text); }
+h1, h2, h3, h4, label, .item-nome, .amount { color: var(--text); }
 
-.despesa-descricao, .despesa-meta, .meta-item, .despesa-metodo,
-.item-descricao, .grupo-sub, .menu-hint, .hint-inline,
-.summary-card .sub, .empty-message, .empty-text,
-.current-month, .semanas-resumo {
+.item-descricao, .menu-hint,
+.summary-card .sub, .empty-message, .empty-text {
     color: var(--text-muted);
 }
-
-.grupo-cab { color: var(--text); border-bottom-color: var(--border); }
 
 /* ---------- Campos ---------- */
 .form-group input,
@@ -82,8 +74,6 @@ h1, h2, h3, h4, label, .item-nome, .despesa-categoria, .amount { color: var(--te
 .form-group textarea,
 .dialogo-corpo input,
 .dialogo-corpo select,
-.add-item-form input,
-.add-item-form select,
 .item-edit input,
 .busca-lista,
 .sugestoes {
@@ -265,9 +255,6 @@ input.campo-travado,
     .user-email { display: none; }
 }
 
-/* ---------- Notificação (mostrarNotificacao usa cor inline; ok) ---------- */
-.notificacao { color: #fff; }
-
 /* ---------- Configuração (menus.css) ---------- */
 .menu-item {
     background-color: var(--surface);
@@ -311,12 +298,11 @@ input.campo-travado,
 }
 
 /* ---------- Densidade geral da UI (mais enxuta) ---------- */
-.resumo-container, .transacoes-container,
-.proximas-container, .chart-container, .form-transacao {
+.transacoes-container,
+.proximas-container, .form-transacao {
     margin-bottom: var(--spacing-lg);
 }
-.transacoes-container h2, .proximas-container h2,
-.resumo-container h2 {
+.transacoes-container h2, .proximas-container h2 {
     margin-bottom: var(--spacing-md);
     font-size: var(--font-size-lg);
 }
@@ -343,7 +329,6 @@ input.campo-travado,
 .summary-card,
 .tabs .tab-btn,
 .subtabs .subtab,
-.cat-subgrupo,
 .menu-item,
 .rec-grupo,
 .despesa-item,
@@ -447,7 +432,7 @@ body .despesa-valor { min-width: 0; }
 
 /* Espaço entre os grupos de uma lista: o grid (1rem) somava com a margem do
    grupo — ficava exagerado. */
-body .transacoes-lista, body .despesas-lista { gap: 0; }
+body .transacoes-lista { gap: 0; }
 body .rec-grupo { margin-bottom: .35rem; }
 
 /* "×" da busca: centralizado sem transform — a regra global *:hover{transform:none}
@@ -499,7 +484,6 @@ body .rec-grupo--vazio { padding-left: .8rem; padding-right: .8rem; }
     body .rec-grupo > summary, body .subgrupo-cab, body .rec-grupo--vazio { padding-left: .65rem; padding-right: .65rem; }
 }
 
-
 /* Grupos colados (como em Próximos) em Despesas/Receitas também */
 body .rec-grupo { margin-bottom: 0; }
 body .rec-grupo + .rec-grupo { margin-top: -1px; }
@@ -530,7 +514,6 @@ body .revisao-grupo > .revisao-grupo-titulo,
 body .rec-grupo > summary { font-size: .8rem; font-weight: 600; color: var(--text); }
 body .revisao-grupo .revisao-grupo > .revisao-grupo-titulo,
 body .subgrupo-cab { font-size: .75rem; font-weight: 600; color: var(--text); }
-body .rec-grupo--plano { border-left-width: 1px; border-left-color: var(--border); }
 body #pluggyRevisaoLista .revisao-acoes .btn-submit { width: 100%; flex: 1 1 100%; }
 
 body .pluggy-contas-sync, body .pluggy-toolbar-btns { gap: .5rem; }
