@@ -80,16 +80,16 @@
             <!-- Saldo real das contas bancárias (Open Finance): fora do dashboard, logo abaixo do calendário -->
             <div class="saldo-contas" id="saldoContas" hidden title="Saldo atual das contas bancárias conectadas (Open Finance)">
                 <span class="sc-rot">🏦 Saldo em contas <em class="sc-hoje">hoje</em></span>
-                <b class="sc-val" id="saldoContasValor">R$ 0,00</b>
+                <b class="sc-val" id="saldoContasValor">••••</b>
             </div>
             <div class="saldo-contas-lista" id="saldoContasLista" hidden></div>
 
             <!-- Resumo compacto: aparece ao rolar para além do dashboard -->
             <div class="mini-resumo" id="miniResumo" hidden>
-                <span class="mini-box entradas"><i><svg class="seta-icone" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="var(--receita-text)" d="M12 20l-8-8h5V4h6v8h5z"/></svg></i><b id="miniEntradas">R$ 0,00</b></span>
-                <span class="mini-box saidas"><i><svg class="seta-icone" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="var(--despesa-text)" d="M12 4l8 8h-5v8h-6v-8H4z"/></svg></i><b id="miniSaidas">R$ 0,00</b></span>
-                <span class="mini-box balanco"><i class="mini-emoji">📊</i><b id="miniBalanco">R$ 0,00</b></span>
-                <span class="mini-box gasto-diario"><i class="mini-emoji">📅</i><b id="miniGasto">R$ 0,00</b></span>
+                <span class="mini-box entradas"><i><svg class="seta-icone" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="var(--receita-text)" d="M12 20l-8-8h5V4h6v8h5z"/></svg></i><b id="miniEntradas">••••</b></span>
+                <span class="mini-box saidas"><i><svg class="seta-icone" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="var(--despesa-text)" d="M12 4l8 8h-5v8h-6v-8H4z"/></svg></i><b id="miniSaidas">••••</b></span>
+                <span class="mini-box balanco"><i class="mini-emoji">📊</i><b id="miniBalanco">••••</b></span>
+                <span class="mini-box gasto-diario"><i class="mini-emoji">📅</i><b id="miniGasto">••••</b></span>
                 <div class="mini-linha2" hidden>
                     <button type="button" id="miniLancamento" class="mini-lancamento"><span class="tab-mais">+</span> Lançamento</button>
                     <div class="mini-dir">
@@ -110,35 +110,35 @@
                     <h3><svg class="seta-icone" viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><path fill="var(--receita-text)" d="M12 20l-8-8h5V4h6v8h5z"/></svg> <span class="card-titulo-txt">Receita</span></h3>
                     <div class="card-linhas">
                         <div class="card-linhas-topo">
-                            <span class="linha"><i data-rot="recebido" data-emo="🟢">recebido</i><b id="entradasAtual">R$ 0,00</b></span>
+                            <span class="linha"><i data-rot="recebido" data-emo="🟢">recebido</i><b id="entradasAtual">••••</b></span>
                             <span class="linha linha-detalhe vazio"><i>&nbsp;</i></span>
-                            <span class="linha"><i data-rot="a receber" data-emo="⏭️">a receber</i><b id="entradasAReceber">R$ 0,00</b></span>
+                            <span class="linha"><i data-rot="a receber" data-emo="⏭️">a receber</i><b id="entradasAReceber">••••</b></span>
                             <span class="linha linha-detalhe vazio"><i>&nbsp;</i></span>
                         </div>
                         <span class="linha-sep" aria-hidden="true"></span>
-                        <span class="linha total"><i class="rot-total">total</i><b class="amount" id="totalEntradas">R$ 0,00</b></span>
+                        <span class="linha total"><i class="rot-total">total</i><b class="amount" id="totalEntradas">••••</b></span>
                     </div>
                 </div>
                 <div class="summary-card saidas" data-tab="saidas">
                     <h3><svg class="seta-icone" viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><path fill="var(--despesa-text)" d="M12 4l8 8h-5v8h-6v-8H4z"/></svg> <span class="card-titulo-txt">Despesa</span></h3>
                     <div class="card-linhas">
                         <div class="card-linhas-topo">
-                            <span class="linha"><i data-rot="pago" data-emo="🔴">pago</i><b id="saidasAtual">R$ 0,00</b></span>
+                            <span class="linha"><i data-rot="pago" data-emo="🔴">pago</i><b id="saidasAtual">••••</b></span>
                             <span class="linha linha-detalhe vazio" id="saidasPagoDetalheLinha"><i id="saidasPagoDetalhe">&nbsp;</i></span>
-                            <span class="linha"><i data-rot="a pagar" data-emo="⏭️">a pagar</i><b id="saidasAPagar">R$ 0,00</b></span>
+                            <span class="linha"><i data-rot="a pagar" data-emo="⏭️">a pagar</i><b id="saidasAPagar">••••</b></span>
                             <span class="linha linha-detalhe vazio" id="saidasDetalheLinha"><i id="saidasDetalhe">&nbsp;</i></span>
                         </div>
                         <span class="linha-sep" aria-hidden="true"></span>
-                        <span class="linha total"><i class="rot-total">total</i><b class="amount" id="totalSaidas">R$ 0,00</b></span>
+                        <span class="linha total"><i class="rot-total">total</i><b class="amount" id="totalSaidas">••••</b></span>
                     </div>
                 </div>
                 <div class="summary-card balanco">
                     <h3><span class="card-emoji">📊</span> Balanço</h3>
-                    <p class="amount" id="balanco">R$ 0,00</p>
+                    <p class="amount" id="balanco">••••</p>
                 </div>
                 <div class="summary-card gasto-diario">
                     <h3><span class="card-emoji">📅</span> Gasto diário</h3>
-                    <p class="amount" id="gastoDiario">R$ 0,00</p>
+                    <p class="amount" id="gastoDiario">••••</p>
                     <p class="sub" id="gastoDiarioSub"></p>
                 </div>
             </section>

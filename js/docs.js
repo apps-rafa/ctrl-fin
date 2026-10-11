@@ -17,7 +17,7 @@ const DOCS_SECOES = [
       { t: 'Modo teste', r: '"Testar sem cadastro", na tela de entrada, abre o app sem criar conta. A conta de teste e todos os dados dela são apagados sozinhos 7 dias depois.',
         m: 'No modo teste aparece a etiqueta 🧪 no topo e o botão "Apagar tudo" (para recomeçar antes disso). Nada que você fizer ali vai para uma conta real. O {ver:openfinance} e o backup por e-mail não funcionam no modo teste.' },
       { t: 'Tema claro/escuro e esconder valores', r: 'A 🌙 troca o tema; o 👁 esconde os valores do dashboard (útil em público). O app sempre abre com os valores escondidos (olho fechado).',
-        m: 'O tema escolhido fica lembrado neste aparelho. Com os valores escondidos, o dashboard e a {ver:anual} mostram "••••" no lugar dos números.' },
+        m: 'O tema escolhido fica lembrado neste aparelho. Com os valores escondidos, o dashboard e a {ver:anual} mostram "••••" no lugar dos números. Enquanto o app carrega, os valores também aparecem como "••••" (nunca um "R$ 0,00" provisório).' },
       { t: 'Cabeçalho', r: 'Título, 📈 Visão anual, 🌙 tema e 🚪 sair. Abaixo, a barra de meses, o 👁 e o ⚙️ Configurações.',
         m: 'O ⚙️ e o 📈 funcionam como interruptores: clicar de novo fecha a tela e volta para onde você estava. Quando há algo para resolver, aparece logo abaixo a barra 📥 de Pendências (veja {ver:proximos}).' },
       { t: 'Atualizações e uso sem internet', r: 'O app se atualiza sozinho e abre mesmo sem internet (os dados precisam de conexão).',

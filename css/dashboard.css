@@ -15,6 +15,8 @@
     display: grid;
     /* 6 colunas: Receita 2, Despesa 2, Balanço/Gasto diário 2 (o mesmo molde dos botões do topo, ver .acoes-topo) */
     grid-template-columns: repeat(6, minmax(0, 1fr));
+    /* 2 linhas iguais: Balanço e Gasto diário (empilhados na 3ª coluna) ficam com a mesma altura — a do maior */
+    grid-template-rows: 1fr 1fr;
     gap: var(--spacing-md);
     margin-bottom: var(--spacing-xl);
 }
@@ -47,6 +49,7 @@
 @media (max-width: 480px) {
     .dashboard {
         grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto; /* aqui cada linha tem cards diferentes (Receita|Despesa, Balanço|Gasto): altura própria */
     }
     .summary-card.entradas     { grid-column: 1; grid-row: 1; }
     .summary-card.saidas       { grid-column: 2; grid-row: 1; }
