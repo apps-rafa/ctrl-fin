@@ -30,8 +30,8 @@ const estadoAnual = {
     secAberta: { saidas: false, entradas: false }, // blocos DESPESAS/RECEITAS da tabela: nascem recolhidos (o total e a variação ficam sempre à vista)
 };
 
-/** Todas as transações do ano (ver transacoesDoAnoAPI em api.js). */
-const _buscarTransacoesDoAno = ano => transacoesDoAnoAPI(ano);
+/** Transações do ano (ver transacoesDoAnoAPI em api.js), SEM as ocorrências "a confirmar": a Visão anual só conta o que foi confirmado. */
+const _buscarTransacoesDoAno = ano => transacoesDoAnoAPI(ano).then(linhas => linhas.filter(t => !t.a_confirmar));
 
 const _brl0 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
 const _brl2 = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -205,18 +205,36 @@ function _mesesVisiveis(conjuntos, ano) {
     return MESES_ANUAL.map((_, i) => i).filter(i => i >= futuroDesde || conjuntos.some(c => c.some(l => Math.abs(l.meses[i]) > 0.004)));
 }
 
+/** Trecho do BALANÇO num gráfico: sem cor, contorno pontilhado, completando a barra menor até a maior (sobra no fim da
+ *  despesa; déficit no fim da receita). O tamanho é a diferença entre as barras; o valor e o % são os do Balanço real
+ *  (receitas − despesas, estornos inclusos), com o % sobre a receita do mês. Com filtro ativo não aparece (só há um lado).
+ *  `largura` = % da barra que o trecho ocupa (decide se cabe o texto, como nos outros trechos); 0 = sem texto. */
+function _segBalanco(i, extra, balanco, receita, largura) {
+    if (estadoAnual.filtro || extra < 0.005) return '';
+    const pct = receita > 0 ? balanco / receita * 100 : null;
+    const pctTxt = pct === null ? '' : `${pct < 0 ? '−' : ''}${Math.abs(Math.round(pct))}%`;
+    const txt = largura >= 22 ? `Balanço ${pctTxt}` : (largura >= 9 ? pctTxt : '');
+    const titulo = `Balanço de ${MESES_ANUAL_LONGO[i]}: ${balanco > 0 ? '+' : ''}${_fmtMoeda(balanco)}${pct === null ? '' : ` (${pctTxt} da receita)`}`;
+    return `<span class="seg seg-balanco" style="flex:${extra}" title="${titulo}">${txt}</span>`;
+}
+
 /** Linha do gráfico (1ª linha da tabela): DUAS barras por mês — receita (esquerda) e despesa
  *  (direita) — cada uma empilhada com uma cor por categoria/forma, na mesma escala. */
 function _linhaGrafico(linhasR, linhasD, meses, mesAtual, dim = () => '') {
     const soma = (linhas, i) => linhas.filter(l => !l.nome.startsWith('(−)')).reduce((a, l) => a + Math.max(0, l.meses[i]), 0);
     const max = Math.max(...meses.flatMap(i => [soma(linhasR, i), soma(linhasD, i)]), 1);
     const ALTURA = 130;
+    const totalReal = (linhas, i) => linhas.reduce((a, l) => a + l.meses[i], 0); // com estornos (linhas "(−)")
     const barra = (linhas, i, classe, rotulo) => {
         const positivos = linhas.filter(l => !l.nome.startsWith('(−)') && l.meses[i] > 0.004)
             .sort((a, b) => b.meses[i] - a.meses[i]); // maior valor do mês na base da barra
         const total = soma(linhas, i);
-        const h = total > 0 ? Math.max(4, (total / max) * ALTURA) : 0;
-        const segs = positivos.map(l => `<span class="seg" style="flex:${l.meses[i]};background:${_corDoNomeAnual(l.nome, classe === 'rec' ? 'entradas' : 'saidas')}" title="${rotulo} · ${_esc(l.nome)} · ${MESES_ANUAL_LONGO[i]}: ${_fmtMoeda(l.meses[i])} (${Math.round(l.meses[i] / total * 100)}%)"></span>`).join('');
+        // Balanço: a barra menor ganha o trecho pontilhado até a altura da maior (fica no topo dela)
+        const outro = classe === 'rec' ? soma(linhasD, i) : soma(linhasR, i);
+        const extra = outro > total ? outro - total : 0;
+        const h = total + extra > 0 ? Math.max(4, ((total + extra) / max) * ALTURA) : 0;
+        const segs = positivos.map(l => `<span class="seg" style="flex:${l.meses[i]};background:${_corDoNomeAnual(l.nome, classe === 'rec' ? 'entradas' : 'saidas')}" title="${rotulo} · ${_esc(l.nome)} · ${MESES_ANUAL_LONGO[i]}: ${_fmtMoeda(l.meses[i])} (${Math.round(l.meses[i] / total * 100)}%)"></span>`).join('')
+            + _segBalanco(i, extra, totalReal(linhasR, i) - totalReal(linhasD, i), totalReal(linhasR, i), 0);
         return `<div class="barra ${classe}" style="height:${h.toFixed(0)}px" title="${rotulo} de ${MESES_ANUAL_LONGO[i]}: ${_fmtMoeda(total)}">${segs}</div>`;
     };
     const cels = meses.map(i => `<td class="grafico-cel${i === mesAtual ? ' atual' : ''}${dim(i)}"><div class="par">${barra(linhasR, i, 'rec', 'Receita')}${barra(linhasD, i, 'desp', 'Despesa')}</div></td>`).join('');
@@ -232,15 +250,18 @@ function _graficoHorizontal(vR, vD, mesesSel) {
     mesesSel.forEach(i => barras.push({ i, tipo: 'entradas', classe: 'rec', rot: 'Receita', linhas: positivos(vR, i) }));
     mesesSel.forEach(i => barras.push({ i, tipo: 'saidas', classe: 'desp', rot: 'Despesa', linhas: positivos(vD, i) }));
     barras.forEach(b => { b.total = b.linhas.reduce((a, l) => a + l.meses[b.i], 0); });
-    const max = Math.max(...barras.map(b => b.total), 1);
+    // Balanço: a barra menor do mês ganha o trecho pontilhado até o tamanho da maior
+    barras.forEach(b => { const par = barras.find(x => x.i === b.i && x !== b); b.extra = par && par.total > b.total ? par.total - b.total : 0; });
+    const totalReal = (v, i) => v.linhas.reduce((a, l) => a + l.meses[i], 0); // com estornos (linhas "(−)")
+    const max = Math.max(...barras.map(b => b.total + b.extra), 1);
     const varios = mesesSel.length > 1;
     const html = barras.map(b => {
         const segs = b.linhas.map(l => {
             const pct = b.total ? l.meses[b.i] / b.total * 100 : 0;
             const txt = pct >= 22 ? `${_esc(abreviarCategoria(l.nome))} ${Math.round(pct)}%` : (pct >= 9 ? `${Math.round(pct)}%` : '');
             return `<span class="seg" style="flex:${l.meses[b.i]};background:${_corDoNomeAnual(l.nome, b.tipo)}" title="${b.rot} · ${_esc(l.nome)} · ${MESES_ANUAL_LONGO[b.i]}: ${_fmtMoeda(l.meses[b.i])} (${Math.round(pct)}%)">${txt}</span>`;
-        }).join('');
-        const larg = b.total > 0 ? Math.max(2, b.total / max * 100) : 0;
+        }).join('') + _segBalanco(b.i, b.extra, totalReal(vR, b.i) - totalReal(vD, b.i), totalReal(vR, b.i), b.extra / ((b.total + b.extra) || 1) * 100);
+        const larg = b.total + b.extra > 0 ? Math.max(2, (b.total + b.extra) / max * 100) : 0;
         return `<div class="gh-linha ${b.classe}"><span class="gh-rot">${varios ? `<b>${MESES_ANUAL[b.i]}</b> ` : ''}${b.rot}</span><div class="gh-trilho"><div class="gh-barra" style="width:${larg.toFixed(1)}%">${segs}</div></div><span class="gh-total">${_fmtMoeda(b.total)}</span></div>`;
     }).join('');
     return `<div class="anual-bloco anual-grafico-h" role="img" aria-label="Gráfico de receitas e despesas">${html}</div>`;

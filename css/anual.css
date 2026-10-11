@@ -138,3 +138,9 @@
 /* Extrato do filtro: cada mês é um quadro com contorno, e a seta dele é branca (as cores ficam para categoria/forma, dentro) */
 .anual-extrato details.subgrupo[data-mes] { border: 1px solid var(--border-strong, var(--border)); border-radius: var(--radius-sm); margin: .4rem .6rem; overflow: hidden; }
 .anual-extrato details.subgrupo[data-mes] > .subgrupo-cab::before { color: var(--text); }
+
+/* Balanço nos gráficos: trecho sem cor, com contorno pontilhado, completando a barra menor até a maior */
+.anual-tabela .grafico-cel .barra .seg.seg-balanco,
+.gh-barra .seg.seg-balanco { background: transparent; border: 1.5px dashed var(--text-muted); box-sizing: border-box; }
+.gh-barra .seg.seg-balanco { color: var(--text-muted); text-shadow: none; border-radius: 0 4px 4px 0; }
+.anual-tabela .grafico-cel .barra .seg.seg-balanco { border-bottom: 0; }
