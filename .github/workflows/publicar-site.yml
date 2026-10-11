@@ -5,7 +5,7 @@ name: Publicar site
 on:
   push:
     branches: [main]
-    paths-ignore: ["supabase/**", "tests/**", "md/**", "*.md"]
+    paths-ignore: ["supabase/**", "tests/**", "*.md"]
   workflow_dispatch:
 permissions:
   contents: read
