@@ -439,7 +439,7 @@ async function _lerEmPaginas(montar, tam = 1000) {
 /** Visão anual: as transações do ano (por competência), só com as colunas que a tabela usa. */
 function transacoesDoAnoAPI(ano) {
     return _lerEmPaginas((a, b) => sb.from('transacoes')
-        .select('id, tipo, valor, categoria, metodo, competencia, data, descricao')
+        .select('id, tipo, valor, categoria, metodo, competencia, data, descricao, a_confirmar')
         .gte('competencia', `${ano}-01-01`).lt('competencia', `${ano + 1}-01-01`)
         .order('id').range(a, b));
 }
