@@ -27,6 +27,7 @@ const estadoAnual = {
     foco: null,           // mês (0-11) em foco ao tocar no cabeçalho; null = ano todo
     carregando: false,
     rolarPara: null,      // rolagem a devolver depois de editar um lançamento daqui
+    secAberta: { saidas: false, entradas: false }, // blocos DESPESAS/RECEITAS da tabela: nascem recolhidos (o total e a variação ficam sempre à vista)
 };
 
 /** Todas as transações do ano (ver transacoesDoAnoAPI em api.js). */
@@ -254,7 +255,9 @@ function _nomeCurto(nome) {
 
 const _ehNeg = nome => nome.startsWith('(−)');
 
-/** Seção da tabela (Despesas ou Receitas): título, uma linha por categoria/forma, total e variação. */
+/** Seção da tabela (Despesas ou Receitas), colapsável: a linha do título já traz o total de cada mês e, logo abaixo,
+ *  a variação com o mês anterior (as duas sempre à vista); as linhas de categoria/forma só aparecem com o bloco aberto.
+ *  Nasce recolhida; com um filtro desse lado ativo, fica aberta (senão a linha filtrada sumiria). */
 function _secaoTabela({ rotulo, tipo, v, meses, mesAtual, ultimoMes, dim }) {
     const { linhas, totais } = v;
     if (!linhas.length) return { html: '', totais };
@@ -278,11 +281,11 @@ function _secaoTabela({ rotulo, tipo, v, meses, mesAtual, ultimoMes, dim }) {
         const p = _pctTipo(tipo, totais[i], totais[i - 1]);
         return `<td class="delta ${p.classe}${dim(i)}">${_fmtPct(p.valor)}</td>`;
     }).join('');
+    const aberta = estadoAnual.secAberta[tipo] || estadoAnual.filtroTipo === tipo;
     const html = `
-        <tr class="sec ${tipo === 'entradas' ? 'rec' : 'desp'}"><th class="anual-nome sec-tit">${rotulo}</th><td colspan="${meses.length + 1}"></td></tr>
-        ${corpo}
-        <tr class="tot"><th scope="row" class="anual-nome">Total ${rotulo.toLowerCase()}</th>${meses.map(i => `<td class="${i === mesAtual ? 'atual' : ''}${dim(i)}">${totais[i] ? _fmtCel(totais[i]) : '–'}</td>`).join('')}<td class="total">${_fmtCel(totalAno)}</td></tr>
-        <tr class="var"><th scope="row" class="anual-nome">vs. mês anterior</th>${deltas}<td></td></tr>`;
+        <tr class="sec ${tipo === 'entradas' ? 'rec' : 'desp'}"><th scope="row" class="anual-nome sec-tit"><button type="button" class="sec-toggle" data-anual-sec="${tipo}" aria-expanded="${aberta}" title="${aberta ? 'Recolher' : 'Mostrar'} ${rotulo.toLowerCase()} por ${estadoAnual.agrupar === 'categoria' ? 'categoria' : 'forma de pagamento'}"><span class="sec-seta" aria-hidden="true">${aberta ? '▾' : '▸'}</span>${rotulo}</button></th>${meses.map(i => `<td class="${i === mesAtual ? 'atual' : ''}${dim(i)}">${totais[i] ? _fmtCel(totais[i]) : '–'}</td>`).join('')}<td class="total">${_fmtCel(totalAno)}</td></tr>
+        <tr class="var"><th scope="row" class="anual-nome">vs. mês anterior</th>${deltas}<td></td></tr>
+        ${aberta ? corpo : ''}`;
     return { html, totais };
 }
 
@@ -390,7 +393,7 @@ function _renderVisaoAnual() {
     const secD = _secaoTabela({ rotulo: 'Despesas', tipo: 'saidas', v: vD, meses, mesAtual, ultimoMes, dim });
     const secR = _secaoTabela({ rotulo: 'Receitas', tipo: 'entradas', v: vR, meses, mesAtual, ultimoMes, dim });
     const temDados = !!(secD.html || secR.html);
-    const saldoLinha = `<tr class="saldo"><th scope="row" class="anual-nome">Saldo (receitas − despesas)</th>${meses.map(i => `<td class="${saldos[i] >= 0 ? 'bom' : 'ruim'}${i === mesAtual ? ' atual' : ''}${dim(i)}">${(vR.totais[i] || vD.totais[i]) ? sinal(saldos[i]) + _fmtCel(saldos[i]) : '–'}</td>`).join('')}<td class="total ${sR - sD >= 0 ? 'bom' : 'ruim'}">${sinal(sR - sD)}${_fmtCel(sR - sD)}</td></tr>`;
+    const saldoLinha = `<tr class="saldo"><th scope="row" class="anual-nome" title="Receitas − despesas do mês">Balanço</th>${meses.map(i => `<td class="${saldos[i] >= 0 ? 'bom' : 'ruim'}${i === mesAtual ? ' atual' : ''}${dim(i)}">${(vR.totais[i] || vD.totais[i]) ? sinal(saldos[i]) + _fmtCel(saldos[i]) : '–'}</td>`).join('')}<td class="total ${sR - sD >= 0 ? 'bom' : 'ruim'}">${sinal(sR - sD)}${_fmtCel(sR - sD)}</td></tr>`;
     // Sempre antes da nota "Valores em R$..." — ela deve ficar por último na página.
     const extrato = _renderExtratoFiltro(ano);
 
@@ -413,8 +416,7 @@ function _renderVisaoAnual() {
                     ${meses.map(i => `<th class="mes${i === mesAtual ? ' atual' : ''}${dim(i)}"><button type="button" data-foco-mes="${i}" title="Focar em ${MESES_ANUAL_LONGO[i]}">${MESES_ANUAL[i]}</button></th>`).join('')}
                     <th class="total">Total</th></tr>
                 </thead>
-                <tbody>${secD.html}${secR.html}</tbody>
-                ${estadoAnual.filtro ? '' : `<tfoot>${saldoLinha}</tfoot>`}
+                <tbody>${estadoAnual.filtro ? '' : saldoLinha}${secD.html}${secR.html}</tbody>
             </table>
         </div>
         ${extrato}
@@ -472,6 +474,8 @@ function iniciarVisaoAnual() {
         // Editar/excluir/marcar pago nos lançamentos do extrato: mesma lógica das outras listas
         if (e.target.closest('[data-act]')) { onListaTransacaoClick(e); return; }
         if (e.target.closest('[data-anual-olho]')) { alternarValoresOcultos(); return; }
+        const btnSec = e.target.closest('[data-anual-sec]'); // abre/recolhe o bloco DESPESAS ou RECEITAS da tabela
+        if (btnSec) { const t = btnSec.dataset.anualSec; estadoAnual.secAberta[t] = !(estadoAnual.secAberta[t] || estadoAnual.filtroTipo === t); if (!estadoAnual.secAberta[t] && estadoAnual.filtroTipo === t) _limparFiltroAnual(); estadoAnual.rolarPara = window.scrollY; _renderVisaoAnual(); return; }
         const btnAgr = e.target.closest('[data-anual-agrupar]');
         const btnAno = e.target.closest('[data-anual-ano]');
         const btnMes = e.target.closest('[data-foco-mes]');
