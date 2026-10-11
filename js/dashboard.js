@@ -105,15 +105,16 @@ function atualizarCalendarioNav() {
 
     // Mede depois do layout: se estourou, encolhe a janela (e depois troca
     // pro rótulo numérico) até caber.
-    requestAnimationFrame(() => {
+    // Promessa "barra de meses pronta" (ajustada à largura e com as bolinhas): a tela de carregamento espera por ela
+    window._barraMesesPronta = new Promise(pronta => requestAnimationFrame(() => {
         let idxsFinal = idxsDaJanela(TAMANHOS_JANELA_MESES[0].tamanho);
         for (let i = 1; i < TAMANHOS_JANELA_MESES.length && lista.scrollWidth > lista.clientWidth + 1; i++) {
             const passo = TAMANHOS_JANELA_MESES[i];
             idxsFinal = idxsDaJanela(passo.tamanho);
             renderJanela(idxsFinal, passo.numerico);
         }
-        _carregarIndicadoresJanela(idxsFinal);
-    });
+        _carregarIndicadoresJanela(idxsFinal).catch(e => console.warn('Indicadores dos meses:', e)).finally(pronta);
+    }));
 }
 
 /** Busca (assíncrono, não trava o render) se cada mês da janela tem

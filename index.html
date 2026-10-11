@@ -37,6 +37,14 @@
     </script>
 </head>
 <body>
+    <!-- Tela de carregamento: cobre o app enquanto ele monta (ver progressoCarregamento em js/utils.js) -->
+    <div id="carregandoApp" class="carregando-app" role="progressbar" aria-label="Carregando o app" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="ca-caixa">
+            <div class="ca-logo">💰 Ctrl Fin</div>
+            <div class="ca-trilho"><div class="ca-barra"></div></div>
+            <div class="ca-pct">0%</div>
+        </div>
+    </div>
     <div class="container">
         <!-- Topo fixo: header + barra de mês -->
         <div class="topo">

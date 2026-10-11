@@ -225,8 +225,9 @@ async function initAuth() {
 
     sb.auth.onAuthStateChange((event) => {
         if (event === 'SIGNED_IN') {
+            const ovLogin = document.getElementById('authOverlay'); const vindoDoLogin = !!ovLogin && !ovLogin.hidden; // entrou agora pela tela de login (ela existia e estava à vista)
             esconderTelaLogin();
-            if (typeof window.recarregarApp === 'function') window.recarregarApp(); // recarrega menus + dados e redesenha
+            if (typeof window.recarregarApp === 'function') window.recarregarApp(vindoDoLogin); // recarrega menus + dados e redesenha (com a tela de carregamento se veio do login)
             else carregarMenus();
         } else if (event === 'SIGNED_OUT') {
             mostrarTelaLogin();
