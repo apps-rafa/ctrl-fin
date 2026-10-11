@@ -314,6 +314,62 @@ function competenciaDeMes(mm) {
     return `${ano}-${String(mo).padStart(2, '0')}-01`;
 }
 
+/* ---------- Tela de carregamento (#carregandoApp, no index.html) ----------
+ * Cobre o app enquanto ele monta (login, menus, lançamentos, barra de meses), com uma barra de 0 a 100%.
+ * Cada etapa real chama progressoCarregamento(pct): a barra corre até ali em passos curtos (a animação é feita aqui —
+ * o CSS global do app desliga transições de largura) e, parada entre etapas, anda sozinha bem devagar (nunca parece
+ * travada e nunca passa de 90% antes do fim). concluirCarregamento() leva a 100% e some com fade. */
+let _caAtual = 0, _caAlvo = 0, _caTimer = null, _caLimite = null, _caAoChegar100 = null;
+function _caPintar() {
+    const el = document.getElementById('carregandoApp');
+    if (!el) return;
+    const p = Math.min(100, Math.round(_caAtual));
+    el.style.setProperty('--ca-progresso', `${p}%`);
+    el.setAttribute('aria-valuenow', String(p));
+    const txt = el.querySelector('.ca-pct');
+    if (txt) txt.textContent = `${p}%`;
+}
+function _caPasso() {
+    if (_caAtual < _caAlvo) _caAtual = Math.min(_caAlvo, _caAtual + Math.max(1, (_caAlvo - _caAtual) * 0.3)); // corre até a etapa
+    else if (_caAtual < 90) _caAtual += (90 - _caAtual) * 0.01;                                             // espera: anda devagar
+    _caPintar();
+    if (_caAtual >= 100 && _caAoChegar100) { const f = _caAoChegar100; _caAoChegar100 = null; f(); }
+}
+function progressoCarregamento(pct) {
+    const el = document.getElementById('carregandoApp');
+    if (!el || el.hidden) return;
+    _caAlvo = Math.max(_caAlvo, pct);
+    if (!_caTimer) _caTimer = setInterval(_caPasso, 40);
+    // Segurança: se algo travar ou der erro no caminho, a tela nunca fica presa
+    if (!_caLimite) _caLimite = setTimeout(() => concluirCarregamento(), 20000);
+}
+function concluirCarregamento(imediato = false) {
+    const el = document.getElementById('carregandoApp');
+    const parar = () => { clearInterval(_caTimer); clearTimeout(_caLimite); _caTimer = _caLimite = null; };
+    if (!el || el.hidden) { parar(); return; }
+    if (imediato) { parar(); el.hidden = true; return; } // ex.: vai mostrar a tela de login
+    clearTimeout(_caLimite); _caLimite = null;
+    _caAlvo = 100;
+    if (!_caTimer) _caTimer = setInterval(_caPasso, 40);
+    _caAoChegar100 = () => {
+        parar();
+        setTimeout(() => {
+            el.classList.add('saindo'); // some com fade (opacidade pode animar)
+            setTimeout(() => { el.hidden = true; el.classList.remove('saindo'); }, 300);
+        }, 150);
+    };
+}
+/** Mostra a tela de carregamento de novo (ex.: logo depois de entrar pela tela de login). */
+function mostrarCarregamento(pct = 0) {
+    const el = document.getElementById('carregandoApp');
+    if (!el) return;
+    _caAtual = _caAlvo = 0; _caAoChegar100 = null;
+    el.classList.remove('saindo');
+    el.hidden = false;
+    _caPintar();
+    progressoCarregamento(pct);
+}
+
 /**
  * Mostra notificação na tela
  */

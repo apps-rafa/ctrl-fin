@@ -20,6 +20,7 @@ const DOCS_SECOES = [
         m: 'O tema escolhido fica lembrado neste aparelho. Com os valores escondidos, o dashboard e a {ver:anual} mostram "••••" no lugar dos números. Enquanto o app carrega, os valores também aparecem como "••••" (nunca um "R$ 0,00" provisório).' },
       { t: 'Cabeçalho', r: 'Título, 📈 Visão anual, 🌙 tema e 🚪 sair. Abaixo, a barra de meses, o 👁 e o ⚙️ Configurações.',
         m: 'O ⚙️ e o 📈 funcionam como interruptores: clicar de novo fecha a tela e volta para onde você estava. Quando há algo para resolver, aparece logo abaixo a barra 📥 de Pendências (veja {ver:proximos}).' },
+      { t: 'Abertura do app', r: 'Ao abrir, uma tela com a barra de carregamento (0 a 100%) cobre o app até ele estar montado — você não vê os meses e os valores aparecendo aos poucos.' },
       { t: 'Atualizações e uso sem internet', r: 'O app se atualiza sozinho e abre mesmo sem internet (os dados precisam de conexão).',
         m: 'Quando há uma versão nova, ela é baixada ao abrir e passa a valer na próxima abertura. Se algo parecer antigo, recarregue a página com força (Ctrl+F5).' },
     ],

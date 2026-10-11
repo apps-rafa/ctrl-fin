@@ -7,7 +7,8 @@
  * Inicializa a aplicação quando o DOM está pronto
  */
 document.addEventListener('DOMContentLoaded', async () => {
-    
+    progressoCarregamento(10); // tela de carregamento (0–100%) até o app estar montado
+
     // Adicionar CSS das animações
     adicionarEstilosDinamicos();
 
@@ -26,8 +27,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Exigir login (magic link). Sem sessão, mostra a tela de acesso e para aqui.
     const autenticado = await initAuth();
     if (!autenticado) {
+        concluirCarregamento(true); // sai já: a tela de login aparece
         return;
     }
+    progressoCarregamento(30);
 
     // Carregar menus (categorias, métodos, recorrências)
     // + feriados (nacionais calculados + do usuário, usados no dia útil): independentes, vão juntos
@@ -35,6 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         carregarMenus(),
         carregarFeriados().catch(e => console.warn('Feriados:', e)),
     ]);
+    progressoCarregamento(55);
 
     // Estado inicial do formulário
     const dataInput = document.querySelector(SELECTORS.data);
@@ -45,6 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Carregar dados iniciais
     await carregarDados();
+    progressoCarregamento(80);
     sincronizarDuplicatasAprovadasLocais();
     garantirOcorrenciasDoDia();
     carregarSaldoContas();
@@ -58,6 +63,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Atualizar UI
     atualizarUI();
+    progressoCarregamento(90);
+    await esperarTelaMontada();
+    concluirCarregamento();
 
     // Documentação: o módulo só é baixado no primeiro clique (e o clique é repetido quando ele chega)
     const linkDocs = document.getElementById('linkDocs');
@@ -288,13 +296,25 @@ function adicionarEstilosDinamicos() {
 /**
  * Função global para recarregar aplicação (útil no console)
  */
-window.recarregarApp = async function() {
+window.recarregarApp = async function(comBarra = false) {
+    // comBarra: logo depois de entrar pela tela de login (ao voltar para a aba, recarrega por baixo, sem a tela de carregamento)
+    if (comBarra) mostrarCarregamento(30);
     // Menus (formas de pagamento, cartões e vencimentos) e lançamentos recarregam juntos e só então a tela é redesenhada.
     // Antes os menus eram zerados aqui e voltavam por fora, depois do desenho: ao voltar para a aba (o Supabase avisa
     // SIGNED_IN de novo), a lista saía sem cartões e a fatura sumia até o próximo clique.
     await Promise.all([carregarMenus(), carregarDados()]);
+    if (comBarra) progressoCarregamento(80);
     atualizarUI();
+    if (comBarra) { await esperarTelaMontada(); concluirCarregamento(); }
 };
+
+/** Espera a tela terminar de montar (barra de meses ajustada à largura e com as bolinhas), com um teto de tempo:
+ *  a tela de carregamento só sai depois disso, para não se ver os meses aparecendo. */
+async function esperarTelaMontada() {
+    const teto = ms => new Promise(r => setTimeout(r, ms));
+    await Promise.race([new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))), teto(400)]);
+    await Promise.race([window._barraMesesPronta || Promise.resolve(), teto(2500)]);
+}
 
 /**
  * Função de debug para mostrar estado atual
