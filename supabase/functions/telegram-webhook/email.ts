@@ -244,7 +244,7 @@ export async function executarConta(
     await tg(token, "sendMessage", {
       chat_id: chatId,
       text: `📧 ${nome} — atualizei o lançamento em "a pagar"\n${formatarMoedaBR(valorFinal)} · vence ${dataFinal.split("-").reverse().join("/")} (${origem})${dados.valor !== null && valorAnterior > 0 && Math.abs(dados.valor - valorAnterior) / valorAnterior > 0.4 ? `\n⚠️ Bem diferente do mês anterior (${formatarMoedaBR(valorAnterior)})` : ""}`,
-      reply_markup: { inline_keyboard: [[{ text: "✏️ Editar", callback_data: `ultedit:${ocorrencia.id}` }]] },
+      reply_markup: { inline_keyboard: [[{ text: "✏️ Editar", callback_data: `ultedit:${ocorrencia.id}` }, { text: "❌ Cancelar", callback_data: "cancelar" }]] },
     });
     return { ok: true, status: "atualizado" };
   }

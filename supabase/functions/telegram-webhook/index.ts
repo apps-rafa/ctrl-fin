@@ -40,7 +40,7 @@ import {
 } from "./comandos.ts";
 import {
   tratarUltimoEditar, tratarRascunhoEditar, descartarRascunho, tirarTecladoDoChat, tratarRascunhoConfirmarOuCancelar, tratarAtualizarConta, tratarPgtoPadrao,
-  tratarRecorrenciaRascunho,
+  tratarRecorrenciaRascunho, tratarUltimaPluggy,
 } from "./callbacks.ts";
 import {
   categoriaCadastradaNoTexto,
@@ -602,6 +602,11 @@ Deno.serve(async (req: Request) => {
 
       if ((acao === "nlconfirmar" || acao === "nlcancelar" || acao === "nlresgatar") && chatId) {
         await tratarRascunhoConfirmarOuCancelar({ supabaseAdmin, token, cq, chatId, idStr, acao });
+        return json({ ok: true });
+      }
+
+      if (acao === "atltx" && chatId) { // número da lista do /atualizar: vira rascunho (ou edita, se já foi lançado)
+        await tratarUltimaPluggy({ supabaseAdmin, token, cq, chatId, idStr, acao });
         return json({ ok: true });
       }
 

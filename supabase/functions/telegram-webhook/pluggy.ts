@@ -108,9 +108,9 @@ export function ehRendimentoPluggy(categoriaBruta: string | null | undefined): b
 
 /** Força a Pluggy buscar dados novos AGORA nas contas passadas (PATCH
  *  /items/{id}, mesma chamada do "Sincronizar agora" no app) e manda de
- *  volta um log com as 3 transações mais recentes de cada uma. Usado pelo
- *  /atualizar tanto pra "Todas as contas" quanto pra uma conta escolhida
- *  no teclado. */
+ *  volta os 5 lançamentos mais recentes delas, numerados, com os botões
+ *  1–5 (lançar/editar) e ❌ Cancelar. Usado pelo /atualizar tanto pra
+ *  "Todas as contas" quanto pra uma conta escolhida no menu. */
 export async function executarAtualizacaoPluggy(
   admin: ReturnType<typeof createClient>,
   token: string,
@@ -138,37 +138,50 @@ export async function executarAtualizacaoPluggy(
     // ao pluggy-sync); busca uma janela recente e pega as 3 mais novas no
     // client.
     const dateFrom = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const blocos: string[] = [];
+    // Os 5 lançamentos mais recentes das contas escolhidas, numerados: o toque no número (callback "atltx:<n>") vira
+    // rascunho — ou abre a edição, se já foi lançado (ver tratarUltimaPluggy em callbacks.ts). A lista fica guardada
+    // em telegram_ultimas (uma por chat) pra o callback saber qual transação é cada número.
+    type TxPluggy = { id: string; date: string; amount: number; type: string; description?: string; descriptionRaw?: string; category?: string };
+    const achadas: { t: TxPluggy; conta: ContaPluggy }[] = [];
+    const avisos: string[] = [];
     for (const conta of contas) {
-      const titulo = escaparHtml(tituloContaPluggyDetalhado(conta));
       try {
         const resp = await pluggyGet(`/v2/transactions?accountId=${conta.account_id}&dateFrom=${dateFrom}`, apiKey);
-        const ultimas = [...(resp.results ?? [])]
-          .filter((t: { category?: string }) => !ehRendimentoPluggy(t.category))
-          .sort((a: { date: string }, b: { date: string }) => (a.date < b.date ? 1 : -1))
-          .slice(0, 3);
-        if (!ultimas.length) {
-          blocos.push(`🏦 <b>${titulo}</b>\nSem transações no período.`);
-          continue;
-        }
-        const linhas = ultimas.map((t: { date: string; amount: number; type: string; description?: string; descriptionRaw?: string }) => {
-          const data = String(t.date).slice(0, 10).split("-").reverse().join("/");
-          const sinal = t.type === "CREDIT" ? "+" : "-";
-          const desc = t.description || t.descriptionRaw || "(sem descrição)";
-          const valor = Math.abs(Number(t.amount) || 0);
-          return `• ${data} ${sinal}${formatarMoedaBR(valor)} — ${escaparHtml(desc)}`;
-        });
-        blocos.push(`🏦 <b>${titulo}</b>\n${linhas.join("\n")}`);
+        for (const t of (resp.results ?? []) as TxPluggy[]) if (!ehRendimentoPluggy(t.category)) achadas.push({ t, conta });
       } catch (e) {
         console.error(`Erro buscando transações da conta ${conta.id}:`, e);
-        blocos.push(`🏦 <b>${titulo}</b>\n⚠️ Erro ao buscar transações.`);
+        avisos.push(`⚠️ Erro ao buscar as transações de ${escaparHtml(tituloContaPluggyDetalhado(conta))}.`);
       }
     }
-
+    const ultimas = achadas.sort((a, b) => (a.t.date < b.t.date ? 1 : -1)).slice(0, 5);
+    const varias = contas.length > 1;
+    const linhas = ultimas.map(({ t, conta }, i) => {
+      const data = String(t.date).slice(0, 10).split("-").reverse().join("/");
+      const sinal = t.type === "CREDIT" ? "+" : "-";
+      const desc = t.description || t.descriptionRaw || "(sem descrição)";
+      const valor = Math.abs(Number(t.amount) || 0);
+      return `${i + 1}. ${data} ${sinal}${formatarMoedaBR(valor)} — ${escaparHtml(desc)}${varias ? ` · ${escaparHtml(tituloContaPluggyDetalhado(conta))}` : ""}`;
+    });
+    const { data: tgUser } = await admin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+    if (tgUser && ultimas.length) {
+      await admin.from("telegram_ultimas").upsert({
+        chat_id: chatId, user_id: tgUser.user_id, criado_em: new Date().toISOString(),
+        itens: ultimas.map(({ t, conta }) => ({
+          pid: t.id, data: String(t.date).slice(0, 10), valor: Math.abs(Number(t.amount) || 0), tipo: t.type === "CREDIT" ? "entradas" : "saidas",
+          descricao: t.description || t.descriptionRaw || "", conta_id: conta.id, metodo_id: conta.metodo_id, conta: tituloContaPluggyDetalhado(conta),
+        })),
+      }, { onConflict: "chat_id" });
+    }
+    const cabecalho = varias ? "✅ Atualizado. Últimos lançamentos das contas:" : `✅ Atualizado. Últimos lançamentos de 🏦 <b>${escaparHtml(tituloContaPluggyDetalhado(contas[0]))}</b>:`;
+    const corpo = linhas.length ? `${linhas.join("\n")}\n\nToque no número para lançar (ou editar, se já foi lançado):` : "Nenhuma transação nos últimos 60 dias.";
     await tg(token, "sendMessage", {
       chat_id: chatId,
       parse_mode: "HTML",
-      text: `✅ Atualizado. Últimas transações por conta:\n\n${blocos.join("\n\n")}`,
+      text: [cabecalho, "", corpo, ...(avisos.length ? ["", ...avisos] : [])].join("\n"),
+      reply_markup: { inline_keyboard: [
+        ...(ultimas.length ? [ultimas.map((_, i) => ({ text: String(i + 1), callback_data: `atltx:${i + 1}` }))] : []),
+        [{ text: "❌ Cancelar", callback_data: "cancelar" }],
+      ] },
     });
   } catch (e) {
     console.error("Erro no /atualizar:", e);

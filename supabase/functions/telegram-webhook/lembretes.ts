@@ -161,7 +161,10 @@ export function tecladoPagoVencimentos(lembretes: Lembrete[]) {
   const comId = lembretes.filter((l) => l.transacaoId != null);
   if (!comId.length) return null;
   return {
-    inline_keyboard: comId.map((l) => [{ text: rotuloBotaoPago(false, l.nome ?? "", comId.length > 1), callback_data: `pgmarcar:${l.transacaoId}` }]),
+    // um botão por despesa (um por linha quando são várias) e, no fim, ❌ Cancelar (fecha o aviso); com uma só, tudo na mesma linha
+    inline_keyboard: comId.length === 1
+      ? [[{ text: rotuloBotaoPago(false, comId[0].nome ?? "", false), callback_data: `pgmarcar:${comId[0].transacaoId}` }, { text: "❌ Cancelar", callback_data: "cancelar" }]]
+      : [...comId.map((l) => [{ text: rotuloBotaoPago(false, l.nome ?? "", true), callback_data: `pgmarcar:${l.transacaoId}` }]), [{ text: "❌ Cancelar", callback_data: "cancelar" }]],
   };
 }
 
@@ -198,7 +201,7 @@ export async function tratarPagoVencimento(
   const linhas = (cq.message?.reply_markup?.inline_keyboard ?? []) as { text: string; callback_data: string }[][];
   const varios = linhas.filter((r) => String(r[0]?.callback_data ?? "").startsWith("pgmarcar:")).length > 1;
   const novas = linhas.map((r) => (r[0]?.callback_data === `pgmarcar:${id}`
-    ? [{ text: rotuloBotaoPago(marcar, linha.descricao || linha.categoria || "Despesa", varios), callback_data: r[0].callback_data }]
+    ? [{ text: rotuloBotaoPago(marcar, linha.descricao || linha.categoria || "Despesa", varios), callback_data: r[0].callback_data }, ...r.slice(1)] // o resto da linha (ex.: ❌ Cancelar) fica
     : r));
   await tg(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: cq.message.message_id, reply_markup: { inline_keyboard: novas } });
 }

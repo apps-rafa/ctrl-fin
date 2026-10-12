@@ -13,6 +13,7 @@ function fakeAdmin(tabelas, registro) {
         insert: (v) => { registro.push({ op: "insert", nome, v }); return q; },
         delete: () => { registro.push({ op: "delete", nome }); return q; },
         maybeSingle: async () => ({ data: rows[0] ?? null }),
+        single: async () => ({ data: rows[0] ?? { id: 1 }, error: null }),
         then: (ok) => ok({ data: rows, error: null }),
       };
       return q;
