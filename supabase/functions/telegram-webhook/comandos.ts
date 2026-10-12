@@ -4,7 +4,8 @@ import type { createClient } from "npm:@supabase/supabase-js@2";
 import { executarBackup } from "./backup.ts";
 import { tg, rotuloMetodo } from "./util.ts";
 import { competenciaDe, hojeBrasiliaISO, aplicarRespostaAoRascunho, type RascunhoLancamento, type MetodoMenu } from "./parser.ts";
-import { enviarRascunho, carregarListasUsuario, confirmarRascunhoNoBanco, criarCategoria, criarMetodo, textoGastoDiario } from "./lancamentos.ts";
+import { enviarRascunho, carregarListasUsuario, confirmarRascunhoNoBanco, criarCategoria, criarMetodo, textoLancamento, textoLancado, tecladoCorrigir } from "./lancamentos.ts";
+import { tirarTecladoDoChat } from "./callbacks.ts";
 import { carregarContasPluggy, executarAtualizacaoPluggy, rotuloBotaoConta, BOTAO_TODAS_CONTAS } from "./pluggy.ts";
 
 type Admin = ReturnType<typeof createClient>;
@@ -85,13 +86,16 @@ export async function tratarFormularioMiniApp(c: ContextoFormulario): Promise<vo
       descricao: dadosF.descricao, competencia: dadosF.competencia || competenciaDe(dadosF.data, dadosF.metodoKind === "Crédito" ? dadosF.diaFechamento : null),
       data_indefinida: !!dadosF.dataIndefinida, ...(dadosF.dataIndefinida || dadosF.data > hojeBrasiliaISO() ? { agendado: true } : {}),
     }).eq("id", Number(mT[1])).eq("user_id", tgUser.user_id);
-    await tg(token, "sendMessage", { chat_id: chatId, text: erroU ? "Erro ao salvar — tenta de novo." : "✅ Lançamento atualizado!", reply_markup: remover });
+    if (erroU) { await tg(token, "sendMessage", { chat_id: chatId, text: "Erro ao salvar — tenta de novo.", reply_markup: remover }); return; }
+    await responderLancado({ supabaseAdmin, token, chatId, userId: tgUser.user_id, dados: dadosF, id: Number(mT[1]), rotulo: "✅ Atualizado" });
     return;
   }
   const idEditado = Number(p?.id);
+  let mensagemRascunho: number | null = null;
   if (idEditado) {
     // rascunho de ocorrência de recorrência: a confirmação atualiza a linha existente (ver confirmarRascunhoNoBanco)
-    const { data: rascEd } = await supabaseAdmin.from("telegram_rascunhos").select("dados").eq("id", idEditado).eq("chat_id", chatId).maybeSingle();
+    const { data: rascEd } = await supabaseAdmin.from("telegram_rascunhos").select("dados, mensagem_id").eq("id", idEditado).eq("chat_id", chatId).maybeSingle();
+    mensagemRascunho = Number(rascEd?.mensagem_id) || null; // a resposta substitui o próprio rascunho (sai do "Confirma?" com os botões antigos)
     const ocId = Number((rascEd?.dados as RascunhoLancamento | undefined)?.ocorrenciaId);
     if (ocId) dadosF.ocorrenciaId = ocId;
     // rascunho de uma transação do banco (/atualizar): ao lançar, ela sai da fila de revisão do app
@@ -99,14 +103,25 @@ export async function tratarFormularioMiniApp(c: ContextoFormulario): Promise<vo
     if (pid) dadosF.pluggyTransactionId = pid;
     await supabaseAdmin.from("telegram_rascunhos").delete().eq("id", idEditado).eq("chat_id", chatId);
   }
-  const { erro: erroF } = await confirmarRascunhoNoBanco(supabaseAdmin, tgUser.user_id, dadosF);
+  const { erro: erroF, id: lancId } = await confirmarRascunhoNoBanco(supabaseAdmin, tgUser.user_id, dadosF);
   if (erroF) {
     console.error(erroF);
     await tg(token, "sendMessage", { chat_id: chatId, text: dadosF.ocorrenciaId ? `${(erroF as Error)?.message || "Erro ao confirmar"}` : "Erro ao lançar — tenta de novo.", reply_markup: remover });
     return;
   }
-  await tg(token, "sendMessage", { chat_id: chatId, text: (dadosF.ocorrenciaId ? "✅ Recorrência confirmada!" : "✅ Lançado!") + await textoGastoDiario(supabaseAdmin, tgUser.user_id), reply_markup: remover });
+  await responderLancado({ supabaseAdmin, token, chatId, userId: tgUser.user_id, dados: dadosF, id: lancId, mensagemId: mensagemRascunho });
   return;
+}
+
+/** Resposta padrão depois de lançar/atualizar pelo formulário: os dados + "✅ Lançado" (ou "✅ Atualizado") + gasto diário,
+ *  com o botão ✏️ Corrigir. Se o rascunho tinha mensagem, ela vira a resposta (some o "Confirma?" com os botões antigos);
+ *  senão sai uma mensagem nova. Por fim tira o teclado do ✏️ Editar. */
+async function responderLancado(o: { supabaseAdmin: Admin; token: string; chatId: number; userId: string; dados: RascunhoLancamento; id?: number; rotulo?: string; mensagemId?: number | null }): Promise<void> {
+  const text = await textoLancado(o.supabaseAdmin, o.userId, textoLancamento(o.dados), o.rotulo);
+  const reply_markup = o.id ? tecladoCorrigir(o.id) : undefined;
+  const editado = o.mensagemId ? await tg(o.token, "editMessageText", { chat_id: o.chatId, message_id: o.mensagemId, text, ...(reply_markup ? { reply_markup } : {}) }) : null;
+  if (!editado?.ok) await tg(o.token, "sendMessage", { chat_id: o.chatId, text, ...(reply_markup ? { reply_markup } : {}) });
+  await tirarTecladoDoChat(o.token, o.chatId);
 }
 
 export async function tratarStart(c: ContextoComando): Promise<void> {
