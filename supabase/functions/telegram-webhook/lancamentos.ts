@@ -7,12 +7,13 @@ import { competenciaDe, addMeses, hojeBrasiliaISO, type RascunhoLancamento } fro
 /** Grava de vez um rascunho (ver RascunhoLancamento) como lançamento de
  *  verdade em `transacoes` — chamado tanto pelo botão inline "✅ Confirmar"
  *  (callback "nlconfirmar:<id>") quanto pela submissão do mini app
- *  ("✏️ Editar"). */
+ *  ("✏️ Editar"). Devolve também o id do lançamento gravado (no parcelado, o da 1ª parcela; na ocorrência,
+ *  o da própria ocorrência) — é ele que o botão "✏️ Corrigir" da resposta usa. */
 export async function confirmarRascunhoNoBanco(
   supabaseAdmin: ReturnType<typeof createClient>,
   userId: string,
   d: RascunhoLancamento,
-): Promise<{ erro: unknown }> {
+): Promise<{ erro: unknown; id?: number }> {
   const ehCredito = d.metodoKind === "Crédito";
   const competencia = d.competencia || competenciaDe(d.data, ehCredito ? d.diaFechamento : null);
   // Ocorrência de recorrência ("a confirmar"): o lançamento JÁ existe — confirma/edita a própria linha, nunca insere outra.
@@ -25,7 +26,7 @@ export async function confirmarRascunhoNoBanco(
     }).eq("id", d.ocorrenciaId).eq("user_id", userId).eq("a_confirmar", true).select("id");
     if (erroOc) return { erro: erroOc };
     if (!atualizadas || !atualizadas.length) return { erro: new Error("Essa ocorrência já foi confirmada ou apagada no app") };
-    return { erro: null };
+    return { erro: null, id: d.ocorrenciaId };
   }
   // Despesa > categoria "Estorno" = crédito na fatura do cartão (gravado como entrada, igual ao app).
   const ehEstorno = d.tipo === "saidas" && d.categoria === "Estorno";
@@ -57,8 +58,9 @@ export async function confirmarRascunhoNoBanco(
       valor_total: totalCent / 100,
       user_id: userId,
     }));
-    const { error: erroParcelas } = await supabaseAdmin.from("transacoes").insert(registros);
-    return { erro: erroParcelas };
+    const { data: parcelas, error: erroParcelas } = await supabaseAdmin.from("transacoes").insert(registros).select("id, parcela_num");
+    const primeira = ((parcelas ?? []) as { id: number; parcela_num: number }[]).find((x) => x.parcela_num === 1);
+    return { erro: erroParcelas, id: primeira?.id };
   }
 
   const { data: gravada, error } = await supabaseAdmin.from("transacoes").insert({
@@ -82,7 +84,7 @@ export async function confirmarRascunhoNoBanco(
     await supabaseAdmin.from("transacoes_importadas").update({ status: "confirmada", transacao_id: (gravada as { id: number }).id })
       .eq("user_id", userId).eq("pluggy_transaction_id", d.pluggyTransactionId).eq("status", "pendente");
   }
-  return { erro: error };
+  return { erro: error, id: (gravada as { id: number } | null)?.id };
 }
 
 export const PALETA_CHIPS = [
@@ -247,10 +249,9 @@ async function calcularGastoDiario(admin: ReturnType<typeof createClient>, userI
 📅 Gasto diário: ${formatarMoedaBR(balanco / dias)} (${dias} dia${dias === 1 ? "" : "s"} restante${dias === 1 ? "" : "s"})`;
 }
 
-export async function enviarRascunho(
-  token: string, chatId: number, rascunhoId: number, r: RascunhoLancamento,
-  admin?: ReturnType<typeof createClient>, userId?: string, cabecalho?: string,
-) {
+/** Dados de um lançamento, no formato do rascunho (sem a pergunta "Confirma?"). Usado no rascunho e na resposta
+ *  depois de lançar ("… ✅ Lançado + gasto diário"), para as duas terem sempre o mesmo formato. */
+export function textoLancamento(r: RascunhoLancamento, cabecalho?: string | null): string {
   const sinal = r.tipo === "entradas" ? "💰 Receita" : "💸 Despesa";
   const dataFmt = r.dataIndefinida ? `?/${r.data.slice(5, 7)} (sem data definida)` : new Date(`${r.data}T00:00:00`).toLocaleDateString("pt-BR");
   const ehCreditoSaida = r.tipo === "saidas" && r.metodoKind === "Crédito";
@@ -265,9 +266,23 @@ export async function enviarRascunho(
     `Forma de pgto.: ${r.metodo || "nenhuma cadastrada — ajuste no app"}${r.metodoOrigem === "padrao" ? " (padrão)" : ""}`,
     ehCreditoSaida ? `Mês da fatura: ${mesAbrevAno(compFatura)}` : `Mês: ${mesAbrevAno(r.competencia || r.data.slice(0, 7) + "-01")}`,
     ehCreditoSaida && r.categoria !== "Estorno" ? (r.parcelas && r.parcelas > 1 ? `Parcelas: ${r.parcelas}x de ${formatarMoedaBR(r.valor / r.parcelas)}` : "Parcelas: à vista") : null,
-    "",
-    "Confirma?",
   ].filter((l) => l !== null).join("\n");
+  return linhas;
+}
+
+/** Botão que fica em todo lançamento feito pelo bot: abre o menu ✏️ Editar · 🗑️ Apagar · ❌ Cancelar (ver callbacks.ts). */
+export const tecladoCorrigir = (transacaoId: number) => ({ inline_keyboard: [[{ text: "✏️ Corrigir", callback_data: `corrigir:${transacaoId}` }]] });
+
+/** Resposta padrão depois de lançar (ou atualizar): os dados + "✅ Lançado" + gasto diário do mês (sem o "Confirma?"). */
+export async function textoLancado(admin: ReturnType<typeof createClient>, userId: string, dados: string, rotulo = "✅ Lançado"): Promise<string> {
+  return `${dados.replace(/\n+Confirma\?\s*$/, "")}\n\n${rotulo}${await textoGastoDiario(admin, userId)}`;
+}
+
+export async function enviarRascunho(
+  token: string, chatId: number, rascunhoId: number, r: RascunhoLancamento,
+  admin?: ReturnType<typeof createClient>, userId?: string, cabecalho?: string,
+) {
+  const linhas = `${textoLancamento(r, cabecalho)}\n\nConfirma?`;
   // "✏️ Editar" não abre o formulário direto: o Telegram só devolve os dados do mini app (sendData)
   // quando ele é aberto por um botão do TECLADO, não por botão inline. Então o toque vira o callback
   // "nleditar:<id>" e o bot responde com o botão do formulário DAQUELE rascunho (ver Deno.serve).

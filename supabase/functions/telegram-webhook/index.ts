@@ -26,6 +26,7 @@ import {
 import {
   enviarRascunho,
   limparRascunhosAntigos,
+  textoLancamento, textoLancado, tecladoCorrigir,
 } from "./lancamentos.ts";
 import { executarBackup } from "./backup.ts";
 import { executarLembretes, tratarPagoVencimento } from "./lembretes.ts";
@@ -40,7 +41,7 @@ import {
 } from "./comandos.ts";
 import {
   tratarUltimoEditar, tratarRascunhoEditar, descartarRascunho, tirarTecladoDoChat, tratarRascunhoConfirmarOuCancelar, tratarAtualizarConta, tratarPgtoPadrao,
-  tratarRecorrenciaRascunho, tratarUltimaPluggy,
+  tratarRecorrenciaRascunho, tratarUltimaPluggy, tratarCorrigir, tratarApagarLancamento, tratarRestaurarLancamento,
 } from "./callbacks.ts";
 import {
   categoriaCadastradaNoTexto,
@@ -605,6 +606,11 @@ Deno.serve(async (req: Request) => {
         return json({ ok: true });
       }
 
+      // ✏️ Corrigir de um lançamento feito pelo bot: menu, apagar (Lixeira) e restaurar
+      if ((acao === "corrigir" || acao === "corrigirvoltar") && chatId) { await tratarCorrigir({ supabaseAdmin, token, cq, chatId, idStr, acao }); return json({ ok: true }); }
+      if (acao === "apagartx" && chatId) { await tratarApagarLancamento({ supabaseAdmin, token, cq, chatId, idStr, acao }); return json({ ok: true }); }
+      if (acao === "restaurartx" && chatId) { await tratarRestaurarLancamento({ supabaseAdmin, token, cq, chatId, idStr, acao }); return json({ ok: true }); }
+
       if (acao === "atltx" && chatId) { // número da lista do /atualizar: vira rascunho (ou edita, se já foi lançado)
         await tratarUltimaPluggy({ supabaseAdmin, token, cq, chatId, idStr, acao });
         return json({ ok: true });
@@ -715,10 +721,18 @@ Deno.serve(async (req: Request) => {
       }
 
       await supabaseAdmin.from("transacoes_importadas").update({ transacao_id: nova.id }).eq("id", importadaId);
-      await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Confirmado ✅" });
+      await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Lançado ✅" });
+      // Resposta padrão de lançamento (dados + ✅ Lançado + gasto diário) com o ✏️ Corrigir
+      const dadosPluggy: RascunhoLancamento = {
+        tipo: item.tipo === "entradas" ? "entradas" : "saidas", valor: Number(item.valor), data: String(item.data).slice(0, 10),
+        categoria: item.categoria_sugerida, descricao: limparLinks(item.descricao_banco || ""),
+        metodo: metodoObj ? rotuloMetodo(metodoObj) : null, metodoKind: metodoObj?.metodo_kind ?? null, diaFechamento: metodoObj?.dia_fechamento ?? null,
+        competencia, parcelas: null,
+      };
       await tg(token, "editMessageText", {
         chat_id: chatId, message_id: cq.message.message_id,
-        text: `${cq.message.text}\n\n✅ Confirmado`,
+        text: await textoLancado(supabaseAdmin, tgUser.user_id, textoLancamento(dadosPluggy, "🏦 Lançamento do banco (Pluggy)")),
+        reply_markup: tecladoCorrigir(nova.id),
       });
       return json({ ok: true });
     }

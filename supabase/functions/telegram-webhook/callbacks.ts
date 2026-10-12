@@ -3,7 +3,7 @@
 import type { createClient } from "npm:@supabase/supabase-js@2";
 import { tg, formatarMoedaBR, rotuloMetodo } from "./util.ts";
 import { type RascunhoLancamento, sugerirCategoriaTexto, limparLinks } from "./parser.ts";
-import { carregarListasUsuario, confirmarRascunhoNoBanco, urlMiniApp, enviarRascunho, tecladoRascunho, textoGastoDiario } from "./lancamentos.ts";
+import { carregarListasUsuario, confirmarRascunhoNoBanco, urlMiniApp, enviarRascunho, tecladoRascunho, textoLancado, tecladoCorrigir } from "./lancamentos.ts";
 import { carregarContasPluggy, executarAtualizacaoPluggy, tituloContaPluggyDetalhado } from "./pluggy.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -156,7 +156,7 @@ export async function tratarRascunhoConfirmarOuCancelar(c: ContextoCallback): Pr
       await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Esse rascunho já foi lançado" });
       return;
     }
-    const { erro: insertError } = await confirmarRascunhoNoBanco(supabaseAdmin, tgUser.user_id, rascunho.dados as RascunhoLancamento);
+    const { erro: insertError, id: lancId } = await confirmarRascunhoNoBanco(supabaseAdmin, tgUser.user_id, rascunho.dados as RascunhoLancamento);
     if (!insertError) await supabaseAdmin.from("telegram_rascunhos").delete().eq("id", rascunhoId);
     if (insertError) {
       await supabaseAdmin.from("telegram_rascunhos").update({ status: "pendente" }).eq("id", rascunhoId); // não gravou: segue pendente
@@ -167,7 +167,8 @@ export async function tratarRascunhoConfirmarOuCancelar(c: ContextoCallback): Pr
     await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Lançado ✅" });
     await tg(token, "editMessageText", {
       chat_id: chatId, message_id: cq.message.message_id,
-      text: `${cq.message.text}\n\n✅ Lançado${await textoGastoDiario(supabaseAdmin, tgUser.user_id)}`,
+      text: await textoLancado(supabaseAdmin, tgUser.user_id, String(cq.message.text ?? "")),
+      ...(lancId ? { reply_markup: tecladoCorrigir(lancId) } : {}),
     });
     return;
 }
@@ -307,4 +308,106 @@ export async function tratarUltimaPluggy(c: ContextoCallback): Promise<void> {
   if (error || !novo) { console.error(error); await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Erro ao montar o rascunho" }); return; }
   await tg(token, "answerCallbackQuery", { callback_query_id: cq.id });
   await enviarRascunho(token, chatId, novo.id, dados, supabaseAdmin, userId, `🏦 Da conta ${item.conta}`);
+}
+
+// ---------- ✏️ Corrigir (fica em todo lançamento feito pelo bot) ----------
+// corrigir:<id>        → troca o botão pelo menu ✏️ Editar · 🗑️ Apagar · ❌ Cancelar (na própria mensagem)
+// corrigirvoltar:<id>  → ❌ Cancelar do menu: volta ao botão ✏️ Corrigir
+// apagartx:<id>        → apaga (o parcelado inteiro, como no app), passando pela Lixeira do app; oferece ♻️ Restaurar
+// restaurartx:<lixId>  → devolve da Lixeira (o parcelado inteiro) e volta ao ✏️ Corrigir
+
+const APAGADO_SUFIXO = "\n\n🗑️ Apagado — está na Lixeira do app por 30 dias";
+
+/** Lançamento do usuário vinculado a este chat (nunca confia só no id vindo do botão). */
+async function lancamentoDoChat(c: ContextoCallback, id: number) {
+  const { data: tgUser } = await c.supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", c.chatId).maybeSingle();
+  if (!tgUser) return { userId: null, t: null };
+  const { data: t } = await c.supabaseAdmin.from("transacoes").select("*").eq("id", id).eq("user_id", tgUser.user_id).maybeSingle();
+  return { userId: tgUser.user_id as string, t: t as Record<string, unknown> | null };
+}
+
+export async function tratarCorrigir(c: ContextoCallback): Promise<void> {
+  const { token, cq, chatId, idStr, acao } = c;
+  const id = Number(idStr);
+  if (acao === "corrigirvoltar") {
+    await tg(token, "answerCallbackQuery", { callback_query_id: cq.id });
+    await tg(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: cq.message.message_id, reply_markup: tecladoCorrigir(id) });
+    return;
+  }
+  const { t } = await lancamentoDoChat(c, id);
+  if (!t) {
+    await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Esse lançamento já não existe mais" });
+    await tg(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: cq.message.message_id, reply_markup: { inline_keyboard: [] } });
+    return;
+  }
+  await tg(token, "answerCallbackQuery", { callback_query_id: cq.id });
+  await tg(token, "editMessageReplyMarkup", {
+    chat_id: chatId, message_id: cq.message.message_id,
+    reply_markup: { inline_keyboard: [[
+      { text: "✏️ Editar", callback_data: `ultedit:${id}` },
+      { text: "🗑️ Apagar", callback_data: `apagartx:${id}` },
+      { text: "❌ Cancelar", callback_data: `corrigirvoltar:${id}` },
+    ]] },
+  });
+}
+
+export async function tratarApagarLancamento(c: ContextoCallback): Promise<void> {
+  const { supabaseAdmin, token, cq, chatId, idStr } = c;
+  const { userId, t } = await lancamentoDoChat(c, Number(idStr));
+  if (!t || !userId) { await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Esse lançamento já não existe mais" }); return; }
+  // Parcelado: apaga a série inteira (igual ao app)
+  const { data: linhas } = t.grupo_id && t.tipo_recorrencia === "Parcelada"
+    ? await supabaseAdmin.from("transacoes").select("*").eq("grupo_id", t.grupo_id).eq("user_id", userId)
+    : { data: [t] };
+  const todas = (linhas ?? [t]) as Record<string, unknown>[];
+  const { data: naLixeira, error: erroL } = await supabaseAdmin.from("lixeira").insert(todas.map((dados) => ({ user_id: userId, dados }))).select("id");
+  if (erroL || !naLixeira?.length) { console.error(erroL); await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Não consegui apagar" }); return; }
+  const idsLixeira = (naLixeira as { id: number }[]).map((x) => x.id);
+  const { error: erroD } = await supabaseAdmin.from("transacoes").delete().in("id", todas.map((x) => x.id as number)).eq("user_id", userId);
+  if (erroD) {
+    console.error(erroD);
+    await supabaseAdmin.from("lixeira").delete().in("id", idsLixeira); // não apagou: desfaz a cópia
+    await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Não consegui apagar" });
+    return;
+  }
+  await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: todas.length > 1 ? `Apagado (${todas.length} parcelas)` : "Apagado" });
+  await tg(token, "editMessageText", {
+    chat_id: chatId, message_id: cq.message.message_id,
+    text: `${String(cq.message.text ?? "")}${APAGADO_SUFIXO}`,
+    reply_markup: { inline_keyboard: [[
+      { text: "♻️ Restaurar", callback_data: `restaurartx:${Math.min(...idsLixeira)}` },
+      { text: "❌ Cancelar", callback_data: "cancelar" },
+    ]] },
+  });
+}
+
+export async function tratarRestaurarLancamento(c: ContextoCallback): Promise<void> {
+  const { supabaseAdmin, token, cq, chatId, idStr } = c;
+  const { data: tgUser } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+  if (!tgUser) { await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Conta não vinculada" }); return; }
+  const { data: item } = await supabaseAdmin.from("lixeira").select("id, dados").eq("id", Number(idStr)).eq("user_id", tgUser.user_id).maybeSingle();
+  if (!item) { await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Já não está mais na Lixeira" }); return; }
+  const dados = item.dados as Record<string, unknown>;
+  // Parcelado: volta a série inteira
+  const { data: itens } = dados.grupo_id
+    ? await supabaseAdmin.from("lixeira").select("id, dados").eq("user_id", tgUser.user_id).contains("dados", { grupo_id: dados.grupo_id })
+    : { data: [item] };
+  const todos = (itens ?? [item]) as { id: number; dados: Record<string, unknown> }[];
+  // Volta exatamente como estava, menos o id (o banco gera outro) e a data de criação
+  const linhas = todos.map(({ dados: d }) => {
+    const resto = { ...d };
+    delete resto.id; delete resto.criado_em;
+    return { ...resto, user_id: tgUser.user_id };
+  });
+  const { data: voltaram, error } = await supabaseAdmin.from("transacoes").insert(linhas).select("id, parcela_num");
+  if (error) { console.error(error); await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Não consegui restaurar" }); return; }
+  await supabaseAdmin.from("lixeira").delete().in("id", todos.map((x) => x.id)).eq("user_id", tgUser.user_id);
+  const novos = (voltaram ?? []) as { id: number; parcela_num: number | null }[];
+  const principal = novos.find((x) => (x.parcela_num ?? 1) === 1) ?? novos[0];
+  await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Restaurado ♻️" });
+  await tg(token, "editMessageText", {
+    chat_id: chatId, message_id: cq.message.message_id,
+    text: String(cq.message.text ?? "").replace(APAGADO_SUFIXO, ""),
+    ...(principal ? { reply_markup: tecladoCorrigir(principal.id) } : {}),
+  });
 }

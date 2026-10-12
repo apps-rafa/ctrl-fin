@@ -182,3 +182,73 @@ test("/atualizar: número que não está mais na lista avisa para mandar /atuali
   await tocar(bancoFalso(baseUlt()), "4");
   assert.match(tg.find((c) => c.metodo === "answerCallbackQuery").corpo.text, /mande \/atualizar de novo/);
 });
+
+// ---- Resposta padrão depois de lançar + ✏️ Corrigir (editar / apagar / restaurar) ----
+import { tratarCorrigir, tratarApagarLancamento, tratarRestaurarLancamento } from "../supabase/functions/telegram-webhook/callbacks.ts";
+import { tratarFormularioMiniApp } from "../supabase/functions/telegram-webhook/comandos.ts";
+
+const ctx = (banco, acao, idStr, texto = "💸 Despesa\nValor: R$ 50,00") => ({ supabaseAdmin: banco, token: "T", cq: { id: "cb", message: { message_id: 7, text: texto } }, chatId: 10, idStr: String(idStr), acao });
+const edicoes = (tg, metodo) => tg.filter((c) => c.metodo === metodo);
+
+test("confirmar rascunho: resposta no padrão (sem 'Confirma?', ✅ Lançado, gasto diário) com o botão ✏️ Corrigir", async () => {
+  const tg = capturaTelegram();
+  const banco = bancoFalso({ telegram_users: [{ chat_id: 10, user_id: "u1" }], telegram_rascunhos: [rascunho()] });
+  await tratarRascunhoConfirmarOuCancelar({ ...ctx(banco, "nlconfirmar", 1, "💸 Despesa\nValor: R$ 50,00\n\nConfirma?") });
+  const ed = edicoes(tg, "editMessageText")[0].corpo;
+  assert.doesNotMatch(ed.text, /Confirma\?/);
+  assert.match(ed.text, /✅ Lançado/);
+  assert.match(ed.text, /Gasto diário/);
+  assert.deepEqual(ed.reply_markup.inline_keyboard, [[{ text: "✏️ Corrigir", callback_data: `corrigir:${banco.tabelas.transacoes[0].id}` }]]);
+});
+
+test("formulário (✏️ Editar → salvar): o próprio rascunho vira a resposta padrão com ✏️ Corrigir e o teclado some", async () => {
+  const tg = capturaTelegram();
+  const banco = bancoFalso({
+    telegram_users: [{ chat_id: 10, user_id: "u1" }], telegram_rascunhos: [rascunho({ mensagem_id: 321 })],
+    menu_itens: [{ id: 1, user_id: "u1", tipo: "Categoria", nome: "Casa", categoria_tipo: "saidas", status: "Ativo" }, { id: 2, user_id: "u1", tipo: "Método", nome: "PIX", metodo_kind: "PIX", banco: null, dia_fechamento: null, status: "Ativo" }],
+  });
+  const form = { id: 1, tipo: "saidas", valor: "50", data: "2026-10-05", categoria: "Casa", descricao: "Luz", metodo: "PIX" };
+  await tratarFormularioMiniApp({ supabaseAdmin: banco, token: "T", update: { message: { chat: { id: 10 }, web_app_data: { data: JSON.stringify(form) } } } });
+  const ed = edicoes(tg, "editMessageText").find((c) => c.corpo.message_id === 321)?.corpo;
+  assert.ok(ed, "editou a mensagem do rascunho");
+  assert.match(ed.text, /Descrição: Luz[\s\S]*✅ Lançado/);
+  assert.equal(ed.reply_markup.inline_keyboard[0][0].text, "✏️ Corrigir");
+  assert.ok(tg.some((c) => c.metodo === "sendMessage" && c.corpo.reply_markup?.remove_keyboard), "tira o teclado do ✏️ Editar");
+  assert.ok(!tg.some((c) => c.metodo === "sendMessage" && /Lançado!/.test(c.corpo.text ?? "")), "não manda mais o '✅ Lançado!' solto");
+});
+
+test("✏️ Corrigir abre Editar · Apagar · Cancelar; Cancelar volta ao Corrigir", async () => {
+  const tg = capturaTelegram();
+  const banco = bancoFalso({ telegram_users: [{ chat_id: 10, user_id: "u1" }], transacoes: [{ id: 5, user_id: "u1", valor: 50 }] });
+  await tratarCorrigir(ctx(banco, "corrigir", 5));
+  assert.deepEqual(edicoes(tg, "editMessageReplyMarkup")[0].corpo.reply_markup.inline_keyboard[0].map((b) => b.callback_data), ["ultedit:5", "apagartx:5", "corrigirvoltar:5"]);
+  await tratarCorrigir(ctx(banco, "corrigirvoltar", 5));
+  assert.deepEqual(edicoes(tg, "editMessageReplyMarkup")[1].corpo.reply_markup, { inline_keyboard: [[{ text: "✏️ Corrigir", callback_data: "corrigir:5" }]] });
+});
+
+test("🗑️ Apagar manda para a Lixeira (parcelado inteiro) e ♻️ Restaurar devolve tudo", async () => {
+  const tg = capturaTelegram();
+  const parc = (n) => ({ id: 20 + n, user_id: "u1", valor: 100, grupo_id: "g1", tipo_recorrencia: "Parcelada", parcela_num: n, parcelas_total: 3, criado_em: "2026-10-01" });
+  const banco = bancoFalso({ telegram_users: [{ chat_id: 10, user_id: "u1" }], transacoes: [parc(1), parc(2), parc(3), { id: 99, user_id: "u1", valor: 7 }] });
+  await tratarApagarLancamento(ctx(banco, "apagartx", 21));
+  assert.deepEqual(banco.tabelas.transacoes.map((t) => t.id), [99], "as 3 parcelas saem, o resto fica");
+  assert.equal(banco.tabelas.lixeira.length, 3);
+  const apagado = edicoes(tg, "editMessageText")[0].corpo;
+  assert.match(apagado.text, /🗑️ Apagado — está na Lixeira/);
+  const restaurar = apagado.reply_markup.inline_keyboard[0][0];
+  assert.equal(restaurar.text, "♻️ Restaurar");
+  await tratarRestaurarLancamento(ctx(banco, "restaurartx", restaurar.callback_data.split(":")[1], apagado.text));
+  assert.equal(banco.tabelas.transacoes.length, 4, "as 3 parcelas voltam");
+  assert.equal(banco.tabelas.lixeira.length, 0);
+  const volta = edicoes(tg, "editMessageText")[1].corpo;
+  assert.doesNotMatch(volta.text, /Apagado/);
+  assert.match(volta.reply_markup.inline_keyboard[0][0].callback_data, /^corrigir:\d+$/);
+});
+
+test("Corrigir/Apagar de lançamento de outra pessoa não faz nada", async () => {
+  capturaTelegram();
+  const banco = bancoFalso({ telegram_users: [{ chat_id: 10, user_id: "u1" }], transacoes: [{ id: 5, user_id: "u2", valor: 50 }] });
+  await tratarApagarLancamento(ctx(banco, "apagartx", 5));
+  assert.equal(banco.tabelas.transacoes.length, 1);
+  assert.equal((banco.tabelas.lixeira ?? []).length, 0);
+});
