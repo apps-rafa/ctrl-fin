@@ -2,7 +2,7 @@
 
 import type { createClient } from "npm:@supabase/supabase-js@2";
 import { tg, formatarMoedaBR, rotuloMetodo } from "./util.ts";
-import { type RascunhoLancamento } from "./parser.ts";
+import { type RascunhoLancamento, sugerirCategoriaTexto, limparLinks } from "./parser.ts";
 import { carregarListasUsuario, confirmarRascunhoNoBanco, urlMiniApp, enviarRascunho, tecladoRascunho, textoGastoDiario } from "./lancamentos.ts";
 import { carregarContasPluggy, executarAtualizacaoPluggy, tituloContaPluggyDetalhado } from "./pluggy.ts";
 
@@ -82,7 +82,7 @@ export async function descartarRascunho(
   admin: ReturnType<typeof createClient>, token: string, chatId: number, rascunhoId: number, mensagemId: number, textoAtual: string | null, ehOcorrencia: boolean,
 ): Promise<void> {
   await admin.from("telegram_rascunhos").update({ status: "descartado", editando_em: null, mensagem_id: mensagemId }).eq("id", rascunhoId);
-  const resgatar = { inline_keyboard: [[{ text: "♻️ Resgatar", callback_data: `nlresgatar:${rascunhoId}` }]] };
+  const resgatar = { inline_keyboard: [[{ text: "♻️ Resgatar", callback_data: `nlresgatar:${rascunhoId}` }, { text: "❌ Cancelar", callback_data: "cancelar" }]] }; // Cancelar: fecha de vez (some o Resgatar)
   if (textoAtual === null) {
     await tg(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: mensagemId, reply_markup: resgatar });
   } else {
@@ -266,4 +266,45 @@ export async function tratarRecorrenciaRascunho(c: ContextoCallback): Promise<vo
   await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Rascunho gerado" });
   await tg(token, "editMessageText", { chat_id: chatId, message_id: cq.message.message_id, text: `${cq.message.text}\n\n📝 Rascunho enviado abaixo` });
   await enviarRascunho(token, chatId, rascunhoId, dados, supabaseAdmin, tgUser.user_id, "🔁 Recorrência");
+}
+
+  // Número (1-5) da lista do /atualizar: a transação do banco vira rascunho (com a forma de pagamento da conta e a
+  // categoria sugerida) — ou, se ela já foi lançada (importada e confirmada), abre a edição do lançamento existente.
+export async function tratarUltimaPluggy(c: ContextoCallback): Promise<void> {
+  const { supabaseAdmin, token, cq, chatId, idStr } = c;
+  const { data: tgUser } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+  if (!tgUser) { await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Conta não vinculada" }); return; }
+  const userId = tgUser.user_id as string;
+  const { data: lista } = await supabaseAdmin.from("telegram_ultimas").select("itens").eq("chat_id", chatId).eq("user_id", userId).maybeSingle();
+  type ItemUltima = { pid: string; data: string; valor: number; tipo: "entradas" | "saidas"; descricao: string; metodo_id: number | null; conta: string };
+  const item = ((lista?.itens ?? []) as ItemUltima[])[Number(idStr) - 1];
+  if (!item) { await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Essa lista mudou — mande /atualizar de novo" }); return; }
+
+  // Já lançada? (importada e ligada a um lançamento que ainda existe): edita esse lançamento
+  const { data: imp } = await supabaseAdmin.from("transacoes_importadas").select("transacao_id, categoria_sugerida")
+    .eq("user_id", userId).eq("pluggy_transaction_id", item.pid).maybeSingle();
+  if (imp?.transacao_id) {
+    const { data: existe } = await supabaseAdmin.from("transacoes").select("id").eq("id", imp.transacao_id).eq("user_id", userId).maybeSingle();
+    if (existe) { await tratarUltimoEditar({ ...c, idStr: String(imp.transacao_id), acao: "ultedit" }); return; }
+  }
+
+  // Ainda não lançada: monta o rascunho (receita sempre PIX; despesa na forma de pagamento ligada à conta)
+  const listas = await carregarListasUsuario(supabaseAdmin, userId);
+  let met: { nome: string; metodo_kind: string | null; banco: string | null; dia_fechamento: number | null } | null = null;
+  if (item.tipo === "entradas") met = listas.metodos.find((m) => m.metodo_kind === "PIX" || m.metodo_kind === "PIX/Débito") ?? null;
+  else if (item.metodo_id) {
+    const { data: m } = await supabaseAdmin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("id", item.metodo_id).eq("user_id", userId).maybeSingle();
+    met = m ?? null;
+  }
+  const cats = (item.tipo === "entradas" ? listas.catsR : listas.catsD).map((nome) => ({ nome, categoria_tipo: item.tipo }));
+  const categoria = imp?.categoria_sugerida || sugerirCategoriaTexto(item.descricao, item.tipo, cats).nome;
+  const dados: RascunhoLancamento = {
+    tipo: item.tipo, valor: Number(item.valor), descricao: limparLinks(item.descricao), categoria,
+    metodo: met ? rotuloMetodo(met) : null, metodoKind: met?.metodo_kind ?? null, diaFechamento: met?.dia_fechamento ?? null,
+    data: item.data, parcelas: null, competencia: null, metodoOrigem: "texto", pluggyTransactionId: item.pid,
+  };
+  const { data: novo, error } = await supabaseAdmin.from("telegram_rascunhos").insert({ user_id: userId, chat_id: chatId, dados }).select("id").single();
+  if (error || !novo) { console.error(error); await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Erro ao montar o rascunho" }); return; }
+  await tg(token, "answerCallbackQuery", { callback_query_id: cq.id });
+  await enviarRascunho(token, chatId, novo.id, dados, supabaseAdmin, userId, `🏦 Da conta ${item.conta}`);
 }

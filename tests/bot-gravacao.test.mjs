@@ -125,3 +125,60 @@ test("recorrência: confirmar um mês atrasado não passa por cima de uma refer�
   await gerarOcorrencias(banco, "2026-10-20");
   assert.equal(banco.tabelas.recorrencias[0].valor_referencia, 170);
 });
+
+// ---- /atualizar: número da lista (atltx:<n>) ----
+import { tratarUltimaPluggy } from "../supabase/functions/telegram-webhook/callbacks.ts";
+
+const itemUlt = { pid: "tx-1", data: "2026-10-09", valor: 190, tipo: "saidas", descricao: "Pix enviado Alejandra", conta_id: 3, metodo_id: 50, conta: "Mercado Pago" };
+const baseUlt = (extra = {}) => ({
+  telegram_users: [{ chat_id: 10, user_id: "u1" }],
+  telegram_ultimas: [{ chat_id: 10, user_id: "u1", itens: [itemUlt] }],
+  menu_itens: [
+    { id: 50, user_id: "u1", tipo: "Método", nome: "PIX", metodo_kind: "PIX", banco: "Mercado Pago", dia_fechamento: null, status: "Ativo" },
+    { id: 60, user_id: "u1", tipo: "Categoria", nome: "Casa", categoria_tipo: "saidas", status: "Ativo" },
+  ],
+  ...extra,
+});
+const tocar = (banco, n = "1") => tratarUltimaPluggy({ supabaseAdmin: banco, token: "T", cq: { id: "cb", message: { message_id: 7, text: "lista" } }, chatId: 10, idStr: n, acao: "atltx" });
+
+test("/atualizar: número de transação ainda não lançada vira rascunho com a forma da conta", async () => {
+  const tg = capturaTelegram();
+  const banco = bancoFalso(baseUlt());
+  await tocar(banco);
+  const r = banco.tabelas.telegram_rascunhos[0];
+  assert.equal(r.dados.valor, 190);
+  assert.equal(r.dados.metodo, "PIX Mercado Pago");
+  assert.equal(r.dados.pluggyTransactionId, "tx-1");
+  const msg = tg.find((c) => c.metodo === "sendMessage");
+  assert.match(msg.corpo.text, /🏦 Da conta Mercado Pago/);
+  assert.deepEqual(msg.corpo.reply_markup.inline_keyboard[0].map((b) => b.text), ["✅ Confirmar", "✏️ Editar", "❌ Cancelar"]);
+});
+
+test("/atualizar: confirmar o rascunho tira a transação da fila de revisão do app (não importa de novo)", async () => {
+  capturaTelegram();
+  const banco = bancoFalso(baseUlt({ transacoes_importadas: [{ id: 9, user_id: "u1", pluggy_transaction_id: "tx-1", status: "pendente", transacao_id: null }] }));
+  await tocar(banco);
+  const r = banco.tabelas.telegram_rascunhos[0];
+  await tratarRascunhoConfirmarOuCancelar({ supabaseAdmin: banco, token: "T", cq: { id: "cb2", message: { message_id: 8, text: "r" } }, chatId: 10, idStr: String(r.id), acao: "nlconfirmar" });
+  const t = banco.tabelas.transacoes[0];
+  assert.equal(t.origem, "pluggy");
+  assert.deepEqual([banco.tabelas.transacoes_importadas[0].status, banco.tabelas.transacoes_importadas[0].transacao_id], ["confirmada", t.id]);
+});
+
+test("/atualizar: número de transação já lançada abre a edição do lançamento existente", async () => {
+  const tg = capturaTelegram();
+  const banco = bancoFalso(baseUlt({
+    transacoes_importadas: [{ id: 9, user_id: "u1", pluggy_transaction_id: "tx-1", status: "confirmada", transacao_id: 77 }],
+    transacoes: [{ id: 77, user_id: "u1", tipo: "saidas", valor: 190, data: "2026-10-09", categoria: "Casa", descricao: "Alejandra", metodo: "PIX Mercado Pago", competencia: "2026-10-01" }],
+  }));
+  await tocar(banco);
+  assert.equal((banco.tabelas.telegram_rascunhos ?? []).length, 0, "não cria rascunho");
+  const msg = tg.find((c) => c.metodo === "sendMessage");
+  assert.equal(msg.corpo.reply_markup.keyboard[0][0].text, "✏️ Editar");
+});
+
+test("/atualizar: número que não está mais na lista avisa para mandar /atualizar de novo", async () => {
+  const tg = capturaTelegram();
+  await tocar(bancoFalso(baseUlt()), "4");
+  assert.match(tg.find((c) => c.metodo === "answerCallbackQuery").corpo.text, /mande \/atualizar de novo/);
+});

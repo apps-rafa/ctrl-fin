@@ -141,6 +141,8 @@ export interface RascunhoLancamento {
   similares?: number[];
   /** "sem data": só o mês é conhecido (a data fica no fim do mês, marcada como indefinida, e o checkbox Pago/Recebido fica sempre visível). */
   dataIndefinida?: boolean;
+  /** Rascunho de uma transação do banco (lista do /atualizar): ao confirmar, o lançamento é ligado a ela na fila de revisão do app. */
+  pluggyTransactionId?: string | null;
 }
 
 export type MetodoMenu = { nome: string; metodo_kind: string | null; banco: string | null; dia_fechamento: number | null };

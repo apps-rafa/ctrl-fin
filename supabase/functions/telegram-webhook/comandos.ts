@@ -94,6 +94,9 @@ export async function tratarFormularioMiniApp(c: ContextoFormulario): Promise<vo
     const { data: rascEd } = await supabaseAdmin.from("telegram_rascunhos").select("dados").eq("id", idEditado).eq("chat_id", chatId).maybeSingle();
     const ocId = Number((rascEd?.dados as RascunhoLancamento | undefined)?.ocorrenciaId);
     if (ocId) dadosF.ocorrenciaId = ocId;
+    // rascunho de uma transação do banco (/atualizar): ao lançar, ela sai da fila de revisão do app
+    const pid = (rascEd?.dados as RascunhoLancamento | undefined)?.pluggyTransactionId;
+    if (pid) dadosF.pluggyTransactionId = pid;
     await supabaseAdmin.from("telegram_rascunhos").delete().eq("id", idEditado).eq("chat_id", chatId);
   }
   const { erro: erroF } = await confirmarRascunhoNoBanco(supabaseAdmin, tgUser.user_id, dadosF);

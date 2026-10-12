@@ -138,7 +138,7 @@ test("lembrete de recorrência: só as que vencem hoje e uma vez só", () => {
 test("aviso de despesa tem o botão Marcar como pago na própria mensagem (sem teclado persistente)", () => {
   const [l] = montarLembretes({ ...base, transacoes: [tx({})] });
   const corpo = corpoAvisoVencimentos(123, HOJE, [l]);
-  assert.deepEqual(corpo.reply_markup, { inline_keyboard: [[{ text: "Marcar como pago", callback_data: "pgmarcar:1" }]] });
+  assert.deepEqual(corpo.reply_markup, { inline_keyboard: [[{ text: "Marcar como pago", callback_data: "pgmarcar:1" }, { text: "❌ Cancelar", callback_data: "cancelar" }]] });
   assert.equal(corpo.chat_id, 123);
   assert.match(corpo.text, /Vencimentos de hoje/);
 });
@@ -151,7 +151,7 @@ test("aviso só de fatura não tem botões e limpa o teclado de edição deixado
 
 test("com vários vencimentos, cada botão leva o nome do lançamento; já marcado vira Desmarcar", () => {
   const ls = montarLembretes({ ...base, transacoes: [tx({ id: 1, descricao: "Condomínio" }), tx({ id: 2, descricao: "Internet" })] });
-  assert.deepEqual(tecladoPagoVencimentos(ls).inline_keyboard.map((r) => r[0].text), ["Marcar como pago: Condomínio", "Marcar como pago: Internet"]);
+  assert.deepEqual(tecladoPagoVencimentos(ls).inline_keyboard.map((r) => r[0].text), ["Marcar como pago: Condomínio", "Marcar como pago: Internet", "❌ Cancelar"]);
   assert.equal(rotuloBotaoPago(true, "Internet", false), "Desmarcar como pago");
 });
 
@@ -214,4 +214,16 @@ test("feriado do usuário também empurra o vencimento da fatura", () => {
   const ehFeriado = (d) => d === "2026-10-13";
   assert.equal(soFat(montarLembretes({ ...base, transacoes: compras, ehFeriado })).length, 0);
   assert.equal(soFat(montarLembretes({ ...base, hojeISO: "2026-10-14", transacoes: compras, ehFeriado })).length, 1);
+});
+
+test("marcar como pago (despesa única) troca só o botão: o ❌ Cancelar da mesma linha continua", async () => {
+  const chamadas = capturaTelegram();
+  const admin = { from: (t) => {
+    const q = { select: () => q, update: () => q, eq: () => q, maybeSingle: async () => ({ data: t === "telegram_users" ? { user_id: "u1" } : { id: 1, descricao: "Luz", categoria: "Casa", agendado: true, pago_em: null } }), then: (ok) => ok({ error: null }) };
+    return q;
+  } };
+  const cq = { id: "cb1", message: { message_id: 55, reply_markup: { inline_keyboard: [[{ text: "Marcar como pago", callback_data: "pgmarcar:1" }, { text: "❌ Cancelar", callback_data: "cancelar" }]] } } };
+  await tratarPagoVencimento(admin, "T", cq, 10, "1");
+  const edicao = chamadas.find((c) => c.metodo === "editMessageReplyMarkup");
+  assert.deepEqual(edicao.corpo.reply_markup.inline_keyboard, [[{ text: "Desmarcar como pago", callback_data: "pgmarcar:1" }, { text: "❌ Cancelar", callback_data: "cancelar" }]]);
 });

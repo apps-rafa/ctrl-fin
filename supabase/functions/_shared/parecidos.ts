@@ -90,7 +90,8 @@ export function montarAvisoPluggy(
     metodoTxt ? `Método: ${escHtml(metodoTxt)}` : null,
   ].filter(Boolean).join("\n");
   const botoes = item.categoria_sugerida
-    ? [[{ text: "✅ Confirmar", callback_data: `confirmar:${item.id}` }, { text: "❌ Ignorar", callback_data: `ignorar:${item.id}` }]]
-    : [[{ text: "❌ Ignorar", callback_data: `ignorar:${item.id}` }]];
+    // Ignorar descarta a transação; Cancelar só fecha o aviso (ela segue na fila de revisão do app)
+    ? [[{ text: "✅ Confirmar", callback_data: `confirmar:${item.id}` }, { text: "🚫 Ignorar", callback_data: `ignorar:${item.id}` }, { text: "❌ Cancelar", callback_data: "cancelar" }]]
+    : [[{ text: "🚫 Ignorar", callback_data: `ignorar:${item.id}` }, { text: "❌ Cancelar", callback_data: "cancelar" }]];
   return { texto, botoes };
 }

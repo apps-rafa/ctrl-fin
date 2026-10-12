@@ -61,7 +61,7 @@ export async function confirmarRascunhoNoBanco(
     return { erro: erroParcelas };
   }
 
-  const { error } = await supabaseAdmin.from("transacoes").insert({
+  const { data: gravada, error } = await supabaseAdmin.from("transacoes").insert({
     tipo: tipoGravar,
     data: d.data,
     valor: d.valor,
@@ -75,7 +75,13 @@ export async function confirmarRascunhoNoBanco(
     user_id: userId,
     agendado: !!d.dataIndefinida || d.data > hojeBrasiliaISO(), // data futura ou sem data = programado (o "Pago"/"Recebido" aparece quando a data chega; sem data, sempre)
     data_indefinida: !!d.dataIndefinida,
-  });
+    ...(d.pluggyTransactionId ? { origem: "pluggy", dados_originais: { pluggy_transaction_id: d.pluggyTransactionId } } : {}),
+  }).select("id").single();
+  // Veio do banco (/atualizar): a transação sai da fila de revisão do app, ligada a este lançamento (não é importada de novo)
+  if (!error && d.pluggyTransactionId && gravada) {
+    await supabaseAdmin.from("transacoes_importadas").update({ status: "confirmada", transacao_id: (gravada as { id: number }).id })
+      .eq("user_id", userId).eq("pluggy_transaction_id", d.pluggyTransactionId).eq("status", "pendente");
+  }
   return { erro: error };
 }
 
