@@ -29,8 +29,8 @@ export async function responderDecisaoParecido(
   if (!(await fonte.carregar())) { await responder("Esse aviso já foi resolvido"); return; }
   if (acao === "ig") {
     await fonte.ignorar();
-    await responder("Ignorado");
-    await editar("✅ Ignorado — é o mesmo lançamento");
+    await responder("Cancelado");
+    await editar("❌ Cancelado — nada foi lançado");
     return;
   }
   if (acao === "at") {

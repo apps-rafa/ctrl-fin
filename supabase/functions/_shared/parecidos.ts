@@ -61,11 +61,12 @@ export function textoParecidos(p: { origem: OrigemAviso; titulo: string; valor: 
 /** Botões do aviso (iguais para toda origem). `id` = o que identifica o lançamento recebido naquela origem. */
 export function tecladoParecidos(origem: OrigemAviso, id: number | string, podeAtualizar = true) {
   const p = PREFIXO[origem];
-  // Duas opções, na mesma linha: Atualizar (muda o lançamento que já existe) | Criar novo (mantém o existente e cria outro)
-  // (os callbacks "ig" antigos continuam tratados, para mensagens que já foram enviadas)
+  // Uma linha: Atualizar (muda o lançamento que já existe) | Criar novo (mantém o existente e cria outro) | Cancelar
+  // (todo menu do bot termina com Cancelar: aqui é o "ig" — nada é lançado e o aviso é dado como resolvido)
   return { inline_keyboard: [[
     ...(podeAtualizar ? [{ text: "🔄 Atualizar", callback_data: `${p}at:${id}` }] : []),
     { text: "➕ Criar novo", callback_data: `${p}ou:${id}` },
+    { text: "❌ Cancelar", callback_data: `${p}ig:${id}` },
   ]] };
 }
 
