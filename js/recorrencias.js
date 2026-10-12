@@ -212,6 +212,14 @@ function _recDistribuirRecorrenciaEDia() {
         e.inicio.classList.add('compacto');
         if (e.inicio.clientWidth < _recLarguraNecessaria(e.inicio, 'OUT')) _recRotulosInicio(true);
     }
+    // Mês ref.: o texto mais completo que couber inteiro (nunca cortado com '...')
+    if (e.competencia && e.competencia.clientWidth) {
+        for (let n = 0; n < _REC_REF_ROTULO.length; n++) {
+            _recRotulosMesRef(n);
+            const maior = Math.max(...[...e.competencia.options].map(o => _recLarguraNecessaria(e.competencia, o.textContent)));
+            if (e.competencia.clientWidth >= maior) break;
+        }
+    }
 }
 
 /** Texto das opções do Início: tricode (JAN..DEZ) ou, apertado, o número do mês (01..12). */
@@ -224,6 +232,28 @@ function _recRotulosInicio(numerico) {
 }
 
 const _TRI_MESES = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+
+/** Mês ref. da recorrência é RELATIVO (Mesmo/Anterior/Próximo: a regra vale para todo mês), mas as opções mostram também o
+ *  mês que isso dá para o mês de Início — "OUT (mesmo)", "SET (anterior)", "NOV (próximo)" —, falando em meses como o
+ *  Mês ref. do lançamento comum. O valor gravado continua relativo (-1, 0, 1). */
+// Três tamanhos (o campo escolhe o maior que cabe, ver _recDistribuirRecorrenciaEDia): 'SET (anterior)' → 'SET (ant.)' / 'OUT (=)' → 'SET'
+const _REC_REF_ROTULO = [
+    { '0': ' (mesmo)', '-1': ' (anterior)', '1': ' (próximo)' },
+    { '0': ' (=)', '-1': ' (ant.)', '1': ' (próx.)' },
+    { '0': '', '-1': '', '1': '' },
+];
+let _recNivelMesRef = 0;
+function _recRotulosMesRef(nivel = _recNivelMesRef) {
+    _recNivelMesRef = nivel;
+    const e = _recElementos();
+    if (!e.competencia) return;
+    const m = Number(String(e.inicio && e.inicio.value || '').slice(5, 7)) || (new Date().getMonth() + 1);
+    [...e.competencia.options].forEach(o => {
+        const rot = _REC_REF_ROTULO[nivel][o.value];
+        if (rot !== undefined) o.textContent = `${_TRI_MESES[(m - 1 + Number(o.value) + 12) % 12]}${rot}`;
+        o.title = { '0': 'Mesmo mês da data', '-1': 'Mês anterior ao da data', '1': 'Mês seguinte ao da data' }[o.value] || '';
+    });
+}
 
 /** Início: só o mês, em tricode (12 meses: 3 antes e 8 depois do mês do cabeçalho); padrão = o mês selecionado no cabeçalho.
  *  Ao editar mostra o mês em que a recorrência começou e dá para mudar (ver _recSalvarEdicao). */
@@ -317,6 +347,7 @@ function _recMontarMenuDia(freq, valor) {
 function atualizarFormRecorrencia() {
     const e = _recElementos();
     if (!e.painel) return;
+    _recRotulosMesRef();
     const semanal = e.freq.value === 'semanal';
     _recMontarMenuDia(e.freq.value);
     e.diaGrupo.hidden = false;
