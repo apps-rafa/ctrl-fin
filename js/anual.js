@@ -27,6 +27,7 @@ const estadoAnual = {
     foco: null,           // mês (0-11) em foco ao tocar no cabeçalho; null = ano todo
     carregando: false,
     rolarPara: null,      // rolagem a devolver depois de editar um lançamento daqui
+    zoomH: 1,             // zoom do gráfico horizontal (ver ZOOM_GRAFICO_H)
     secAberta: { saidas: false, entradas: false }, // blocos DESPESAS/RECEITAS da tabela: nascem recolhidos (o total e a variação ficam sempre à vista)
 };
 
@@ -209,14 +210,24 @@ function _mesesVisiveis(conjuntos, ano) {
  *  despesa; déficit no fim da receita). O tamanho é a diferença entre as barras; o valor e o % são os do Balanço real
  *  (receitas − despesas, estornos inclusos), com o % sobre a receita do mês. Com filtro ativo não aparece (só há um lado).
  *  `largura` = % da barra que o trecho ocupa (decide se cabe o texto, como nos outros trechos); 0 = sem texto. */
-function _segBalanco(i, extra, balanco, receita, largura) {
+function _segBalanco(i, extra, balanco, receita, comTexto) {
     if (estadoAnual.filtro || extra < 0.005) return '';
     const pct = receita > 0 ? balanco / receita * 100 : null;
     const pctTxt = pct === null ? '' : `${pct < 0 ? '−' : ''}${Math.abs(Math.round(pct))}%`;
-    const txt = largura >= 22 ? `Balanço ${pctTxt}` : (largura >= 9 ? pctTxt : '');
-    const titulo = `Balanço de ${MESES_ANUAL_LONGO[i]}: ${balanco > 0 ? '+' : ''}${_fmtMoeda(balanco)}${pct === null ? '' : ` (${pctTxt} da receita)`}`;
+    const valor = `${balanco > 0 ? '+' : ''}${_fmtMoeda(balanco)}`;
+    const titulo = `Balanço de ${MESES_ANUAL_LONGO[i]}: ${valor}${pct === null ? '' : ` (${pctTxt} da receita)`}`;
+    const txt = comTexto ? _textosSeg(pctTxt, `Balanço ${pctTxt}`, `Balanço ${pctTxt} · ${valor}`) : '';
     return `<span class="seg seg-balanco" style="flex:${extra}" title="${titulo}">${txt}</span>`;
 }
+
+/** Três versões do texto de um trecho do gráfico horizontal; o CSS (container query na largura do próprio trecho)
+ *  mostra a que cabe: nada → "50%" → "Casa 50%" → "Casa 50% · R$ 1.312". Assim, ao dar zoom, os textos aparecem sozinhos. */
+function _textosSeg(curto, medio, longo) {
+    return `<span class="seg-txt t1">${curto}</span><span class="seg-txt t2">${medio}</span><span class="seg-txt t3">${longo}</span>`;
+}
+
+/** Zoom do gráfico horizontal: 1 = cabe na largura; acima disso as barras crescem dentro de uma faixa com rolagem. */
+const ZOOM_GRAFICO_H = [1, 1.5, 2, 3, 4, 6, 8];
 
 /** Linha do gráfico (1ª linha da tabela): DUAS barras por mês — receita (esquerda) e despesa
  *  (direita) — cada uma empilhada com uma cor por categoria/forma, na mesma escala. */
@@ -255,16 +266,55 @@ function _graficoHorizontal(vR, vD, mesesSel) {
     const totalReal = (v, i) => v.linhas.reduce((a, l) => a + l.meses[i], 0); // com estornos (linhas "(−)")
     const max = Math.max(...barras.map(b => b.total + b.extra), 1);
     const varios = mesesSel.length > 1;
-    const html = barras.map(b => {
+    // Três colunas: nomes (fixos) | trilhos das barras (rolam juntos quando há zoom) | totais (fixos)
+    const rots = [], trilhos = [], totais = [];
+    barras.forEach(b => {
         const segs = b.linhas.map(l => {
             const pct = b.total ? l.meses[b.i] / b.total * 100 : 0;
-            const txt = pct >= 22 ? `${_esc(abreviarCategoria(l.nome))} ${Math.round(pct)}%` : (pct >= 9 ? `${Math.round(pct)}%` : '');
-            return `<span class="seg" style="flex:${l.meses[b.i]};background:${_corDoNomeAnual(l.nome, b.tipo)}" title="${b.rot} · ${_esc(l.nome)} · ${MESES_ANUAL_LONGO[b.i]}: ${_fmtMoeda(l.meses[b.i])} (${Math.round(pct)}%)">${txt}</span>`;
-        }).join('') + _segBalanco(b.i, b.extra, totalReal(vR, b.i) - totalReal(vD, b.i), totalReal(vR, b.i), b.extra / ((b.total + b.extra) || 1) * 100);
+            const p = `${Math.round(pct)}%`;
+            const txt = _textosSeg(p, `${_esc(abreviarCategoria(l.nome))} ${p}`, `${_esc(l.nome)} ${p} · ${_fmtMoeda(l.meses[b.i])}`);
+            return `<span class="seg" style="flex:${l.meses[b.i]};background:${_corDoNomeAnual(l.nome, b.tipo)}" title="${b.rot} · ${_esc(l.nome)} · ${MESES_ANUAL_LONGO[b.i]}: ${_fmtMoeda(l.meses[b.i])} (${p})">${txt}</span>`;
+        }).join('') + _segBalanco(b.i, b.extra, totalReal(vR, b.i) - totalReal(vD, b.i), totalReal(vR, b.i), true);
         const larg = b.total + b.extra > 0 ? Math.max(2, (b.total + b.extra) / max * 100) : 0;
-        return `<div class="gh-linha ${b.classe}"><span class="gh-rot">${varios ? `<b>${MESES_ANUAL[b.i]}</b> ` : ''}${b.rot}</span><div class="gh-trilho"><div class="gh-barra" style="width:${larg.toFixed(1)}%">${segs}</div></div><span class="gh-total">${_fmtMoeda(b.total)}</span></div>`;
-    }).join('');
-    return `<div class="anual-bloco anual-grafico-h" role="img" aria-label="Gráfico de receitas e despesas">${html}</div>`;
+        rots.push(`<span class="gh-rot ${b.classe}">${varios ? `<b>${MESES_ANUAL[b.i]}</b> ` : ''}${b.rot}</span>`);
+        trilhos.push(`<div class="gh-trilho ${b.classe}"><div class="gh-barra" style="width:${larg.toFixed(1)}%">${segs}</div></div>`);
+        totais.push(`<span class="gh-total ${b.classe}">${_fmtMoeda(b.total)}</span>`);
+    });
+    const z = estadoAnual.zoomH || 1;
+    const nivel = ZOOM_GRAFICO_H.indexOf(z);
+    const controles = `
+        <div class="gh-zoom" role="group" aria-label="Tamanho do gráfico">
+            <button type="button" class="anual-toggle" data-anual-zoom="-1" title="Diminuir" aria-label="Diminuir o gráfico"${nivel <= 0 ? ' disabled' : ''}>−</button>
+            <button type="button" class="anual-toggle" data-anual-zoom="1" title="Aumentar" aria-label="Aumentar o gráfico"${nivel >= ZOOM_GRAFICO_H.length - 1 ? ' disabled' : ''}>+</button>
+            <button type="button" class="anual-toggle" data-anual-zoom="0" title="Tamanho original" aria-label="Voltar ao tamanho original"${z === 1 ? ' disabled' : ''}>↺</button>
+        </div>`;
+    return `<div class="anual-bloco anual-grafico-h">${controles}
+        <div class="gh-corpo" role="img" aria-label="Gráfico de receitas e despesas">
+            <div class="gh-col">${rots.join('')}</div>
+            <div class="gh-rolagem"><div class="gh-pista" style="width:${z * 100}%">${trilhos.join('')}</div></div>
+            <div class="gh-col">${totais.join('')}</div>
+        </div></div>`;
+}
+
+/** + / − / ↺ do gráfico horizontal: muda só a largura da faixa das barras (a página não é redesenhada) e mantém
+ *  no meio da tela o ponto que estava no meio. */
+function _zoomGraficoH(passo) {
+    const atual = estadoAnual.zoomH || 1;
+    const i = ZOOM_GRAFICO_H.indexOf(atual);
+    const novo = passo === 0 ? 1 : ZOOM_GRAFICO_H[Math.min(ZOOM_GRAFICO_H.length - 1, Math.max(0, i + passo))];
+    if (novo === atual) return;
+    estadoAnual.zoomH = novo;
+    document.querySelectorAll('#anual .anual-grafico-h').forEach(g => {
+        const rol = g.querySelector('.gh-rolagem'), pista = g.querySelector('.gh-pista');
+        if (!rol || !pista) return;
+        const meio = (rol.scrollLeft + rol.clientWidth / 2) / (rol.scrollWidth || 1);
+        pista.style.width = `${novo * 100}%`;
+        rol.scrollLeft = Math.max(0, meio * rol.scrollWidth - rol.clientWidth / 2);
+        const nivel = ZOOM_GRAFICO_H.indexOf(novo);
+        g.querySelector('[data-anual-zoom="-1"]').disabled = nivel <= 0;
+        g.querySelector('[data-anual-zoom="1"]').disabled = nivel >= ZOOM_GRAFICO_H.length - 1;
+        g.querySelector('[data-anual-zoom="0"]').disabled = novo === 1;
+    });
 }
 
 /** Nome de categoria/forma: inteiro no desktop, abreviado no celular (nunca termina em "…"). */
@@ -495,6 +545,8 @@ function iniciarVisaoAnual() {
         // Editar/excluir/marcar pago nos lançamentos do extrato: mesma lógica das outras listas
         if (e.target.closest('[data-act]')) { onListaTransacaoClick(e); return; }
         if (e.target.closest('[data-anual-olho]')) { alternarValoresOcultos(); return; }
+        const btnZoom = e.target.closest('[data-anual-zoom]'); // + / − / ↺ do gráfico horizontal
+        if (btnZoom) { _zoomGraficoH(Number(btnZoom.dataset.anualZoom)); return; }
         const btnSec = e.target.closest('[data-anual-sec]'); // abre/recolhe o bloco DESPESAS ou RECEITAS da tabela
         if (btnSec) { const t = btnSec.dataset.anualSec; estadoAnual.secAberta[t] = !(estadoAnual.secAberta[t] || estadoAnual.filtroTipo === t); if (!estadoAnual.secAberta[t] && estadoAnual.filtroTipo === t) _limparFiltroAnual(); estadoAnual.rolarPara = window.scrollY; _renderVisaoAnual(); return; }
         const btnAgr = e.target.closest('[data-anual-agrupar]');

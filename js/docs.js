@@ -159,7 +159,7 @@ const DOCS_SECOES = [
       { t: 'Filtrar uma linha', r: 'Toque no nome de uma categoria/forma para ver só ela; toque de novo para voltar.',
         m: 'O filtro vale para cartões, gráfico e tabela.' },
       { t: 'Focar num mês', r: 'Toque no nome de um mês para destacá-lo nos cartões, no gráfico e na tabela.',
-        m: 'Aparece um botão "Mês ✕" para voltar a ver o ano todo.' },
+        m: 'Aparece um botão "Mês ✕" para voltar a ver o ano todo. O gráfico vira horizontal e ganha os botões <b>− + ↺</b>: o + aumenta as barras (sem alargar a página: role para o lado, ou arraste com o dedo no celular) e, conforme cada trecho ganha espaço, aparecem dentro dele o %, o nome e o valor; o ↺ volta ao tamanho original.' },
       { t: 'Comparar meses', r: '"⇄ Comparar meses" põe dois meses lado a lado (A e B), com a diferença e a variação em %; o ⇅ inverte A e B.',
         m: 'Mostra receitas e despesas separadas, ordenadas pela maior diferença.' },
       { t: 'Estornos no ano', r: 'Estornos de cartão abatem a despesa (por forma) ou viram a linha "(−) Estornos no cartão" (por categoria).',
@@ -373,7 +373,7 @@ const DOCS_DETALHES = {
     </ul>
     <p>A data é retirada da descrição. Datas impossíveis (como 31/02) são ignoradas.</p>`,
   'Comandos': `
-    <p>Todos funcionam no chat do bot, depois de vincular. /atualizar e /pgtopadrao abrem menus no teclado (sempre com ❌ Cancelar). Em /atualizar, toque no número de uma transação para transformá-la em rascunho (com a forma de pagamento da conta) ou editar o lançamento, se ela já foi lançada. O vínculo é feito em Configurações > Notificações (veja "Vincular" acima).</p>`,
+    <p>Todos funcionam no chat do bot, depois de vincular. /atualizar e /pgtopadrao abrem menus com botões na própria mensagem (sempre com ❌ Cancelar). Em /atualizar, toque no número de uma transação para transformá-la em rascunho (com a forma de pagamento da conta) ou editar o lançamento, se ela já foi lançada. O vínculo é feito em Configurações > Notificações (veja "Vincular" acima).</p>`,
   'Formas de pagamento': `
     <ul>
       <li><b>Cartão de crédito</b>: banco, dia de fechamento, dia de vencimento e melhor dia de compra (sugerido: fechamento + 1). Ele alimenta {ver:cartao}.</li>
