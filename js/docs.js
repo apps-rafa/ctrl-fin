@@ -36,7 +36,7 @@ const DOCS_SECOES = [
         m: '<ul><li><b>pago</b>: PIX/dinheiro com data até hoje + faturas de cartão já vencidas ou marcadas como pagas. Embaixo, a quebra "pix X + crédito Y".</li><li><b>a pagar</b>: lançamentos futuros + faturas de cartão em aberto. Embaixo, "pendentes X + crédito Y".</li></ul>Em tela estreita os rótulos viram emojis: 🟢 pago/recebido, ⏭️ a pagar/a receber, ⚡ pix, 💳 crédito, ⏳ pendentes e ∑ total. Clicar no card abre a lista de Despesas. Detalhes: {ver:cartao} e {ver:regras}.' },
       { t: 'Balanço e gasto diário', r: 'Balanço = receitas − despesas do mês. Gasto diário = quanto ainda pode gastar por dia até o fim do mês.',
         m: 'O gasto diário divide o balanço pelos dias que restam no mês (contando hoje). Num mês futuro ele é estimado (balanço previsto ÷ dias do mês), com a legenda "previsto", quando já há receita e despesa previstas.' },
-      { t: 'Mini-resumo ao rolar', r: 'Ao rolar a página, os totais ficam numa faixa compacta no topo, com atalhos para + Lançamento, 🔁 Recorrências, 🕓 Recentes, ⏰ Próximos e a Lixeira.',
+      { t: 'Mini-resumo ao rolar', r: 'Ao rolar a página, os totais ficam numa faixa compacta no topo, com atalhos para + Lançamento, 🔁 Recorrências, 🕓 Recentes, ⏰ Próximos e a Lixeira (o atalho da tela aberta fica destacado).',
         m: 'Assim você não perde os números nem os atalhos enquanto navega nas listas.' },
       { t: 'Saldo em contas', r: 'Com o {ver:openfinance} conectado, mostra o saldo atual das suas contas bancárias, logo abaixo do calendário.',
         m: 'É o saldo de hoje no banco (não depende do mês escolhido). Toque para ver o detalhe por conta. Liga e desliga em {ver:config} > Open Finance > "💰 Saldo em contas" (vale só para este aparelho).' },
@@ -173,7 +173,7 @@ const DOCS_SECOES = [
       { t: 'Categorias', r: 'Categorias de Receita e de Despesa: criar, renomear, reordenar (▲▼), ordenar A→Z, ativar/desativar, remover e trocar a cor.',
         m: 'Receita e Despesa são listas separadas (o mesmo nome pode existir nas duas, cada uma com a sua cor). Fixas: <b>Reembolso</b> e <b>Dinheiro</b> (Receita) e <b>Estorno</b> (Despesa, só aparece com cartão de crédito). Renomear uma categoria atualiza todos os lançamentos antigos.' },
       { t: 'Formas de pagamento', r: 'Cadastre PIX, Dinheiro e cartões de crédito (banco, dia de fechamento, dia de vencimento, melhor dia de compra).',
-        m: 'O <b>melhor dia de compra</b> é sugerido a partir do fechamento. Desativar uma forma a tira dos formulários, mas ela continua valendo nos lançamentos antigos e mantém a cor. A ordem que você definir é a do dropdown do lançamento.' },
+        m: 'O <b>melhor dia de compra</b> é sugerido a partir do fechamento. Desativar uma forma a tira dos formulários, mas ela continua valendo nos lançamentos antigos e mantém a cor. Ao editar um lançamento feito numa forma desativada, ela aparece no dropdown só dessa edição, com "(Desativada)" no fim; trocar por outra mostra um aviso de que ela vai sumir do menu (a não ser que seja reativada). A ordem que você definir é a do dropdown do lançamento.' },
       { t: 'Cores', r: 'Toque na bolinha de cor de uma categoria ou forma para escolher a cor do chip. O botão "🎲 Cor aleatória" sorteia uma cor bem diferente de todas as que já existem.',
         m: 'A cor vale no app inteiro: listas, busca, barras, gráficos e visão anual — e é retroativa para lançamentos antigos.' },
       { t: 'Feriados', r: 'Feriados nacionais, estaduais (por UF) e municipais; servem para ajustar vencimentos ao dia útil.',
@@ -209,7 +209,7 @@ const DOCS_SECOES = [
         m: '✅ Confirmar grava uma vez só, mesmo com dois toques seguidos. ✏️ Editar abre o formulário (o mesmo do app) já preenchido; ao salvar, só aquele rascunho sai da fila. ❌ Cancelar não apaga: o rascunho fica "descartado" e a mensagem ganha o botão ♻️ Resgatar, que o devolve como estava. Rascunhos não confirmados somem depois de 7 dias.' },
       { t: 'Depois de lançar: ✏️ Corrigir', r: 'Todo lançamento feito pelo bot (rascunho, formulário, aviso do banco) termina na mesma resposta: os dados, ✅ Lançado e o gasto diário do mês, com o botão ✏️ Corrigir.', m: 'Ao salvar pelo formulário, o próprio rascunho vira essa resposta. O ✏️ Corrigir abre ✏️ Editar · 🗑️ Apagar · ❌ Cancelar na própria mensagem: Editar abre o formulário com os dados do lançamento (ao salvar, vem a resposta com ✅ Atualizado); Apagar manda para a Lixeira do app (o parcelado inteiro) e oferece ♻️ Restaurar.' },
       { t: 'Lançamento parecido', r: 'Antes de montar um rascunho, o bot procura no mês algo parecido (mesmo nome e valor, ou mesmo valor em até 3 dias) e pergunta o que fazer.',
-        m: 'Vale para mensagem, SMS encaminhado, e-mail de conta e Pluggy. Os botões, na mesma linha: <b>🔄 Atualizar</b> (é o mesmo: muda o valor/data do que já existe), <b>➕ Criar novo</b> (é outro: mantém o existente e segue com o novo) e <b>❌ Cancelar</b> (é o mesmo: nada é lançado). No aviso de e-mail sem valor nem vencimento, o Atualizar não aparece. Se a mensagem bate com uma recorrência que está "a confirmar", o rascunho atualiza essa ocorrência em vez de criar outro lançamento (o bot avisa "🔁 Isto bate com a recorrência").' },
+        m: 'Vale para mensagem, SMS encaminhado, e-mail de conta e Pluggy. Os botões, na mesma linha: <b>🔄 Atualizar</b> (é o mesmo: muda o valor/data do que já existe), <b>➕ Criar novo</b> (é outro: mantém o existente e segue com o novo) e <b>❌ Cancelar</b> (é o mesmo: nada é lançado). No aviso de e-mail sem valor nem vencimento, o Atualizar não aparece. Se a mensagem bate com uma recorrência que está "a confirmar", o rascunho atualiza essa ocorrência em vez de criar outro lançamento (o bot avisa "🔁 Isto bate com a recorrência"). Se a recorrência já tiver um lançamento na mesma data (o mesmo gasto que chegou por outro caminho), é esse lançamento que é atualizado, e a ocorrência "a confirmar" é descartada.' },
       { t: 'Sem links nas mensagens', r: 'Descrições vindas do banco não viram link: "apple.com/bill" aparece como "Apple" e o Telegram não mostra pré-visualização de links.',
         m: 'Vale para o aviso de lançamento novo do banco e para a descrição preenchida sozinha na revisão do Open Finance.' },
       { t: 'Estorno pelo bot', r: 'Diga "estorno 50 uber" ou escolha a categoria Estorno: o bot usa um cartão de crédito e abate a fatura.',
@@ -380,7 +380,7 @@ const DOCS_DETALHES = {
       <li><b>Cartão de crédito</b>: banco, dia de fechamento, dia de vencimento e melhor dia de compra (sugerido: fechamento + 1). Ele alimenta {ver:cartao}.</li>
       <li><b>PIX</b>: forma base, pode ter banco.</li>
       <li><b>Dinheiro</b>: fixa, não se renomeia nem se remove.</li>
-      <li>Desativar tira a forma dos formulários e do bot, mas os lançamentos antigos continuam intactos e com a mesma cor.</li>
+      <li>Desativar tira a forma dos formulários e do bot, mas os lançamentos antigos continuam intactos e com a mesma cor. Editando um desses lançamentos, a forma aparece no menu como "(Desativada)"; trocar por outra avisa que ela vai sumir de lá.</li>
     </ul>`,
 };
 

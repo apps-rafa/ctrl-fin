@@ -183,6 +183,14 @@ function preencherDropdownMetodos() {
         if (receita && m.metodoKind === 'Crédito') { o.disabled = true; o.title = 'Receita não entra no cartão de crédito'; }
         sel.appendChild(o);
     });
+    // Editando um lançamento feito numa forma de pagamento já desativada: ela aparece (só neste menu) com "(Desativada)"
+    const inativo = estadoApp.metodoInativoEdicao;
+    if (inativo && ![...sel.options].some(o => o.value === inativo)) {
+        const o = document.createElement('option');
+        o.value = inativo;
+        o.textContent = `${inativo} (Desativada)`;
+        sel.appendChild(o);
+    }
     sel.value = atual;
     atualizarCampoCredito();
 }
@@ -190,7 +198,8 @@ function preencherDropdownMetodos() {
 /** Método selecionado no formulário (objeto do menu) ou null */
 function metodoSelecionado() {
     const label = document.querySelector(SELECTORS.metodo)?.value;
-    return (estadoApp.menus.metodos || []).find(m => rotuloMetodo(m) === label) || null;
+    // inclui os desativados: editando um lançamento antigo de cartão desativado, o fechamento dele ainda vale
+    return (estadoApp.menus.metodosTodos || estadoApp.menus.metodos || []).find(m => rotuloMetodo(m) === label) || null;
 }
 
 /**

@@ -104,6 +104,11 @@ function iniciarEdicaoTransacao(trans, tipoTransacao) {
     // Precisa vir depois de setar a categoria: é ela que decide se o campo
     // Método aparece pra receita (categorias "Estorno"/"Reembolso").
     atualizarCampoMetodoReceita();
+    // Forma de pagamento desativada: entra no menu só nesta edição, marcada "(Desativada)"
+    const ativas = (estadoApp.menus.metodos || []).map(rotuloMetodo);
+    estadoApp.metodoInativoEdicao = trans.metodo && !ativas.includes(trans.metodo) ? trans.metodo : null;
+    delete document.querySelector(SELECTORS.metodo).dataset.avisouInativo;
+    preencherDropdownMetodos();
     document.querySelector(SELECTORS.metodo).value = trans.metodo || (tipoTransacao === 'entradas' ? rotuloPixPadrao() : ''); // receita sem forma: PIX
 
     const parc = document.getElementById('parcelas');
