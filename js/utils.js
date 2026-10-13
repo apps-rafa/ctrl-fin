@@ -463,6 +463,8 @@ function limparFormulario() {
             b.classList.toggle('active', b.dataset.tipo === 'saidas'));
         const dataEl = document.querySelector(SELECTORS.data);
         if (dataEl) delete dataEl.dataset.userVal;
+        // A forma desativada só aparecia no menu durante a edição daquele lançamento
+        if (typeof estadoApp !== 'undefined' && estadoApp.metodoInativoEdicao) { estadoApp.metodoInativoEdicao = null; preencherDropdownMetodos(); }
         const btnSub = document.querySelector('.btn-submit');
         if (btnSub && !estadoApp.editandoId) btnSub.textContent = 'Adicionar';
         atualizarCampoParcelas();

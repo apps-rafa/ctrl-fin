@@ -19,11 +19,28 @@ export async function confirmarRascunhoNoBanco(
   // Ocorrência de recorrência ("a confirmar"): o lançamento JÁ existe — confirma/edita a própria linha, nunca insere outra.
   // O filtro a_confirmar=true evita duplicar/sobrescrever se ela já foi confirmada ou apagada pelo app.
   if (d.ocorrenciaId) {
-    const { data: atualizadas, error: erroOc } = await supabaseAdmin.from("transacoes").update({
+    const campos = {
       tipo: d.tipo, data: d.data, valor: d.valor, metodo: d.metodo, categoria: d.categoria, descricao: d.descricao,
       competencia, a_confirmar: false, data_indefinida: !!d.dataIndefinida, // data escolhida no bot deixa de ser "?/mês"
       ...(d.data > hojeBrasiliaISO() ? { agendado: true } : {}),
-    }).eq("id", d.ocorrenciaId).eq("user_id", userId).eq("a_confirmar", true).select("id");
+    };
+    // A mesma recorrência já tem um lançamento NESSA data (único por recorrência+data): é o mesmo gasto vindo por outro
+    // caminho — atualiza esse e descarta a ocorrência "a confirmar" (só um rascunho gerado), em vez de dar erro de chave.
+    const { data: oc } = await supabaseAdmin.from("transacoes").select("recorrencia_id")
+      .eq("id", d.ocorrenciaId).eq("user_id", userId).eq("a_confirmar", true).maybeSingle();
+    if (oc?.recorrencia_id) {
+      const { data: mesmaData } = await supabaseAdmin.from("transacoes").select("id")
+        .eq("user_id", userId).eq("recorrencia_id", oc.recorrencia_id).eq("data", d.data).neq("id", d.ocorrenciaId).limit(1);
+      const alvo = mesmaData?.[0]?.id;
+      if (alvo) {
+        const { error: erroAlvo } = await supabaseAdmin.from("transacoes").update(campos).eq("id", alvo).eq("user_id", userId);
+        if (erroAlvo) return { erro: erroAlvo };
+        await supabaseAdmin.from("transacoes").delete().eq("id", d.ocorrenciaId).eq("user_id", userId).eq("a_confirmar", true);
+        return { erro: null, id: alvo };
+      }
+    }
+    const { data: atualizadas, error: erroOc } = await supabaseAdmin.from("transacoes").update(campos)
+      .eq("id", d.ocorrenciaId).eq("user_id", userId).eq("a_confirmar", true).select("id");
     if (erroOc) return { erro: erroOc };
     if (!atualizadas || !atualizadas.length) return { erro: new Error("Essa ocorrência já foi confirmada ou apagada no app") };
     return { erro: null, id: d.ocorrenciaId };

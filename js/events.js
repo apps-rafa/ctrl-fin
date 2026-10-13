@@ -246,7 +246,16 @@ function ligarCamposDoFormulario() {
     
     // Método -> mostra campo de competência se for Crédito
     const metodo = document.querySelector(SELECTORS.metodo);
-    if (metodo) metodo.addEventListener('change', atualizarCampoCredito);
+    if (metodo) metodo.addEventListener('change', () => {
+        // Saindo da forma desativada (ver preencherDropdownMetodos): avisa que ela some deste menu ao salvar
+        const inativo = estadoApp.metodoInativoEdicao;
+        if (inativo && metodo.value !== inativo && !metodo.dataset.avisouInativo) {
+            metodo.dataset.avisouInativo = '1';
+            mostrarNotificacao(`"${inativo}" está desativada: trocando por outra forma, ela some deste menu (só volta se for reativada em Configurações > Menus)`, 'info');
+        }
+        if (metodo.value === inativo) delete metodo.dataset.avisouInativo;
+        atualizarCampoCredito();
+    });
 
     // Apagar o lançamento direto da tela de edição
     const excluirEdicao = document.getElementById('excluirEdicao');
@@ -446,6 +455,10 @@ function sincronizarBotoesTopo() {
     document.getElementById('btnRecentes')?.classList.toggle('active', recentesNaFrente);
     const ativa = document.querySelector('.tab-content.active')?.id;
     document.querySelectorAll('.acoes-topo [data-tab]').forEach(b => b.classList.toggle('active', !buscaNaFrente && b.dataset.tab === ativa));
+    // Mesmos destaques nos ícones da barra compacta (2ª linha do topo ao rolar)
+    document.getElementById('miniRecentes')?.classList.toggle('active', recentesNaFrente);
+    [['miniRecorrencias', 'recorrencias'], ['miniProximos', 'proximas'], ['miniLixeira', 'lixeira']].forEach(([id, aba]) =>
+        document.getElementById(id)?.classList.toggle('active', !buscaNaFrente && aba === ativa));
 }
 
 function fecharAbas() {
