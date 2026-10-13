@@ -1606,3 +1606,32 @@ document.addEventListener('click', e => {
     else if (botao.closest('#proximas')) atualizarProximasTransacoes();
     else atualizarSaidasLista();
 }, true);
+
+/** Regra dos grupos, em QUALQUER nível (grupo, subgrupo, fatura, mês...): quem tem um único filho (e nenhum lançamento
+ *  solto ao lado) já mostra esse filho aberto e fixo — não há escolha a fazer ali. Roda sozinha depois de cada render
+ *  (MutationObserver), então vale para todas as telas sem cada uma repetir a regra. */
+const _SEL_NO_GRUPO = 'details.rec-grupo, details.subgrupo, details.fatura-item, .subgrupo--unico';
+function _abrirFilhosUnicos(raiz = document) {
+    raiz.querySelectorAll(_SEL_NO_GRUPO).forEach(pai => {
+        const meus = sel => [...pai.querySelectorAll(sel)].filter(el => el.parentElement.closest(_SEL_NO_GRUPO) === pai);
+        const filhos = meus(_SEL_NO_GRUPO);
+        const soltos = meus('.despesa-item, .lixeira-item');
+        const unico = filhos.length === 1 && !soltos.length ? filhos[0] : null;
+        filhos.forEach(f => {
+            const fixo = f === unico && f.tagName === 'DETAILS';
+            if (fixo && !f.open) f.open = true;
+            f.classList.toggle('grupo-fixo', fixo);
+        });
+    });
+}
+let _abrirFilhosAgendado = false;
+new MutationObserver(() => {
+    if (_abrirFilhosAgendado) return;
+    _abrirFilhosAgendado = true;
+    queueMicrotask(() => { _abrirFilhosAgendado = false; _abrirFilhosUnicos(); });
+}).observe(document.documentElement, { childList: true, subtree: true });
+// Filho fixo não fecha: o clique no cabeçalho dele não faz nada (os botões dentro do cabeçalho seguem funcionando)
+document.addEventListener('click', e => {
+    const s = e.target.closest('summary');
+    if (s && s.parentElement.classList.contains('grupo-fixo') && !e.target.closest('button, a, input, select, [role="button"]')) e.preventDefault();
+}, true);
