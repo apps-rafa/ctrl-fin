@@ -835,7 +835,9 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     const corpoPorForma = (itens, nomeGrupo) => {
         // Só uma forma de pagamento: sem caixinha recolhível, mas o cartãozinho (nome e cor da forma) continua aparecendo
         const formas = new Set(itens.map(t => chaveFormaDe(t, nomeGrupo)));
-        if (formas.size === 1) {
+        // ...e só se não houver fatura ao lado no mesmo grupo (aí são 2+ subgrupos: todos recolhíveis)
+        const nFaturas = nomeGrupo === nomeAtual ? pagasFat.length : (nomeGrupo === rotuloPendente ? abertasFat.length : 0);
+        if (formas.size === 1 && !nFaturas) {
             const forma = [...formas][0];
             const opts = { semRelogio: nomeGrupo === rotuloPendente, ..._optsSemChipRedundante(itens, 'metodo', forma) };
             const cor = coresMetodo[forma] || corPadraoChip(forma);
@@ -1065,7 +1067,7 @@ function _renderItensSubagrupados(itens, tipoUI, dimCfg, abertos, chavePrefixo, 
         .map(([nome, its]) => [nome, _ordenarPorGrupo(its, `${chavePrefixo}:sub:${nome}`), its.reduce((s, t) => s + valorDe(t), 0)])
         .sort((a, b) => b[2] - a[2]);
     // Regra de subgrupos: um único subgrupo e nenhum lançamento solto não ganha a caixinha recolhível (cabeçalho fixo, ver _subgrupoUnico)
-    if (grupos.length === 1 && !soltos.length) {
+    if (grupos.length === 1 && !soltos.length && !extraIrmaos) {
         const [nome, its] = grupos[0];
         const cor = (dimCfg.corDe ? dimCfg.corDe(nome) : null) || corPadraoChip(nome);
         return _subgrupoUnico(nome, its, cor, totalRef, _htmlListaComSemanal(its, t => gerarHTMLTransacao(t, tipoUI, { ...baseOpts, ..._optsSemChipRedundante(its, dimCfg.campoChip, nome) }), cor, tipoUI));
