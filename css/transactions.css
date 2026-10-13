@@ -877,3 +877,6 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 /* Subgrupo aberto: contorno na cor da sua seta (o mesmo anel da fatura/semanal) pra ver onde começa e onde termina; o mês do Anual já tem caixa própria */
 .subgrupo[open]:not([data-mes]) { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cor-rec, var(--primary)) 55%, var(--border)); border-radius: var(--radius-sm); margin: .35rem 0; padding-bottom: .15rem; }
 .subgrupo[open]:not([data-mes]) > .subgrupo-cab { border-bottom-color: color-mix(in srgb, var(--cor-rec, var(--primary)) 40%, var(--border)); }
+/* Filho único de um grupo (qualquer nível): já aberto e sem recolher (ver _abrirFilhosUnicos em js/ui.js) */
+details.grupo-fixo > summary { cursor: default; }
+details.grupo-fixo > summary::before, details.grupo-fixo > .subgrupo-cab::before { content: none; }
