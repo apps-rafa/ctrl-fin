@@ -14,6 +14,7 @@
 let _emlVinculos = [];
 let _emlRecs = [];        // recorrências de despesa (as que recebem conta por e-mail)
 let _emlEditandoId = null;
+let _emlTemSegredo = false;   // já existe segredo pessoal do script (no banco só o hash)
 let _emlEmailCadastro = ''; // e-mail do login (já confirmado no cadastro); vazio no modo teste
 
 const _emlEsc = s => escaparHtml(String(s ?? ''));
@@ -22,7 +23,7 @@ async function iniciarEmailsContas() {
     const sec = document.getElementById('secEmails');
     if (!sec) return;
     const [cfg, vinc, recs, usuario] = await Promise.all([
-        sb.from('email_contas_config').select('email, usar_cadastro').maybeSingle(),
+        sb.from('email_contas_config').select('email, usar_cadastro, segredo_hash').maybeSingle(),
         sb.from('email_contas_vinculos').select('id, remetente, palavra, recorrencia_id').order('id'),
         listarRecorrenciasAPI(),
         sb.auth.getUser(),
@@ -31,7 +32,9 @@ async function iniciarEmailsContas() {
     _emlVinculos = vinc.data || [];
     _emlRecs = (recs.data || []).filter(r => r.tipo === 'saidas');
     _emlEditandoId = null;
+    _emlTemSegredo = !!cfg.data?.segredo_hash;
     sec.innerHTML = _emlHtml(cfg.data?.email || '', !!cfg.data?.usar_cadastro && !!_emlEmailCadastro);
+    _emlRenderSegredo();
     _emlRenderLista();
     _emlLigar(sec);
 }
@@ -84,9 +87,9 @@ function _emlHtml(email, usarCadastro) {
             <li>No Gmail, crie o rótulo <b>Contas</b> e um filtro que aplique esse rótulo aos e-mails das suas contas.</li>
             <li><a href="scripts/gmail-contas.gs" download="gmail-contas.gs">⬇️ Baixe o script <b>gmail-contas.gs</b></a>, abra o arquivo (no Bloco de Notas, por exemplo) e copie todo o texto.</li>
             <li>Abra <a href="https://script.google.com" target="_blank" rel="noopener"><b>script.google.com</b></a> &rarr; <b>Novo projeto</b>, apague o que estiver no editor e cole o texto copiado.</li>
-            <li>Na linha <code>var SEGREDO</code>, troque o texto entre aspas pelo segredo do bot (peça ao administrador do app).</li>
-            <li>Escolha a função <b>instalar</b> e clique em <b>Executar</b>; aceite as permissões do Google (Gmail, seu endereço de e-mail e conexão externa).</li>
-            <li>Já instalou antes? Cole a versão nova do script e rode <b>instalar</b> de novo: ela informa de qual Gmail veio a conta (necessário para quem não usa o Telegram).</li>
+            <li>Na linha <code>var SEGREDO</code>, troque o texto entre aspas pelo <b>seu segredo</b>:<div id="emlSegredo" class="eml-segredo"></div></li>
+            <li>Escolha a função <b>instalar</b> e clique em <b>Executar</b>; aceite as permissões do Google (Gmail e conexão externa).</li>
+            <li>Já instalou com o segredo antigo (o que o administrador passava)? Troque pelo seu segredo e rode <b>instalar</b> de novo: é ele que diz ao app que a conta é sua.</li>
             <li>Pronto: a cada 5 minutos, os e-mails com <b>Contas</b> vão para o bot e ganham o rótulo <b>Contas/enviado</b>.</li>
         </ol>`;
 }
@@ -196,4 +199,52 @@ function _emlLigar(sec) {
             });
         }
     });
+}
+
+/* ---------- Segredo pessoal do script do Gmail ----------
+ * Diz ao bot de quem é a conta (ninguém manda conta "em nome" de outra pessoa). Gerado aqui no aparelho; no banco
+ * fica só o hash SHA-256 (email_contas_config.segredo_hash), então ele aparece uma vez só — gerar outro invalida
+ * o anterior (o script com o antigo para de ser aceito). */
+
+function _emlRenderSegredo(segredoNovo) {
+    const el = document.getElementById('emlSegredo');
+    if (!el) return;
+    if (segredoNovo) {
+        el.innerHTML = `
+            <div class="eml-segredo-linha">
+                <input type="text" id="emlSegredoValor" readonly value="${_emlEsc(segredoNovo)}" aria-label="Seu segredo">
+                <button type="button" class="btn-submit eml-btn" id="emlSegredoCopiar">Copiar</button>
+            </div>
+            <p class="eml-status">Copie agora: por segurança ele não aparece de novo (no app fica guardada só uma versão cifrada).</p>`;
+        document.getElementById('emlSegredoCopiar').onclick = async () => {
+            const campo = document.getElementById('emlSegredoValor');
+            try { await navigator.clipboard.writeText(campo.value); } catch (_) { campo.select(); document.execCommand('copy'); }
+            mostrarNotificacao('Segredo copiado');
+        };
+        return;
+    }
+    el.innerHTML = _emlTemSegredo
+        ? `<p class="eml-status">✅ Você já gerou o seu segredo (ele não aparece de novo). Perdeu? <button type="button" class="eml-link" id="emlSegredoGerar">Gerar outro</button> — o anterior para de funcionar.</p>`
+        : `<button type="button" class="btn-submit eml-btn eml-segredo-gerar" id="emlSegredoGerar">🔑 Gerar meu segredo</button>`;
+    document.getElementById('emlSegredoGerar').onclick = _emlGerarSegredo;
+}
+
+function _emlGerarSegredo() {
+    if (!_emlTemSegredo) return _emlGerarSegredoDeFato();
+    mostrarDialogo({
+        titulo: 'Gerar outro segredo?',
+        texto: 'O script que usa o segredo atual para de funcionar até você colar o novo nele.',
+        acoes: [{ label: 'Cancelar' }, { label: 'Gerar outro', primario: true, perigo: true, onClick: _emlGerarSegredoDeFato }],
+    });
+}
+
+async function _emlGerarSegredoDeFato() {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    const segredo = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(segredo)))]
+        .map(b => b.toString(16).padStart(2, '0')).join('');
+    const { error } = await sb.from('email_contas_config').upsert({ segredo_hash: hash, atualizado_em: new Date().toISOString() }, { onConflict: 'user_id' });
+    if (error) { console.error(error); return mostrarNotificacao('Erro ao gerar o segredo', 'erro'); }
+    _emlTemSegredo = true;
+    _emlRenderSegredo(segredo);
 }
