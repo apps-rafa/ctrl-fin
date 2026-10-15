@@ -88,3 +88,9 @@ export async function enviarPush(admin: Admin, userId: string, aviso: AvisoPush)
     return 0;
   }
 }
+
+/** SHA-256 em hex — o segredo pessoal do script do Gmail é guardado (e procurado) só assim (email_contas_config.segredo_hash). */
+export async function sha256Hex(texto: string): Promise<string> {
+  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", txt(texto)));
+  return [...h].map((b) => b.toString(16).padStart(2, "0")).join("");
+}

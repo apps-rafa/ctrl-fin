@@ -1293,6 +1293,11 @@ summary [role="button"] { font-family: Arial; text-align: center; }
 .eml-linha .eml-btn { flex: 0 0 auto; width: auto; padding: calc(0.5rem + 1px) 1.1rem; font-size: 0.82rem; line-height: 1.2; }
 .eml-cadastro { display: flex; align-items: center; gap: .4rem; margin: -.4rem 0 .5rem; font-size: .85rem; color: var(--text); cursor: pointer; }
 .eml-linha input[readonly] { opacity: .75; }
+.eml-segredo { margin-top: .35rem; }
+.eml-segredo-linha { display: flex; gap: .5rem; }
+.eml-segredo-linha input { flex: 1 1 auto; min-width: 0; font-family: monospace; font-size: .8rem; padding: .5rem .6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); }
+.eml-segredo .eml-status { margin: .35rem 0 0; }
+.eml-link { background: none; border: none; padding: 0; color: var(--primary); text-decoration: underline; cursor: pointer; font: inherit; }
 .eml-status { margin: -.4rem 0 .8rem; font-size: .8rem; color: var(--text-muted); }
 .eml-form { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-bottom: .6rem; }
 .eml-form .eml-campo-rec, .eml-form .eml-acoes { grid-column: 1 / -1; }

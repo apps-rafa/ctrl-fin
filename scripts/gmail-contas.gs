@@ -3,7 +3,7 @@
  *
  * Instalar (uma vez só, ~2 minutos):
  *  1) script.google.com -> Novo projeto -> cole este arquivo.
- *  2) Logo abaixo, na linha "var SEGREDO" (e SÓ nela), troque o texto entre aspas pelo segredo que o Claude te passou (a URL já está certa).
+ *  2) Logo abaixo, na linha "var SEGREDO" (e SÓ nela), troque o texto entre aspas pelo SEU segredo, gerado no app em Configurações > E-mails (a URL já está certa).
  *  3) Selecione a função "instalar" e clique em Executar. O Google pede autorização (Gmail e conexão externa): aceite.
  *     Isso guarda a configuração e cria sozinho o acionador que roda "processarContas" a cada 5 minutos.
  *  4) (opcional) Apague o segredo do código depois de rodar "instalar": ele já fica guardado nas propriedades do script.
@@ -53,7 +53,6 @@ function processarContas() {
         headers: { 'x-email-secret': segredo },
         muteHttpExceptions: true,
         payload: JSON.stringify({
-          conta: Session.getEffectiveUser().getEmail(), // diz ao app de quem é a conta (o Gmail salvo em Configurações > E-mails)
           messageId: m.getId(),
           from: m.getFrom(),
           subject: m.getSubject(),
