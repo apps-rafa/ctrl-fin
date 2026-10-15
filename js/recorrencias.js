@@ -16,7 +16,6 @@ function mapearRecorrencia(r) {
         criadoEm: String(r.inicio).slice(0, 7), status: r.status, encerradaEm: r.encerrada_em,
         ativaDesde: String(r.ativa_desde || r.inicio).slice(0, 7), // início da ativação mais recente
         competenciaOffset: Number(r.competencia_offset || 0),      // -1 anterior, 0 mesmo mês, 1 seguinte
-        remetentes: r.remetentes || '',                            // e-mail(s) da conta: liga o e-mail da conta a esta recorrência
     };
 }
 
@@ -176,7 +175,7 @@ function _recElementos() {
     const $ = id => document.getElementById(id);
     return {
         painel: $('recForm'), lista: $('recLista'), btnCriar: $('recBtnCriar'), aviso: $('recAviso'), tipo: $('recTipo'),
-        inicio: $('recInicio'), competencia: $('recCompetencia'), remetentes: $('recRemetentes'), freq: $('recFrequencia'), diaGrupo: $('recDiaSemanaGrupo'), dia: $('recDiaSemana'), valor: $('recValor'),
+        inicio: $('recInicio'), competencia: $('recCompetencia'), freq: $('recFrequencia'), diaGrupo: $('recDiaSemanaGrupo'), dia: $('recDiaSemana'), valor: $('recValor'),
         duracao: $('recDuracao'), total: $('recTotal'), metodo: $('recMetodo'), categoria: $('recCategoria'),
         descricao: $('recDescricao'), erro: $('recErro'),
     };
@@ -410,7 +409,6 @@ function abrirFormRecorrencia(rec) {
     e.categoria.value = rec ? rec.categoria : '';
     e.descricao.value = rec ? rec.descricao : '';
     e.competencia.value = String(rec ? rec.competenciaOffset || 0 : 0);
-    e.remetentes.value = rec ? rec.remetentes : '';
     _recPreencherInicio(rec ? String(rec.inicio).slice(0, 7) : null, !!rec);
     atualizarFormRecorrencia();
     requestAnimationFrame(atualizarFormRecorrencia); // depois do layout, p/ medir as larguras reais
@@ -461,7 +459,6 @@ async function salvarRecorrencia(ev) {
         valor, meses: _recMesesDe(_recDuracaoAtual()) || null, metodo: e.metodo.value, categoria: e.categoria.value,
         descricao: e.descricao.value.trim(),
         competencia_offset: Number(e.competencia.value) || 0,
-        remetentes: [...new Set(e.remetentes.value.split(/[,;\n]/).map(t => t.trim().toLowerCase()).filter(Boolean))].join('; '), // vários e-mails separados por ; (sem repetir)
     };
     const btn = e.painel.querySelector('.rec-btn-salvar');
     btn.disabled = true;

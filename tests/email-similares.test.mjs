@@ -8,7 +8,7 @@ const adminCom = (linhas) => {
   const q = { select: () => q, eq: () => q, gte: () => q, lte: () => q, order: () => Promise.resolve({ data: linhas }) };
   return { from: () => q };
 };
-const rec = { id: 4, descricao: "Internet Predial", categoria: "Casa", remetentes: "" };
+const rec = { id: 4, descricao: "Internet Predial", categoria: "Casa" };
 const t = (o) => ({ id: 1, data: "2026-10-26", valor: 99.9, descricao: "Internet Predial", categoria: "Casa", recorrencia_id: null, ...o });
 
 test("parecido pela descrição (mesmas palavras da recorrência)", async () => {

@@ -260,6 +260,7 @@ async function carregarAbaMenus() {
           <button class="subtab" data-sub="fer">📅 <span class="subtab-texto">Feriados</span></button>
           <button class="subtab" data-sub="of">🏦 <span class="subtab-texto">Open Finance</span></button>
           <button class="subtab" data-sub="notif">🔔 <span class="subtab-texto">Notificações</span></button>
+          <button class="subtab" data-sub="emails">📧 <span class="subtab-texto">E-mails</span></button>
           <button class="subtab" data-sub="dados">💾 <span class="subtab-texto">Dados</span></button>
         </div>
       </div>
@@ -273,6 +274,8 @@ async function carregarAbaMenus() {
       ${htmlSecaoNotificacoes()}
 
       ${htmlSecaoOpenFinance()}
+
+      <div class="menu-section" data-sub="emails" hidden id="secEmails"></div>
 
       <div class="menu-section" data-sub="dados" hidden id="secDados"></div>
 
@@ -305,6 +308,7 @@ async function carregarAbaMenus() {
 
   iniciarPluggy();
   carregarModulo('dados').then(() => iniciarDados()).catch(err => mostrarNotificacao(err.message, 'erro'));
+  carregarModulo('emails-contas').then(() => iniciarEmailsContas()).catch(err => mostrarNotificacao(err.message, 'erro'));
 }
 
 let feriadosAnoView = new Date().getFullYear();

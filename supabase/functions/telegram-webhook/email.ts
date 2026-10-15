@@ -11,7 +11,9 @@ import { responderDecisaoParecido, acaoDe } from "./decisao-parecido.ts";
 import { hojeBrasiliaISO, somarDiasISO, normalizarTexto, type RascunhoLancamento } from "./parser.ts";
 
 export interface EmailConta { messageId: string; from: string; subject: string; body: string }
-export interface RecorrenciaEmail { id: number; descricao: string; categoria: string; remetentes: string }
+export interface RecorrenciaEmail { id: number; descricao: string; categoria: string }
+/** Vínculo cadastrado em ⚙️ Configurações > E-mails (tabela email_contas_vinculos): remetente e/ou palavra do assunto -> recorrência. */
+export interface VinculoEmail { remetente: string; palavra: string; recorrencia_id: number }
 export interface OcorrenciaEmail { id: number; data: string; valor: number | string }
 
 const numeroBR = (s: string) => parseFloat(s.replace(/\./g, "").replace(",", "."));
@@ -50,12 +52,18 @@ export function extrairDadosConta(textoBruto: string, hoje = hojeBrasiliaISO()):
   return { valor, vencimento };
 }
 
-/** Recorrência cujo "remetente/palavras" aparece no remetente ou no assunto do e-mail. */
-export function recorrenciaDoEmail(recs: RecorrenciaEmail[], from: string, subject: string): RecorrenciaEmail | null {
-  const alvo = normalizarTexto(`${from} ${subject}`);
-  for (const r of recs) {
-    const termos = String(r.remetentes || "").split(/[,;\n]/).map((t) => normalizarTexto(t).trim()).filter(Boolean);
-    if (termos.some((t) => alvo.includes(t))) return r;
+/** Recorrência do vínculo que casa com o e-mail: remetente contido no "De", palavra contida no assunto (com os dois
+ *  preenchidos, precisam casar os dois). Vínculo com os dois campos ganha do que tem um só (é mais específico). */
+export function recorrenciaDoEmail(recs: RecorrenciaEmail[], vinculos: VinculoEmail[], from: string, subject: string): RecorrenciaEmail | null {
+  const de = normalizarTexto(from), assunto = normalizarTexto(subject);
+  const completo = (v: VinculoEmail) => Number(!!(v.remetente && v.palavra));
+  const casam = vinculos.filter((v) => {
+    const rem = normalizarTexto(v.remetente || "").trim(), pal = normalizarTexto(v.palavra || "").trim();
+    return (rem || pal) && (!rem || de.includes(rem)) && (!pal || assunto.includes(pal));
+  }).sort((a, b) => completo(b) - completo(a));
+  for (const v of casam) {
+    const r = recs.find((x) => x.id === v.recorrencia_id);
+    if (r) return r;
   }
   return null;
 }
@@ -130,13 +138,14 @@ export async function processarEmailConta(
   const marcar: Marcar = (status, extra = {}) =>
     admin.from("emails_processados").update({ status, ...extra }).eq("user_id", userId).eq("message_id", e.messageId);
 
-  const { data: recs } = await admin.from("recorrencias").select("id, descricao, categoria, remetentes, tipo")
+  const { data: recs } = await admin.from("recorrencias").select("id, descricao, categoria, tipo")
     .eq("user_id", userId).eq("status", "ativa");
+  const { data: vincs } = await admin.from("email_contas_vinculos").select("remetente, palavra, recorrencia_id").eq("user_id", userId);
   const despesas = ((recs ?? []) as (RecorrenciaEmail & { tipo: string })[]).filter((r) => r.tipo === "saidas");
-  const rec = recorrenciaDoEmail(despesas, e.from, e.subject) ?? recorrenciaPorPalavras(despesas, e.from, e.subject, e.body);
+  const rec = recorrenciaDoEmail(despesas, (vincs ?? []) as VinculoEmail[], e.from, e.subject) ?? recorrenciaPorPalavras(despesas, e.from, e.subject, e.body);
   if (!rec) {
     await marcar("sem_recorrencia");
-    await tg(token, "sendMessage", { chat_id: chatId, text: `📧 E-mail de ${nomeCurto(e.from)} — "${e.subject.slice(0, 80)}"\nNão consegui ligar a nenhuma recorrência. Cadastre o e-mail da conta na recorrência (campo "E-mail da conta") para eu vincular da próxima vez.` });
+    await tg(token, "sendMessage", { chat_id: chatId, text: `📧 E-mail de ${nomeCurto(e.from)} — "${e.subject.slice(0, 80)}"\nNão consegui ligar a nenhuma recorrência. Cadastre o remetente ou uma palavra do assunto em ⚙️ Configurações > E-mails para eu vincular da próxima vez.` });
     return { ok: true, status: "sem_recorrencia" };
   }
 
@@ -309,7 +318,7 @@ export async function tratarDecisaoEmail(
     },
     outro: async () => {
       await marcar("outro");
-      const { data: rec } = await admin.from("recorrencias").select("id, descricao, categoria, remetentes").eq("id", linha!.recorrencia_id).maybeSingle();
+      const { data: rec } = await admin.from("recorrencias").select("id, descricao, categoria").eq("id", linha!.recorrencia_id).maybeSingle();
       if (rec) await executarConta(admin, token, userId!, chatId, rec as RecorrenciaEmail, { valor: pend().valor ?? null, vencimento: pend().vencimento ?? null }, marcar, []);
     },
   });
