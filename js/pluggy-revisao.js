@@ -759,7 +759,7 @@ async function importarProntasPluggy() {
             // Se a Pluggy ligou a compra a uma fatura, vale o mês dessa fatura.
             const competencia = item.competencia_fatura
                 ? String(item.competencia_fatura).slice(0, 10)
-                : competenciaDe(item.data, metodoObj && metodoObj.metodoKind === 'Crédito' ? metodoObj.diaFechamento : null);
+                : competenciaDoCartao(item.data, metodoObj);
             // Reserva a linha antes de gravar (update condicional): se ela já foi confirmada/ignorada em outro lugar
             // (ex.: no Telegram, com esta tela aberta), não importa de novo.
             const { data: reservada, error: erroRes } = await sb.from('transacoes_importadas')

@@ -77,6 +77,27 @@ function competenciaDe(dataISO, diaFechamento) {
   return `${ano}-${String(mes + 1).padStart(2, '0')}-01`;
 }
 
+/**
+ * Competência de uma compra no cartão considerando o fechamento manual da fatura
+ * (checkbox "Fatura fechada", tabela faturas_fechadas) — mesma regra do bot (parser.ts):
+ * - fatura desmarcada (fechada=false) que o dia de fechamento tinha fechado: volta para o mês da data;
+ * - fatura fechada à mão: compra com data a partir do dia em que ela foi fechada vai para a fatura seguinte.
+ * `fechamentos`: linhas { competencia, fechada, fechada_em } desse cartão.
+ */
+function competenciaComFechamento(dataISO, diaFechamento, fechamentos) {
+  const lista = fechamentos || [];
+  const doMes = c => lista.find(f => String(f.competencia).slice(0, 10) === c);
+  const natural = String(dataISO).slice(0, 7) + '-01';
+  let c = competenciaDe(dataISO, diaFechamento);
+  if (c !== natural && (doMes(natural) || {}).fechada === false) c = natural;
+  for (let i = 0; i < 12; i++) {
+    const f = doMes(c);
+    if (!f || !f.fechada || String(dataISO) < String(f.fechada_em).slice(0, 10)) break;
+    c = addMeses(c, 1);
+  }
+  return c;
+}
+
 /** 'YYYY-MM-DD' de hoje (local) */
 function hojeISO() {
   return formatarDataISO(new Date());
