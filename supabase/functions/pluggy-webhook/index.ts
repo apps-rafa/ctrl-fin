@@ -142,7 +142,7 @@ async function notificarTelegramNovas(
       const { casada, parecidos } = await analisarParecidos(supabaseAdmin, userId, { tipo: item.tipo, valor: Number(item.valor), data: String(item.data).slice(0, 10), texto: String(item.descricao_banco ?? "") });
       const achados = casada ? [casada] : parecidos;
       if (achados.length) {
-        await enviarMensagemTelegram(token, tgUser.chat_id, textoParecidos({ origem: "pluggy", titulo: limparLinks(item.descricao_banco || "Lançamento do banco"), valor: Number(item.valor), data: String(item.data).slice(0, 10), parecidos: achados }), tecladoParecidos("pluggy", item.id).inline_keyboard, false);
+        await enviarMensagemTelegram(token, tgUser.chat_id, textoParecidos({ origem: "pluggy", titulo: limparLinks(item.descricao_banco || "Lançamento do banco"), tipo: item.tipo === "entradas" ? "entradas" : "saidas", valor: Number(item.valor), data: String(item.data).slice(0, 10), parecidos: achados }), tecladoParecidos("pluggy", item.id).inline_keyboard, false);
         continue;
       }
     } catch (e) { console.error("parecidos (pluggy):", e); }

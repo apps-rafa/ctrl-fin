@@ -4,7 +4,7 @@
 
 import { tg } from "./util.ts";
 
-export type AcaoParecido = "ig" | "at" | "ou";
+export type AcaoParecido = "ig" | "eo" | "at" | "ou";
 
 export interface FonteParecido {
   /** Carrega o lançamento recebido; false = já foi resolvido (não faz nada). */
@@ -27,10 +27,11 @@ export async function responderDecisaoParecido(
   const responder = (text: string) => tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text });
   const editar = (texto: string) => tg(token, "editMessageText", { chat_id: chatId, message_id: cq.message.message_id, text: `${cq.message.text ?? ""}\n\n${texto}` });
   if (!(await fonte.carregar())) { await responder("Esse aviso já foi resolvido"); return; }
-  if (acao === "ig") {
+  // "É o mesmo" e "Cancelar" dão no mesmo (nada é lançado); só a resposta muda
+  if (acao === "ig" || acao === "eo") {
     await fonte.ignorar();
-    await responder("Cancelado");
-    await editar("❌ Cancelado — nada foi lançado");
+    await responder(acao === "eo" ? "Ok, é o mesmo" : "Cancelado");
+    await editar(acao === "eo" ? "✅ É o mesmo — nada foi lançado" : "❌ Cancelado — nada foi lançado");
     return;
   }
   if (acao === "at") {

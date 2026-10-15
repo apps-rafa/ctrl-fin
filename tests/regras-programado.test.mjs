@@ -96,7 +96,21 @@ test("aviso de parecido: mesmo texto e mesmos botões em qualquer origem (só mu
   const rotulos = (o) => tecladoParecidos(o, 5).inline_keyboard.flat().map((b) => b.text);
   assert.deepEqual(rotulos("sms"), rotulos("pluggy"));
   assert.deepEqual(rotulos("sms"), rotulos("email"));
-  assert.deepEqual(tecladoParecidos("pluggy", 5).inline_keyboard.flat().map((b) => b.callback_data), ["pgat:5", "pgou:5", "pgig:5"]);
+  assert.deepEqual(tecladoParecidos("pluggy", 5).inline_keyboard.flat().map((b) => b.callback_data), ["pgeo:5", "pgat:5", "pgou:5", "pgig:5"]);
+  assert.deepEqual(tecladoParecidos("pluggy", 5).inline_keyboard.map((l) => l.length), [2, 2]); // 4 botões: 2 por linha
+  assert.deepEqual(tecladoParecidos("email", 5, false).inline_keyboard.map((l) => l.map((b) => b.callback_data)), [["emeo:5", "emou:5", "emig:5"]]);
+  // o lançamento parecido aparece no formato padrão do bot
+  assert.match(textoParecidos({ origem: "email", titulo: "Mercado", valor: null, parecidos: p }), /⚠️ Já existe algo parecido:\n\n💸 Despesa\nValor: R\$\s?80,00\nData: 10\/10\/2026\nCategoria: Casa\nDescrição: Mercado\nForma de pgto\.: PIX/);
+});
+
+test("parecidos: uma palavra em comum (pedaço de outra) não basta — 'churras' x 'churrasquinhodajo'", async () => {
+  const taxi = tx({ id: 9, descricao: "Taxi pro churras", valor: 12.3, data: "2026-10-11" });
+  const r = await analisarParecidos(fake([taxi]), "u", { tipo: "saidas", valor: 41, data: "2026-10-14", texto: "Churrasquinhodajo" });
+  assert.deepEqual(r.parecidos, []);
+  const r2 = await analisarParecidos(fake([taxi]), "u", { tipo: "saidas", valor: 41, data: "2026-10-12", texto: "uber churras" });
+  assert.deepEqual(r2.parecidos, []); // só uma palavra do nome, sem o mesmo valor
+  const r3 = await analisarParecidos(fake([taxi]), "u", { tipo: "saidas", valor: 41, data: "2026-10-12", texto: "taxi pro churras" });
+  assert.deepEqual(r3.parecidos.map((p) => p.id), [9]); // nome inteiro em até 3 dias
 });
 
 // ---- Cliente: gravação de lançamento (api.js) e forma de pagamento padrão da receita (menus-api.js) ----

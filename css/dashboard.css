@@ -330,6 +330,9 @@
 }
 .mini-box.entradas { background: var(--receita-bg); color: var(--receita-text); border-color: var(--receita-border); }
 .mini-box.saidas   { background: var(--despesa-bg); color: var(--despesa-text); border-color: var(--despesa-border); }
+/* Selecionada (aba aberta): mesmo destaque dos ícones 🔁/🕓/⏰, na cor da própria caixa */
+.mini-box.entradas.active { border-color: var(--receita-text); outline: 2px solid var(--receita-text); outline-offset: -1px; }
+.mini-box.saidas.active   { border-color: var(--despesa-text); outline: 2px solid var(--despesa-text); outline-offset: -1px; }
 .mini-box.balanco  { background: var(--balanco-bg); color: var(--balanco-text); border-color: var(--balanco-border); }
 .mini-box.gasto-diario { background: var(--surface); color: var(--text); border-color: var(--border); }
 

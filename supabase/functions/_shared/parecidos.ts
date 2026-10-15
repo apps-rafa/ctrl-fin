@@ -22,7 +22,7 @@ const fmtDia = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
 /** Varre as despesas/receitas do mês da data (a confirmar, a pagar, pagas...) e as ocorrências de recorrência próximas.
  *  `casada` = ocorrência "a confirmar" de recorrência que bate com o lançamento (nome e/ou valor); `parecidos` = o resto
- *  que se parece (nome+valor, valor em até 3 dias, ou nome em até 3 dias). */
+ *  que se parece (palavra do nome + mesmo valor, mesmo valor em até 3 dias, ou nome inteiro em até 3 dias). */
 export async function analisarParecidos(
   admin: Admin, userId: string,
   q: { tipo: "entradas" | "saidas"; valor: number; data: string; texto: string },
@@ -34,11 +34,12 @@ export async function analisarParecidos(
     .select("id, descricao, categoria, valor, data, metodo, a_confirmar, recorrencia_id")
     .eq("user_id", userId).eq("tipo", q.tipo).gte("data", ini).lte("data", fim).order("data", { ascending: true });
   const lista = (todas ?? []) as ParecidoTx[];
-  const alvo = norm(q.texto);
+  // Compara PALAVRAS inteiras (4+ letras): "churras" não bate com "churrasquinhodajo"
+  const alvo = new Set(norm(q.texto).split(/[^a-z0-9]+/).filter((p) => p.length >= 4));
   const dias = (d: string) => Math.abs(Date.parse(`${d.slice(0, 10)}T00:00:00Z`) - Date.parse(`${q.data}T00:00:00Z`)) / 86400000;
   const nomeBate = (t: ParecidoTx) => {
     const palavras = norm(String(t.descricao ?? "")).split(/[^a-z0-9]+/).filter((p) => p.length >= 4);
-    return palavras.length === 0 ? 0 : palavras.every((p) => alvo.includes(p)) ? 2 : palavras.some((p) => alvo.includes(p)) ? 1 : 0;
+    return palavras.length === 0 ? 0 : palavras.every((p) => alvo.has(p)) ? 2 : palavras.some((p) => alvo.has(p)) ? 1 : 0;
   };
   const mesmoValor = (t: ParecidoTx) => Math.abs(Math.abs(Number(t.valor)) - Math.abs(q.valor)) < 0.5;
   const casadas = lista.filter((t) => t.a_confirmar && t.recorrencia_id)
@@ -46,31 +47,46 @@ export async function analisarParecidos(
     .filter((x) => x.p > 0).sort((x, y) => y.p - x.p || dias(x.t.data) - dias(y.t.data));
   if (casadas.length) return { casada: casadas[0].t, parecidos: [] };
   const parecidos = lista.filter((t) => t.data.slice(0, 7) === mes &&
-    ((nomeBate(t) > 0 && mesmoValor(t)) || (mesmoValor(t) && dias(t.data) <= 3) || (nomeBate(t) > 0 && dias(t.data) <= 3))).slice(0, 3);
+    // Uma palavra só em comum NÃO basta: nome parcial precisa do mesmo valor; sem o valor, o nome tem que bater inteiro (em até 3 dias)
+    ((nomeBate(t) > 0 && mesmoValor(t)) || (mesmoValor(t) && dias(t.data) <= 3) || (nomeBate(t) >= 2 && dias(t.data) <= 3))).slice(0, 3);
   return { casada: null, parecidos };
 }
 
+const fmtDataLonga = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+
+/** Lançamento que já existe, no MESMO formato da resposta padrão do bot (Despesa/Valor/Data/Categoria/Descrição/Forma). */
+function blocoLancamento(t: ParecidoTx, tipo: "entradas" | "saidas"): string {
+  return [
+    tipo === "entradas" ? "💰 Receita" : "💸 Despesa",
+    `Valor: ${moeda(Math.abs(Number(t.valor)))}`,
+    `Data: ${fmtDataLonga(String(t.data))}${t.a_confirmar ? " (a confirmar)" : ""}`,
+    `Categoria: ${t.categoria}`,
+    `Descrição: ${t.descricao || "(em branco)"}`,
+    `Forma de pgto.: ${t.metodo || "—"}`,
+  ].join("\n");
+}
+
 /** Texto do aviso (igual para toda origem; só a primeira linha muda). */
-export function textoParecidos(p: { origem: OrigemAviso; titulo: string; valor: number | null; data?: string | null; detalhe?: string; parecidos: ParecidoTx[] | Record<string, unknown>[] }): string {
-  const lista = (p.parecidos as ParecidoTx[]).slice(0, 3).map((t) =>
-    `• ${t.descricao || t.categoria} — ${moeda(Number(t.valor))} em ${fmtDia(String(t.data))}${t.a_confirmar ? " (a confirmar)" : ""}${t.metodo ? ` · ${t.metodo}` : ""}`).join("\n");
+export function textoParecidos(p: { origem: OrigemAviso; titulo: string; valor: number | null; data?: string | null; detalhe?: string; tipo?: "entradas" | "saidas"; parecidos: ParecidoTx[] | Record<string, unknown>[] }): string {
+  const lista = (p.parecidos as ParecidoTx[]).slice(0, 3).map((t) => blocoLancamento(t, p.tipo ?? "saidas")).join("\n\n");
   const cab = `${ROTULO[p.origem]}: ${p.titulo}${p.valor !== null ? ` — ${moeda(p.valor)}` : ""}${p.data ? ` · ${fmtDia(p.data)}` : ""}${p.detalhe ? ` · ${p.detalhe}` : ""}`;
-  return `${cab}\n⚠️ Já existe algo parecido:\n${lista}\n\nÉ o mesmo?`;
+  return `${cab}\n⚠️ Já existe algo parecido:\n\n${lista}\n\nÉ o mesmo?`;
 }
 
 /** Botões do aviso (iguais para toda origem). `id` = o que identifica o lançamento recebido naquela origem. */
 export function tecladoParecidos(origem: OrigemAviso, id: number | string, podeAtualizar = true) {
   const p = PREFIXO[origem];
-  // Uma linha: Atualizar (muda o lançamento que já existe) | Criar novo (mantém o existente e cria outro) | Cancelar
-  // (todo menu do bot termina com Cancelar: aqui é o "ig" — nada é lançado e o aviso é dado como resolvido)
-  return { inline_keyboard: [[
+  // É o mesmo (nada é lançado) | Atualizar (o existente recebe valor/data novos) | Criar novo | Cancelar.
+  // 4 botões: 2 por linha (sem item sozinho); 3: uma linha só.
+  const botoes = [
+    { text: "✅ É o mesmo", callback_data: `${p}eo:${id}` },
     ...(podeAtualizar ? [{ text: "🔄 Atualizar", callback_data: `${p}at:${id}` }] : []),
     { text: "➕ Criar novo", callback_data: `${p}ou:${id}` },
     { text: "❌ Cancelar", callback_data: `${p}ig:${id}` },
-  ]] };
+  ];
+  return { inline_keyboard: botoes.length === 4 ? [botoes.slice(0, 2), botoes.slice(2)] : [botoes] };
 }
 
-/** Aviso padrão de lançamento novo vindo do banco (Pluggy), com Confirmar/Ignorar. */
 /** Texto para mensagem com parse_mode HTML: descrição do banco com "_", "*", "<"... nunca quebra o envio. */
 const escHtml = (s: string) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -89,9 +105,11 @@ export function montarAvisoPluggy(
     item.categoria_sugerida ? `Categoria sugerida: ${escHtml(item.categoria_sugerida)}` : "Sem sugestão de categoria — confirme pelo app",
     metodoTxt ? `Método: ${escHtml(metodoTxt)}` : null,
   ].filter(Boolean).join("\n");
-  const botoes = item.categoria_sugerida
-    // Ignorar descarta a transação; Cancelar só fecha o aviso (ela segue na fila de revisão do app)
-    ? [[{ text: "✅ Confirmar", callback_data: `confirmar:${item.id}` }, { text: "🚫 Ignorar", callback_data: `ignorar:${item.id}` }, { text: "❌ Cancelar", callback_data: "cancelar" }]]
-    : [[{ text: "🚫 Ignorar", callback_data: `ignorar:${item.id}` }, { text: "❌ Cancelar", callback_data: "cancelar" }]];
+  // ✏️ Editar vira rascunho (com o formulário); ❌ Cancelar descarta a transação — e deixa ♻️ Resgatar pra voltar atrás
+  const botoes = [[
+    ...(item.categoria_sugerida ? [{ text: "✅ Confirmar", callback_data: `confirmar:${item.id}` }] : []),
+    { text: "✏️ Editar", callback_data: `pgeditar:${item.id}` },
+    { text: "❌ Cancelar", callback_data: `ignorar:${item.id}` },
+  ]];
   return { texto, botoes };
 }

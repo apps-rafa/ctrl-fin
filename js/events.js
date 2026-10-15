@@ -459,6 +459,9 @@ function sincronizarBotoesTopo() {
     document.getElementById('miniRecentes')?.classList.toggle('active', recentesNaFrente);
     [['miniRecorrencias', 'recorrencias'], ['miniProximos', 'proximas'], ['miniLixeira', 'lixeira']].forEach(([id, aba]) =>
         document.getElementById(id)?.classList.toggle('active', !buscaNaFrente && aba === ativa));
+    // Caixas de Receita/Despesa da barra compacta: destacadas quando a aba delas está aberta
+    [['.mini-box.entradas', 'entradas'], ['.mini-box.saidas', 'saidas']].forEach(([sel, aba]) =>
+        document.querySelector(sel)?.classList.toggle('active', !buscaNaFrente && aba === ativa));
 }
 
 function fecharAbas() {
