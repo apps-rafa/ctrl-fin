@@ -29,16 +29,34 @@ test("vários valores sem rótulo: não chuta", () => {
 });
 
 const recs = [
-  { id: 3, descricao: "Condomínio", categoria: "Casa", remetentes: "gestaoacpl@paulolucio.com.br" },
-  { id: 4, descricao: "Internet Predial", categoria: "Casa", remetentes: "fatura@faturapredialnet.com.br" },
-  { id: 6, descricao: "Gás Naturgy", categoria: "Casa", remetentes: "conta.inteligente@naturgy.com, naturgy" },
-  { id: 12, descricao: "Luz Light", categoria: "Casa", remetentes: "faturadigital@lightvirtual.com.br" },
+  { id: 3, descricao: "Condomínio", categoria: "Casa" },
+  { id: 4, descricao: "Internet Predial", categoria: "Casa" },
+  { id: 6, descricao: "Gás Naturgy", categoria: "Casa" },
+  { id: 12, descricao: "Luz Light", categoria: "Casa" },
+];
+const vincs = [
+  { remetente: "gestaoacpl@paulolucio.com.br", palavra: "", recorrencia_id: 3 },
+  { remetente: "fatura@faturapredialnet.com.br", palavra: "", recorrencia_id: 4 },
+  { remetente: "conta.inteligente@naturgy.com", palavra: "", recorrencia_id: 6 },
+  { remetente: "", palavra: "naturgy", recorrencia_id: 6 },
+  { remetente: "faturadigital@lightvirtual.com.br", palavra: "", recorrencia_id: 12 },
+  { remetente: "", palavra: "recorrencia inativa", recorrencia_id: 99 },
 ];
 test("vínculo pelo remetente (com nome na frente, caixa e acento ignorados)", () => {
-  assert.equal(recorrenciaDoEmail(recs, "ACPL <GestaoACPL@paulolucio.com.br> via sendgrid.net", "Boleto").id, 3);
-  assert.equal(recorrenciaDoEmail(recs, "Light <faturadigital@lightvirtual.com.br>", "Sua fatura Light").id, 12);
-  assert.equal(recorrenciaDoEmail(recs, "x@y.com", "Sua conta NATURGY chegou").id, 6); // palavra no assunto
-  assert.equal(recorrenciaDoEmail(recs, "promo@loja.com", "Oferta"), null);
+  assert.equal(recorrenciaDoEmail(recs, vincs, "ACPL <GestaoACPL@paulolucio.com.br> via sendgrid.net", "Boleto").id, 3);
+  assert.equal(recorrenciaDoEmail(recs, vincs, "Light <faturadigital@lightvirtual.com.br>", "Sua fatura Light").id, 12);
+  assert.equal(recorrenciaDoEmail(recs, vincs, "x@y.com", "Sua conta NATURGY chegou").id, 6); // palavra no assunto
+  assert.equal(recorrenciaDoEmail(recs, vincs, "promo@loja.com", "Oferta"), null);
+  assert.equal(recorrenciaDoEmail(recs, vincs, "a@b.com", "Recorrência inativa"), null); // recorrência fora da lista
+});
+test("remetente + palavra: precisam casar os dois e ganham do vínculo só de remetente", () => {
+  const v = [
+    { remetente: "cobranca@banco.com", palavra: "", recorrencia_id: 3 },
+    { remetente: "cobranca@banco.com", palavra: "internet", recorrencia_id: 4 },
+  ];
+  assert.equal(recorrenciaDoEmail(recs, v, "cobranca@banco.com", "Fatura Internet outubro").id, 4);
+  assert.equal(recorrenciaDoEmail(recs, v, "cobranca@banco.com", "Boleto condomínio").id, 3);
+  assert.equal(recorrenciaDoEmail(recs, [v[1]], "outro@x.com", "Fatura Internet"), null);
 });
 
 const oc = (id, data) => ({ id, data, valor: 100 });
@@ -54,7 +72,7 @@ test("sem vencimento: a primeira de hoje (ou até 10 dias atrás) em diante", ()
 });
 
 test("sem remetente cadastrado: acha a recorrência pelas palavras da descrição", () => {
-  const semRem = recs.map((r) => ({ ...r, remetentes: "" }));
+  const semRem = recs;
   assert.equal(recorrenciaPorPalavras(semRem, "Condomínio Central <avisos@x.com>", "Lembrete: vencimento do condomínio", "").id, 3);
   assert.equal(recorrenciaPorPalavras(semRem, "faturadigital@lightvirtual.com.br", "Sua fatura", "Light Serviços de Eletricidade").id, 12);
   assert.equal(recorrenciaPorPalavras(semRem, "promo@loja.com", "Oferta imperdível", ""), null);

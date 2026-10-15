@@ -58,7 +58,7 @@
   ];
   window.__SEED__ = {
     user: { id: U, email: 'dev@local', is_anonymous: false },
-    tables: { menu_itens, transacoes, recorrencias, transacoes_importadas: [], feriados: [], pluggy_contas: [], lixeira: [], pluggy_credenciais: [], faturas_pagas: [], faturas_fechadas: [], telegram_users: [], pluggy_faturas: [] },
+    tables: { menu_itens, transacoes, recorrencias, transacoes_importadas: [], feriados: [], pluggy_contas: [], lixeira: [], pluggy_credenciais: [], faturas_pagas: [], faturas_fechadas: [], telegram_users: [], pluggy_faturas: [], email_contas_config: [], email_contas_vinculos: [{ id: 1, user_id: U, remetente: 'cobranca@financeira.com.br', palavra: '', recorrencia_id: 3 }] },
   };
 })();
 
