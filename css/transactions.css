@@ -760,6 +760,8 @@ body .despesa-item { padding-left: 1.55rem !important; }
 .fatura-virtual .fv-lado { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: .25rem; }
 .fatura-virtual .fv-valor { font-size: 1em; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .fatura-virtual .fv-btn { font-size: .66rem !important; font-weight: 600; padding: .12rem .55rem; background: transparent; color: var(--text-muted); border: 1px solid var(--border-strong, var(--border)); border-radius: 999px; cursor: pointer; }
+.fatura-virtual .fv-fechada { display: inline-flex; align-items: center; gap: .3rem; font-size: .66rem; font-weight: 600; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
+.fatura-virtual .fv-fechada input { margin: 0; accent-color: var(--primary); cursor: pointer; }
 .fatura-virtual .fv-btn.on { color: var(--primary); border-color: var(--primary); }
 .fatura-virtual.paga .fv-info b, .fatura-virtual.paga .fv-valor { text-decoration: line-through; opacity: .6; }
 @media (max-width: 600px) {
