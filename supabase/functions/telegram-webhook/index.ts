@@ -430,8 +430,16 @@ Deno.serve(async (req: Request) => {
     if (!corpo.messageId || !corpo.from) return json({ error: "messageId/from ausente" }, 400);
     const { data: usuarios } = await supabaseAdmin.from("telegram_users").select("user_id, chat_id");
     const lista = (usuarios ?? []) as { user_id: string; chat_id: number }[];
-    const alvo = corpo.chat_id ? lista.find((u) => u.chat_id === Number(corpo.chat_id)) : (lista.length === 1 ? lista[0] : undefined);
-    if (!alvo) return json({ error: "Telegram não vinculado (ou vários usuários: informe chat_id)" }, 400);
+    // Dono do e-mail: pela conta do Gmail que o script manda ("conta") cadastrada em ⚙️ Configurações > E-mails — funciona
+    // também sem Telegram (aí o aviso vai por notificação no aparelho); senão, como antes, chat_id ou o único vinculado.
+    let alvo: { user_id: string; chat_id: number | null } | undefined;
+    const conta = String(corpo.conta ?? "").trim().toLowerCase();
+    if (conta) {
+      const { data: cfg } = await supabaseAdmin.from("email_contas_config").select("user_id").eq("email", conta).limit(2);
+      if (cfg?.length === 1) alvo = { user_id: cfg[0].user_id, chat_id: lista.find((u) => u.user_id === cfg[0].user_id)?.chat_id ?? null };
+    }
+    if (!alvo) alvo = corpo.chat_id ? lista.find((u) => u.chat_id === Number(corpo.chat_id)) : (lista.length === 1 ? lista[0] : undefined);
+    if (!alvo) return json({ error: "Dono do e-mail não encontrado: salve o Gmail em Configurações > E-mails" }, 400);
     try {
       const r = await processarEmailConta(supabaseAdmin, token, alvo.user_id, alvo.chat_id, {
         messageId: String(corpo.messageId).slice(0, 300), from: String(corpo.from), subject: String(corpo.subject ?? ""), body: String(corpo.body ?? "").slice(0, 60000),

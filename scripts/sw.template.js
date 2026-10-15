@@ -70,3 +70,25 @@ self.addEventListener("fetch", (e) => {
   }
   if (url.hostname === "cdn.jsdelivr.net") return e.respondWith(cachePrimeiro(req));
 });
+
+// Notificação no aparelho (Web Push, para quem não usa o Telegram): o servidor manda {titulo, corpo, url, tag}
+// (supabase/functions/_shared/webpush.ts); tocar nela abre o app (ou traz para frente a aba já aberta).
+self.addEventListener("push", (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) { d = { corpo: e.data ? e.data.text() : "" }; }
+  e.waitUntil(self.registration.showNotification(d.titulo || "Controle Financeiro", {
+    body: d.corpo || "", tag: d.tag || undefined, renotify: !!d.tag,
+    icon: "img/icon-192.png", badge: "img/icon-192.png", data: { url: d.url || "./" },
+  }));
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const alvo = new URL((e.notification.data && e.notification.data.url) || "./", self.location).href;
+  e.waitUntil((async () => {
+    const abertas = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const aba = abertas.find((c) => c.url.startsWith(new URL("./", self.location).href));
+    if (aba) { await aba.focus(); return; }
+    await self.clients.openWindow(alvo);
+  })());
+});

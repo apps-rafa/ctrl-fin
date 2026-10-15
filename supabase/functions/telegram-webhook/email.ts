@@ -7,6 +7,7 @@ import type { createClient } from "npm:@supabase/supabase-js@2";
 import { tg, formatarMoedaBR, rotuloMetodo } from "./util.ts";
 import { enviarRascunho, carregarListasUsuario } from "./lancamentos.ts";
 import { textoParecidos, tecladoParecidos } from "../_shared/parecidos.ts";
+import { enviarPush } from "../_shared/webpush.ts";
 import { responderDecisaoParecido, acaoDe } from "./decisao-parecido.ts";
 import { hojeBrasiliaISO, somarDiasISO, normalizarTexto, type RascunhoLancamento } from "./parser.ts";
 
@@ -130,8 +131,16 @@ export async function buscarSimilares(admin: Admin, userId: string, rec: Recorre
   });
 }
 
+/** Avisa o usuário: pelo Telegram quando vinculado (chatId), senão por notificação no aparelho (Web Push). */
+function avisador(admin: Admin, token: string, userId: string, chatId: number | null) {
+  return (texto: string, extra: Record<string, unknown> = {}) => chatId
+    ? tg(token, "sendMessage", { chat_id: chatId, text: texto, ...extra })
+    : enviarPush(admin, userId, { titulo: "📧 Conta por e-mail", corpo: texto, url: "./", tag: "email-conta" });
+}
+
+/** chatId null = usuário sem Telegram: os avisos vão por notificação no aparelho e a conta fica no grupo "A confirmar" do app. */
 export async function processarEmailConta(
-  admin: Admin, token: string, userId: string, chatId: number, e: EmailConta,
+  admin: Admin, token: string, userId: string, chatId: number | null, e: EmailConta,
 ): Promise<{ ok: boolean; status: string }> {
   const { error: jaTem } = await admin.from("emails_processados").insert({ user_id: userId, message_id: e.messageId, remetente: e.from.slice(0, 200), assunto: e.subject.slice(0, 200), status: "recebido" });
   if (jaTem) return { ok: true, status: "duplicado" }; // mesmo e-mail nunca é processado duas vezes
@@ -145,7 +154,7 @@ export async function processarEmailConta(
   const rec = recorrenciaDoEmail(despesas, (vincs ?? []) as VinculoEmail[], e.from, e.subject) ?? recorrenciaPorPalavras(despesas, e.from, e.subject, e.body);
   if (!rec) {
     await marcar("sem_recorrencia");
-    await tg(token, "sendMessage", { chat_id: chatId, text: `📧 E-mail de ${nomeCurto(e.from)} — "${e.subject.slice(0, 80)}"\nNão consegui ligar a nenhuma recorrência. Cadastre o remetente ou uma palavra do assunto em ⚙️ Configurações > E-mails para eu vincular da próxima vez.` });
+    await avisador(admin, token, userId, chatId)(`📧 E-mail de ${nomeCurto(e.from)} — "${e.subject.slice(0, 80)}"\nNão consegui ligar a nenhuma recorrência. Cadastre o remetente ou uma palavra do assunto em ⚙️ Configurações > E-mails para eu vincular da próxima vez.`);
     return { ok: true, status: "sem_recorrencia" };
   }
 
@@ -164,6 +173,11 @@ export async function processarEmailConta(
     return { ok: true, status: "repetido" };
   }
 
+  // Sem Telegram não há botões para perguntar "é o mesmo?": segue com a conta e o aviso no aparelho pede para conferir.
+  if (!chatId) {
+    const parecido = !jaTratada.some((x) => x.status === "outro") && (await buscarSimilares(admin, userId, rec, dados, hoje)).length > 0;
+    return await executarConta(admin, token, userId, null, rec, dados, marcar, jaTratada, parecido);
+  }
   // Já existe um lançamento parecido? Pergunta se é o mesmo (não decidiu "é outro" antes).
   if (!jaTratada.some((x) => x.status === "outro")) {
     const similares = await buscarSimilares(admin, userId, rec, dados, hoje);
@@ -187,10 +201,12 @@ export async function processarEmailConta(
 
 /** Atualiza a ocorrência/lançamento da conta e manda o rascunho (ou o aviso de "a pagar" atualizado). */
 export async function executarConta(
-  admin: Admin, token: string, userId: string, chatId: number, rec: RecorrenciaEmail, dados: DadosConta, marcar: Marcar,
-  jaTratada: { transacao_id: number | null; status: string }[],
+  admin: Admin, token: string, userId: string, chatId: number | null, rec: RecorrenciaEmail, dados: DadosConta, marcar: Marcar,
+  jaTratada: { transacao_id: number | null; status: string }[], temParecido = false,
 ): Promise<{ ok: boolean; status: string }> {
   const hoje = hojeBrasiliaISO();
+  const avisar = avisador(admin, token, userId, chatId);
+  const notaParecido = temParecido ? "\n⚠️ Já existe um lançamento parecido: confira antes de confirmar." : "";
   const nome = rec.descricao || rec.categoria;
   const { data: ocs } = await admin.from("transacoes").select(CAMPOS)
     .eq("user_id", userId).eq("recorrencia_id", rec.id).eq("a_confirmar", true).order("data", { ascending: true });
@@ -217,7 +233,7 @@ export async function executarConta(
   if (!ocorrencia) {
     if (jaTratada.length) { await marcar("repetido", { recorrencia_id: rec.id }); return { ok: true, status: "repetido" }; } // ex.: já confirmada
     await marcar("sem_ocorrencia", { recorrencia_id: rec.id });
-    await tg(token, "sendMessage", { chat_id: chatId, text: `📧 ${nome}: chegou o e-mail${dados.valor ? ` (${formatarMoedaBR(dados.valor)})` : ""}, mas não achei nenhum lançamento "a confirmar" nem "a pagar" dessa conta para atualizar.` });
+    await avisar(`📧 ${nome}: chegou o e-mail${dados.valor ? ` (${formatarMoedaBR(dados.valor)})` : ""}, mas não achei nenhum lançamento "a confirmar" nem "a pagar" dessa conta para atualizar.`);
     return { ok: true, status: "sem_ocorrencia" };
   }
 
@@ -250,12 +266,20 @@ export async function executarConta(
   if (!rascunhoDeOcorrencia) {
     const origem = dados.valor !== null ? "valor do e-mail" : "e-mail sem valor: mantive o valor do mês anterior";
     await marcar("atualizado", { recorrencia_id: rec.id, transacao_id: ocorrencia.id });
-    await tg(token, "sendMessage", {
-      chat_id: chatId,
-      text: `📧 ${nome} — atualizei o lançamento em "a pagar"\n${formatarMoedaBR(valorFinal)} · vence ${dataFinal.split("-").reverse().join("/")} (${origem})${dados.valor !== null && valorAnterior > 0 && Math.abs(dados.valor - valorAnterior) / valorAnterior > 0.4 ? `\n⚠️ Bem diferente do mês anterior (${formatarMoedaBR(valorAnterior)})` : ""}`,
-      reply_markup: { inline_keyboard: [[{ text: "✏️ Editar", callback_data: `ultedit:${ocorrencia.id}` }, { text: "❌ Cancelar", callback_data: "cancelar" }]] },
-    });
+    await avisar(
+      `📧 ${nome} — atualizei o lançamento em "a pagar"\n${formatarMoedaBR(valorFinal)} · vence ${dataFinal.split("-").reverse().join("/")} (${origem})${dados.valor !== null && valorAnterior > 0 && Math.abs(dados.valor - valorAnterior) / valorAnterior > 0.4 ? `\n⚠️ Bem diferente do mês anterior (${formatarMoedaBR(valorAnterior)})` : ""}${notaParecido}`,
+      { reply_markup: { inline_keyboard: [[{ text: "✏️ Editar", callback_data: `ultedit:${ocorrencia.id}` }, { text: "❌ Cancelar", callback_data: "cancelar" }]] } },
+    );
     return { ok: true, status: "atualizado" };
+  }
+
+  // Sem Telegram: a própria ocorrência "a confirmar" (já atualizada acima) é o rascunho — fica no grupo "A confirmar" do app.
+  if (!chatId) {
+    const alertaValor = dados.valor !== null && valorAnterior > 0 && Math.abs(dados.valor - valorAnterior) / valorAnterior > 0.4
+      ? `\n⚠️ Bem diferente do mês anterior (${formatarMoedaBR(valorAnterior)})` : "";
+    await marcar(jaAvisada ? "atualizado" : "rascunho", { recorrencia_id: rec.id, transacao_id: ocorrencia.id });
+    await avisar(`${nome}: ${formatarMoedaBR(valorFinal)} · vence ${dataFinal.split("-").reverse().join("/")} (${dados.valor !== null ? "valor do e-mail" : "e-mail sem valor: mesmo valor do mês anterior"})${alertaValor}${notaParecido}\nConfirme no app, no grupo "A confirmar" das Despesas.`);
+    return { ok: true, status: "rascunho" };
   }
 
   // rascunho da própria ocorrência (o mesmo do lembrete: confirmar atualiza a linha, nunca insere outra)

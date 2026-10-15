@@ -94,6 +94,9 @@ function htmlSecaoNotificacoes() {
         <h3 class="dados-selecao-titulo">Telegram</h3>
         <div id="pluggyTelegramBox" class="pluggy-telegram"></div>
 
+        <h3 class="dados-selecao-titulo">No aparelho</h3>
+        <div id="pushBox" class="pluggy-telegram"></div>
+
         <h3 class="dados-selecao-titulo">Comandos do bot</h3>
         <p class="menu-hint">Depois de vincular, mande estes comandos no chat do bot:</p>
         <dl class="tg-comandos">
@@ -308,6 +311,7 @@ async function carregarAbaMenus() {
 
   iniciarPluggy();
   carregarModulo('dados').then(() => iniciarDados()).catch(err => mostrarNotificacao(err.message, 'erro'));
+  carregarModulo('push').then(() => iniciarPush()).catch(err => mostrarNotificacao(err.message, 'erro'));
   carregarModulo('emails-contas').then(() => iniciarEmailsContas()).catch(err => mostrarNotificacao(err.message, 'erro'));
 }
 

@@ -53,6 +53,7 @@ function processarContas() {
         headers: { 'x-email-secret': segredo },
         muteHttpExceptions: true,
         payload: JSON.stringify({
+          conta: Session.getEffectiveUser().getEmail(), // diz ao app de quem é a conta (o Gmail salvo em Configurações > E-mails)
           messageId: m.getId(),
           from: m.getFrom(),
           subject: m.getSubject(),
