@@ -14,8 +14,10 @@ const DOCS_SECOES = [
     itens: [
       { t: 'O que é o Ctrl Fin', r: 'Controle financeiro pessoal: você lança receitas e despesas, acompanha o mês, o cartão de crédito e o ano inteiro.',
         m: 'Tudo fica salvo na sua conta (entrada com o Google ou por um link enviado ao seu e-mail). Você pode lançar pelo app, por mensagem no {ver:telegram} e importando movimentações do banco ({ver:openfinance}). O app funciona no computador e no celular.' },
-      { t: 'Modo teste', r: '"Testar sem cadastro", na tela de entrada, abre o app sem criar conta. A conta de teste e todos os dados dela são apagados sozinhos 7 dias depois.',
+      { t: 'Modo teste', r: '"Testar sem cadastro", na tela de entrada, abre o app sem criar conta. A conta de teste e todos os dados dela são apagados sozinhos 24 horas depois.',
         m: 'No modo teste aparece a etiqueta 🧪 no topo e o botão "Apagar tudo" (para recomeçar antes disso). Nada que você fizer ali vai para uma conta real. O {ver:openfinance} e o backup por e-mail não funcionam no modo teste.' },
+      { t: 'Demo', r: '"👀 Demo", na tela de entrada, abre uma conta de exemplo já preenchida, com 3 meses de lançamentos e os próximos programados. Nada é gravado.',
+        m: 'Serve para conhecer o app funcionando: cartões com faturas, parcelados (um quitado), estorno, reembolso, recorrências mensais e semanais, pendências e um mês no vermelho. Pode lançar, editar e apagar à vontade: tudo fica só no navegador e volta ao início ao recarregar a página. A etiqueta 👀 Demo no topo (ou 🚪 Sair) volta para a tela de entrada, para criar sua conta. O {ver:openfinance}, o backup por e-mail e o {ver:telegram} não funcionam na Demo.' },
       { t: 'Tema claro/escuro e esconder valores', r: 'A 🌙 troca o tema; o 👁 esconde os valores do dashboard (útil em público). O app sempre abre com os valores escondidos (olho fechado).',
         m: 'O tema escolhido fica lembrado neste aparelho. Com os valores escondidos, o dashboard e a {ver:anual} mostram "••••" no lugar dos números. Enquanto o app carrega, os valores também aparecem como "••••" (nunca um "R$ 0,00" provisório).' },
       { t: 'Cabeçalho', r: 'Título, 📈 Visão anual, 🌙 tema e 🚪 sair. Abaixo, a barra de meses, o 👁 e o ⚙️ Configurações.',

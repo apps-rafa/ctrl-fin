@@ -54,6 +54,11 @@ function montarTelaLogin() {
             font-weight: 500; font-size: .9rem; margin-top: .6rem;
             text-decoration: underline; flex-direction: column; gap: .15rem;
         }
+        #authOverlay .auth-demo {
+            margin-top: 1rem; flex-direction: column; gap: .2rem;
+            background: #ECFEFF; border-color: #67E8F9; color: #0E7490;
+        }
+        #authOverlay .auth-demo small { font-size: .74rem; font-weight: 400; color: #155E75; }
         #authOverlay .auth-guest small { display: block; font-size: .72rem; font-weight: 400; text-decoration: none; }
         #authOverlay .auth-msg { margin-top: 1rem; font-size: .9rem; min-height: 1.2em; }
         #authOverlay .auth-msg.ok { color: #059669; }
@@ -78,7 +83,8 @@ function montarTelaLogin() {
                 <input type="email" id="authEmail" placeholder="seu@email.com" autocomplete="email" required>
                 <button type="submit" id="authEmailBtn">Receber link de acesso</button>
             </form>
-            <button id="authGuest" class="auth-guest">Testar sem cadastro <small>(os dados somem em 7 dias)</small></button>
+            <button id="authDemo" class="auth-demo">👀 Demo <small>Conta de exemplo com 3 meses de lançamentos. Nada é gravado</small></button>
+            <button id="authGuest" class="auth-guest">Testar sem cadastro <small>(conta vazia; os dados somem em 24 h)</small></button>
             <div class="auth-msg" id="authMsg"></div>
         </div>
     `;
@@ -86,6 +92,7 @@ function montarTelaLogin() {
 
     const btnGoogle = overlay.querySelector('#authGoogle');
     const btnGuest = overlay.querySelector('#authGuest');
+    overlay.querySelector('#authDemo').addEventListener('click', entrarNaDemo);
     const msg = overlay.querySelector('#authMsg');
 
     btnGuest.addEventListener('click', async () => {
@@ -222,6 +229,12 @@ async function initAuth() {
     }
     const btnApagar = document.getElementById('btnApagarTudo');
     if (btnApagar) btnApagar.addEventListener('click', apagarTudoTeste);
+    const demo = document.getElementById('demoBadge');
+    if (demo) {
+        demo.hidden = !MODO_DEMO;
+        demo.addEventListener('click', sairDaDemo);
+    }
+    if (MODO_DEMO) valoresOcultos = false; // na Demo os valores já aparecem
 
     sb.auth.onAuthStateChange((event) => {
         if (event === 'SIGNED_IN') {
