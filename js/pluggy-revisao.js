@@ -566,7 +566,7 @@ async function carregarRevisaoPluggy() {
             ${duplicatas.length ? ` · <span class="alerta">${duplicatas.length} possível${duplicatas.length === 1 ? '' : 'is'} duplicata${duplicatas.length === 1 ? '' : 's'}</span>` : ''}
         </p>
         <p class="pluggy-legenda">🏦 Gasto confirmado pelo extrato</p>
-        <input type="search" id="pluggyRevisaoBusca" class="docs-busca pluggy-revisao-busca"
+        <input type="search" id="pluggyRevisaoBusca" class="busca-lista pluggy-revisao-busca"
             placeholder="🔎 Buscar por descrição ou categoria..." autocomplete="off"
             aria-label="Buscar nesta página" value="${escAttrRevisao(_pluggyRevisaoBusca)}">`,
         _htmlGruposPorContaPluggy(marcados, revisar, duplicatas, contasPorId, grupo),
