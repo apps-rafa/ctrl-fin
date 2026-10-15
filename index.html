@@ -52,6 +52,7 @@
                 <div class="header-content">
                     <h1><span class="app-emoji">💰</span><span class="app-titulo-full">Controle Financeiro</span><span class="app-titulo-media">Ctrl Financeiro</span><span class="app-titulo-curto">Ctrl Fin</span></h1>
                     <div class="header-info">
+                        <button id="demoBadge" type="button" class="modo-teste-badge demo-badge" hidden title="Você está na Demo: nada é gravado. Toque para criar sua conta"><span class="header-emoji">👀</span><span class="modo-teste-full">Demo · criar conta</span><span class="modo-teste-curto">Demo</span></button>
                         <span id="modoTesteBadge" class="modo-teste-badge" hidden><span class="header-emoji">🧪</span><span class="modo-teste-full">modo teste</span><span class="modo-teste-curto">TESTE</span></span>
                         <button id="btnApagarTudo" type="button" class="btn-apagar-tudo" hidden title="Apagar todos os dados de teste"><span class="header-emoji"><svg class="ico-lixeira" viewBox="0 0 24 24" width="1.1em" height="1.1em" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></span><span class="apagar-full">Apagar tudo</span><span class="apagar-curto">Apagar</span></button>
                         <span id="userEmail" class="user-email" hidden></span>
@@ -484,6 +485,7 @@
 
     <!-- Supabase (banco de dados) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+    <script src="js/demo.js?v=202610150000"></script>
     <script src="js/config.js?v=202610060152"></script>
     <script src="js/auth.js?v=202610060152"></script>
     <script src="js/state.js?v=202610060152"></script>

@@ -279,6 +279,9 @@ input.campo-travado,
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
+/* Demo (nada é gravado): toque para sair e criar a conta */
+.demo-badge { background: #22D3EE; border: 0; cursor: pointer; font: inherit; }
+.demo-badge:hover { filter: brightness(1.08); }
 .btn-apagar-tudo {
     background: rgba(255, 255, 255, 0.12);
     color: var(--header-text);
