@@ -1272,7 +1272,7 @@ summary [role="button"] { font-family: Arial; text-align: center; }
    js/pluggy.js:_filtrarRevisaoPluggy) — fica em cima do grupo "Para
    revisar", filtra linha/card por texto e esconde o grupo inteiro se nada
    dele sobrar visível. */
-.pluggy-revisao-busca { margin-bottom: .6rem; }
+.pluggy-revisao-busca { display: block; box-sizing: border-box; margin-bottom: .6rem; }
 .pluggy-busca-oculta { display: none !important; }
 
 /* Open Finance: "Saldo em contas" na linha abaixo de "Dados cadastrais"; as contas conectadas (e o + que conecta uma nova) num grupo com borda fina */
