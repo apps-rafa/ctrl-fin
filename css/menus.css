@@ -1292,7 +1292,13 @@ summary [role="button"] { font-family: Arial; text-align: center; }
 .eml-form { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-bottom: .6rem; }
 .eml-form .eml-campo-rec, .eml-form .eml-acoes { grid-column: 1 / -1; }
 .eml-acoes > button { flex: 1 1 0; }
+@media (min-width: 701px) { .eml-form { grid-template-columns: 1fr 1fr 1.2fr; } .eml-form .eml-campo-rec { grid-column: auto; } }
 @media (max-width: 480px) { .eml-form { grid-template-columns: 1fr; } }
+.eml-rec-linha { display: flex; gap: .35rem; }
+.eml-rec-linha select { flex: 1 1 auto; min-width: 0; }
+.eml-rec-nova { flex: 0 0 auto; width: 2.4rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); font-size: 1.2rem; font-weight: 700; cursor: pointer; }
+.eml-rec-nova:hover { border-color: var(--primary); color: var(--primary); }
+.eml-item .item-actions { display: flex; gap: .2rem; flex: 0 0 auto; }
 .eml-lista { display: flex; flex-direction: column; gap: .35rem; margin-bottom: .8rem; }
 .eml-item { display: flex; align-items: center; gap: .4rem; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .4rem .55rem; }
 .eml-item--editando { border-color: var(--primary); }
