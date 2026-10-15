@@ -39,6 +39,11 @@ function _emlNomeRec(r) {
     return r.status === 'ativa' ? nome : `${nome} (encerrada)`;
 }
 
+/** Diz se já há e-mail salvo (o campo sozinho não deixa claro). */
+function _emlStatusTxt(email) {
+    return email ? `✅ Salvo: <b>${_emlEsc(email)}</b>` : 'Nenhum e-mail salvo ainda: digite o seu Gmail e toque em Salvar.';
+}
+
 function _emlHtml(email) {
     const opcoes = _emlRecs.map(r => `<option value="${r.id}">${_emlEsc(_emlNomeRec(r))}</option>`).join('');
     return `
@@ -49,6 +54,7 @@ function _emlHtml(email) {
                 <input type="email" id="emlEmail" autocomplete="off" placeholder="voce@gmail.com" value="${_emlEsc(email)}"></div>
             <button type="submit" class="btn-submit eml-btn">Salvar</button>
         </form>
+        <p class="eml-status" id="emlStatus">${_emlStatusTxt(email)}</p>
 
         <h3 class="dados-selecao-titulo">Contas vinculadas</h3>
         <p class="menu-hint">Quando chegar um e-mail desse <b>remetente</b> e/ou com essa <b>palavra no assunto</b>, o bot atualiza a recorrência escolhida. Com os dois preenchidos, precisam casar os dois.</p>
@@ -112,7 +118,8 @@ function _emlLigar(sec) {
         if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return mostrarNotificacao('E-mail inválido', 'info');
         const { error } = await sb.from('email_contas_config').upsert({ email, atualizado_em: new Date().toISOString() }, { onConflict: 'user_id' });
         if (error) { console.error(error); return mostrarNotificacao('Erro ao salvar o e-mail', 'erro'); }
-        mostrarNotificacao('E-mail salvo');
+        document.getElementById('emlStatus').innerHTML = _emlStatusTxt(email);
+        mostrarNotificacao(email ? 'E-mail salvo' : 'E-mail removido');
     });
 
     sec.querySelector('#emlVincForm').addEventListener('submit', async ev => {

@@ -1285,10 +1285,13 @@ summary [role="button"] { font-family: Arial; text-align: center; }
 
 /* Configurações > E-mails (js/emails-contas.js) */
 .eml-linha { display: flex; gap: .5rem; align-items: flex-end; margin-bottom: .8rem; }
+.eml-linha .form-group input { line-height: 1.2; }
 .eml-linha .form-group, .eml-form .form-group { margin-bottom: 0; }
 .eml-form label .opt { font-weight: 400; opacity: .8; }
 .eml-linha .form-group { flex: 1 1 auto; min-width: 0; }
-.eml-linha .eml-btn { flex: 0 0 auto; width: auto; padding-inline: 1.2rem; }
+/* Mesma altura e corpo de texto do campo ao lado (.form-group input: 0.5rem + 1px de borda, 0.82rem) */
+.eml-linha .eml-btn { flex: 0 0 auto; width: auto; padding: calc(0.5rem + 1px) 1.1rem; font-size: 0.82rem; line-height: 1.2; }
+.eml-status { margin: -.4rem 0 .8rem; font-size: .8rem; color: var(--text-muted); }
 .eml-form { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-bottom: .6rem; }
 .eml-form .eml-campo-rec, .eml-form .eml-acoes { grid-column: 1 / -1; }
 .eml-acoes > button { flex: 1 1 0; }
