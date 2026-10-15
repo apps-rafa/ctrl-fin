@@ -58,7 +58,8 @@ function _emlHtml(email) {
             <div class="form-group"><label for="emlPalavra">Palavra do assunto</label>
                 <input type="text" id="emlPalavra" autocomplete="off" placeholder="ex.: condomínio"></div>
             <div class="form-group eml-campo-rec"><label for="emlRec">Recorrência</label>
-                <select id="emlRec"><option value="">Selecione...</option>${opcoes}</select></div>
+                <div class="eml-rec-linha"><select id="emlRec"><option value="">Selecione...</option>${opcoes}</select>
+                <button type="button" class="eml-rec-nova" id="emlRecNova" title="Criar recorrência" aria-label="Criar recorrência">+</button></div></div>
             <div class="form-actions eml-acoes">
                 <button type="submit" class="btn-submit" id="emlVincSalvar">Adicionar</button>
                 <button type="button" class="btn-cancelar" id="emlVincCancelar" hidden>Cancelar</button>
@@ -70,7 +71,8 @@ function _emlHtml(email) {
         <h3 class="dados-selecao-titulo">Instalar no Gmail (uma vez só)</h3>
         <ol class="eml-passos">
             <li>No Gmail, crie o rótulo <b>Contas</b> e um filtro que aplique esse rótulo aos e-mails das suas contas.</li>
-            <li>Abra <b>script.google.com</b> &rarr; <b>Novo projeto</b> e cole o arquivo <code>scripts/gmail-contas.gs</code> do app.</li>
+            <li><a href="scripts/gmail-contas.gs" download="gmail-contas.gs">⬇️ Baixe o script <b>gmail-contas.gs</b></a>, abra o arquivo (no Bloco de Notas, por exemplo) e copie todo o texto.</li>
+            <li>Abra <a href="https://script.google.com" target="_blank" rel="noopener"><b>script.google.com</b></a> &rarr; <b>Novo projeto</b>, apague o que estiver no editor e cole o texto copiado.</li>
             <li>Na linha <code>var SEGREDO</code>, troque o texto entre aspas pelo segredo do bot (peça ao administrador do app).</li>
             <li>Escolha a função <b>instalar</b> e clique em <b>Executar</b>; aceite as permissões do Google (Gmail e conexão externa).</li>
             <li>Pronto: a cada 5 minutos, os e-mails com <b>Contas</b> vão para o bot e ganham o rótulo <b>Contas/enviado</b>.</li>
@@ -87,8 +89,10 @@ function _emlRenderLista() {
             v.palavra && `<span class="eml-pal">assunto: “${_emlEsc(v.palavra)}”</span>`].filter(Boolean).join('<span class="eml-e"> + </span>');
         return `<div class="eml-item${v.id === _emlEditandoId ? ' eml-item--editando' : ''}" data-id="${v.id}">
             <div class="eml-item-txt"><div class="eml-termos">${termos}</div><div class="eml-rec">&rarr; ${_emlEsc(_emlNomeRec(rec))}</div></div>
-            <button type="button" class="btn-icon eml-editar" title="Editar" aria-label="Editar">✏️</button>
-            <button type="button" class="btn-icon eml-remover" title="Remover" aria-label="Remover">🗑️</button>
+            <div class="item-actions">
+                <button type="button" class="btn-icon eml-editar" title="Editar" aria-label="Editar">${ICONE_LAPIS}</button>
+                <button type="button" class="btn-icon btn-danger eml-remover" title="Remover" aria-label="Remover">${ICONE_LIXEIRA}</button>
+            </div>
         </div>`;
     }).join('');
 }
@@ -132,6 +136,13 @@ function _emlLigar(sec) {
         _emlVinculos = data || [];
         mostrarNotificacao(_emlEditandoId ? 'Vínculo atualizado' : 'Vínculo adicionado');
         _emlLimparForm();
+    });
+
+    // Atalho: abre a página Recorrências já no cadastro de uma nova
+    sec.querySelector('#emlRecNova').addEventListener('click', async () => {
+        mudarAba('recorrencias');
+        await carregarRecorrencias();
+        abrirFormRecorrencia(null);
     });
 
     sec.querySelector('#emlVincCancelar').addEventListener('click', _emlLimparForm);
