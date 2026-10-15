@@ -2,7 +2,20 @@
 
 import type { createClient } from "npm:@supabase/supabase-js@2";
 import { rotuloMetodo, tg, formatarMoedaBR } from "./util.ts";
-import { competenciaDe, addMeses, hojeBrasiliaISO, type RascunhoLancamento } from "./parser.ts";
+import { competenciaDe, competenciaComFechamento, addMeses, hojeBrasiliaISO, type FaturaFechada, type RascunhoLancamento } from "./parser.ts";
+
+/** Fatura fechada à mão no app (checkbox "Fatura fechada", tabela faturas_fechadas): compra no crédito sem mês escolhido
+ *  à mão vai para a fatura seguinte. Ajusta r.competencia no lugar (o bot não fecha fatura — só respeita). */
+export async function ajustarCompetenciaFechamento(
+  admin: ReturnType<typeof createClient>, userId: string, r: RascunhoLancamento,
+): Promise<void> {
+  if (r.metodoKind !== "Crédito" || !r.metodo || !r.data || r.dataIndefinida) return;
+  const padrao = competenciaDe(r.data, r.diaFechamento);
+  if (r.competencia && r.competencia !== padrao) return; // mês escolhido pelo usuário vale mais
+  const { data } = await admin.from("faturas_fechadas").select("competencia, fechada, fechada_em").eq("user_id", userId).eq("metodo", r.metodo);
+  const c = competenciaComFechamento(r.data, r.diaFechamento, (data ?? []) as FaturaFechada[]);
+  if (c !== padrao) r.competencia = c;
+}
 
 /** Grava de vez um rascunho (ver RascunhoLancamento) como lançamento de
  *  verdade em `transacoes` — chamado tanto pelo botão inline "✅ Confirmar"

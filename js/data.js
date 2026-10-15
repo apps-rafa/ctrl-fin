@@ -312,6 +312,25 @@ async function recarregarDados() {
     if (typeof atualizarVisaoAnualAberta === 'function') atualizarVisaoAnualAberta(); // excluiu/alterou estando na Visão anual
 }
 
+/** Fechamentos manuais de fatura (checkbox "Fatura fechada"): linhas { metodo, competencia, fechada, fechada_em }. */
+async function carregarFaturasFechadasAPI() {
+    try {
+        const { data, error } = await sb.from('faturas_fechadas').select('metodo, competencia, fechada, fechada_em');
+        if (error) throw error;
+        return data || [];
+    } catch (e) {
+        console.warn('Faturas fechadas indisponíveis:', e.message || e);
+        return [];
+    }
+}
+
+/** Mês da fatura de uma compra no cartão `metodo` (objeto do menu): dia de fechamento (opcional) + fechamento manual. */
+function competenciaDoCartao(dataISO, metodo) {
+    if (!metodo || metodo.metodoKind !== 'Crédito') return competenciaDe(dataISO, null);
+    const rot = rotuloMetodo(metodo);
+    return competenciaComFechamento(dataISO, metodo.diaFechamento, (estadoApp.faturasFechadas || []).filter(f => f.metodo === rot));
+}
+
 /** Escolhas do usuário sobre faturas de cartão ("metodo|YYYY-MM-01" -> pago true/false); sem escolha vale a data de vencimento. */
 async function carregarFaturasPagasAPI() {
     try {
