@@ -332,6 +332,26 @@ export function competenciaDe(dataISO: string, diaFechamento: number | null): st
   return `${ano}-${String(mes + 1).padStart(2, "0")}-01`;
 }
 
+/** Linha de faturas_fechadas (checkbox "Fatura fechada" do app) de um cartão. */
+export type FaturaFechada = { competencia: string; fechada: boolean; fechada_em: string };
+
+/** Competência de uma compra no cartão considerando o fechamento manual da fatura — mesma regra do app
+ *  (js/recorrencia.js:competenciaComFechamento):
+ *  - fatura desmarcada (fechada=false) que o dia de fechamento tinha fechado: a compra volta para o mês da data;
+ *  - fatura fechada à mão: compra com data a partir do dia em que ela foi fechada vai para a fatura seguinte. */
+export function competenciaComFechamento(dataISO: string, diaFechamento: number | null, fechamentos: FaturaFechada[]): string {
+  const doMes = (c: string) => fechamentos.find((f) => String(f.competencia).slice(0, 10) === c);
+  const natural = dataISO.slice(0, 7) + "-01";
+  let c = competenciaDe(dataISO, diaFechamento);
+  if (c !== natural && doMes(natural)?.fechada === false) c = natural;
+  for (let i = 0; i < 12; i++) {
+    const f = doMes(c);
+    if (!f?.fechada || dataISO < String(f.fechada_em).slice(0, 10)) break;
+    c = addMeses(c, 1);
+  }
+  return c;
+}
+
 /** Soma `n` meses a uma data ISO (dia limitado ao último do mês) — igual ao
  *  addMeses do app (js/recorrencia.js). */
 export function addMeses(dataISO: string, n: number): string {

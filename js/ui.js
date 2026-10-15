@@ -625,9 +625,69 @@ function _faturasAPagar() {
             if (!venc) return null;
             const auto = venc <= hoje;               // venceu: conta como paga automaticamente (fica riscada)
             const escolha = pagas.get(rot + '|' + comp); // marcar/desmarcar à mão vale mais que a data
-            return { rot, banco: m.banco || '', comp, venc, total, auto, paga: escolha !== undefined ? escolha : auto };
+            return { rot, banco: m.banco || '', comp, venc, total, auto, paga: escolha !== undefined ? escolha : auto, ..._estadoFechamento(m, rot, comp, hoje) };
         })
         .filter(Boolean);
+}
+
+/** Checkbox "Fatura fechada" da fatura `comp` do cartão `m`: a escolha à mão (faturas_fechadas) vale mais; sem ela,
+ *  fecha sozinha no dia de fechamento cadastrado (opcional) — a compra nesse dia ou depois já cai na fatura seguinte.
+ *  fechInicio: a partir de que data as compras vão para a próxima fatura. */
+function _estadoFechamento(m, rot, comp, hoje) {
+    const linha = (estadoApp.faturasFechadas || []).find(f => f.metodo === rot && String(f.competencia).slice(0, 10) === comp);
+    let diaAuto = '';
+    if (m.diaFechamento) {
+        const ultimo = new Date(Number(comp.slice(0, 4)), Number(comp.slice(5, 7)), 0).getDate();
+        diaAuto = comp.slice(0, 8) + String(Math.min(m.diaFechamento, ultimo)).padStart(2, '0');
+    }
+    const fechAuto = !!diaAuto && hoje >= diaAuto;
+    const fechada = linha ? linha.fechada !== false : fechAuto;
+    return { fechada, fechAuto, fechInicio: linha && linha.fechada !== false ? String(linha.fechada_em).slice(0, 10) : diaAuto };
+}
+
+/** Marca/desmarca o checkbox "Fatura fechada". Ao desmarcar, se já há compras desse cartão que foram para a fatura
+ *  seguinte por causa do fechamento, pergunta se elas voltam para esta fatura. true se gravou. */
+async function _alternarFaturaFechada(el) {
+    const metodo = el.dataset.metodo, comp = el.dataset.comp;
+    const novo = el.dataset.fechada !== '1';
+    const auto = el.dataset.auto === '1';
+    const proxima = addMeses(comp, 1);
+    let trazer = [];
+    if (!novo) {
+        // Compras com data antes do mês da próxima fatura que caíram nela pelo fechamento (inclui a parcela 1 de parcelados)
+        const { data: movidas, error: e1 } = await lancamentosLevadosPeloFechamentoAPI(metodo, proxima, el.dataset.inicio || comp);
+        if (e1) { console.error(e1); mostrarNotificacao('Erro ao atualizar a fatura', 'erro'); return false; }
+        if (movidas && movidas.length) {
+            const escolha = await new Promise(resolve => mostrarDialogo({
+                titulo: 'Reabrir fatura',
+                texto: `${movidas.length === 1 ? 'Já existe <strong>1 lançamento</strong>' : `Já existem <strong>${movidas.length} lançamentos</strong>`} de <strong>${escaparHtml(metodo)}</strong> que ${movidas.length === 1 ? 'foi' : 'foram'} para a fatura de ${new Date(proxima + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })} porque esta estava fechada. O que fazer?`,
+                acoes: [
+                    { label: 'Cancelar', onClick: () => resolve(null) },
+                    { label: 'Deixar lá', onClick: () => resolve('deixar') },
+                    { label: 'Trazer para esta fatura', primario: true, onClick: () => resolve('trazer') },
+                ],
+            }));
+            if (!escolha) return false;
+            if (escolha === 'trazer') trazer = movidas;
+        }
+    }
+    el.disabled = true;
+    const igualAoAutomatico = novo === auto;
+    const { error } = igualAoAutomatico
+        ? await sb.from('faturas_fechadas').delete().eq('metodo', metodo).eq('competencia', comp)
+        : await sb.from('faturas_fechadas').upsert({ metodo, competencia: comp, fechada: novo, fechada_em: `${hojeISO()}T12:00:00-03:00`, automatico: false }, { onConflict: 'user_id,metodo,competencia' });
+    if (error) { console.error(error); mostrarNotificacao('Erro ao atualizar a fatura', 'erro'); el.disabled = false; return false; }
+    // Trazer de volta: a compra volta para esta fatura; num parcelado, todas as parcelas recuam 1 mês
+    if (trazer.length) {
+        const { error: e2 } = await trazerParaFaturaAnteriorAPI(trazer);
+        if (e2) { console.error(e2); mostrarNotificacao('Erro ao trazer os lançamentos de volta', 'erro'); }
+    }
+    estadoApp.faturasFechadas = (estadoApp.faturasFechadas || []).filter(f => !(f.metodo === metodo && String(f.competencia).slice(0, 10) === comp));
+    if (!igualAoAutomatico) estadoApp.faturasFechadas.push({ metodo, competencia: comp, fechada: novo, fechada_em: `${hojeISO()}T12:00:00-03:00` });
+    if (typeof recalcularCompetencia === 'function') recalcularCompetencia(); // formulário aberto: o "Mês" acompanha
+    if (trazer.length) { await recarregarDados(); atualizarUI(); mostrarNotificacao(`${trazer.length} lançamento${trazer.length > 1 ? 's voltaram' : ' voltou'} para esta fatura`, 'sucesso'); }
+    else mostrarNotificacao(novo ? 'Fatura fechada: compras novas neste cartão vão para a próxima fatura' : 'Fatura reaberta', 'sucesso');
+    return true;
 }
 
 /** Marca/desmarca a fatura como paga (botão "paga"). true se gravou. */
@@ -678,7 +738,8 @@ function _htmlFaturaVirtual(f, compacta = false) {
           <div class="fv-info"><b>${nomeExibido}</b>${compacta ? '' : `<span>${detalhe}</span>`}</div>
           <div class="fv-lado">
             ${compacta ? '' : `<b class="fv-valor">${formatarMoeda(f.total)}</b>`}
-            <button type="button" class="fv-btn${f.paga ? ' on' : ''}" data-fatura-pagar data-metodo="${esc(f.rot)}" data-comp="${f.comp}" data-paga="${f.paga ? 1 : 0}" data-auto="${f.auto ? 1 : 0}" title="${f.auto ? 'Marcada automaticamente pelo vencimento — clique para alterar' : 'Marcar/desmarcar como paga'}">${f.paga ? '✓ ' : ''}paga</button>
+            <label class="pago-check fv-check" title="${f.fechAuto ? 'Fechada pelo dia de fechamento do cartão — desmarque para reabrir' : 'Marcada: compras novas neste cartão vão para a próxima fatura'}"><input type="checkbox" data-fatura-fechar data-metodo="${esc(f.rot)}" data-comp="${f.comp}" data-fechada="${f.fechada ? 1 : 0}" data-auto="${f.fechAuto ? 1 : 0}" data-inicio="${f.fechInicio || ''}" ${f.fechada ? 'checked' : ''}> fatura fechada</label>
+            <label class="pago-check fv-check" title="${f.auto ? 'Marcada automaticamente pelo vencimento — clique para alterar' : 'Marcar/desmarcar como paga'}"><input type="checkbox" data-fatura-pagar data-metodo="${esc(f.rot)}" data-comp="${f.comp}" data-paga="${f.paga ? 1 : 0}" data-auto="${f.auto ? 1 : 0}" ${f.paga ? 'checked' : ''}> paga</label>
           </div>
         </div>`;
 }
@@ -903,6 +964,12 @@ function renderListaCronologica(container, transacoes, tipoUI, msgVazia) {
     `;
     container.querySelectorAll('.subgrupo-organizador').forEach(_ajustarLabelsFiltro);
     container.onclick = async e => {
+        const fatFechar = e.target.closest('[data-fatura-fechar]');
+        if (fatFechar) {
+            e.preventDefault();
+            if (await _alternarFaturaFechada(fatFechar)) renderListaCronologica(container, transacoes, tipoUI, msgVazia);
+            return;
+        }
         const fatBtn = e.target.closest('[data-fatura-pagar]');
         if (fatBtn) {
             e.preventDefault();
@@ -1418,6 +1485,12 @@ function onListaTransacaoClick(e) {
  *  faturas de cartão (data-submodo/data-submodo-icone) antes de cair no
  *  handler padrão (editar/excluir). */
 async function _onCliqueProximas(e) {
+    const fatFechar = e.target.closest('[data-fatura-fechar]');
+    if (fatFechar) {
+        e.preventDefault();
+        if (await _alternarFaturaFechada(fatFechar)) atualizarProximasTransacoes();
+        return;
+    }
     const fatPagar = e.target.closest('[data-fatura-pagar]');
     if (fatPagar) {
         e.preventDefault();

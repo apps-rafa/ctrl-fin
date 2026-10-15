@@ -73,6 +73,8 @@ fs.writeFileSync(path.join(dist, "sw.js"), fs.readFileSync(new URL("./sw.templat
 // --- o resto do site
 for (const pasta of ["img", "css"]) fs.cpSync(path.join(raiz, pasta), path.join(dist, pasta), { recursive: true }); // css/ fica: o mini app usa os arquivos soltos
 fs.copyFileSync(path.join(raiz, "lancamento-tg.html"), path.join(dist, "lancamento-tg.html"));
+fs.mkdirSync(path.join(dist, "scripts"), { recursive: true });
+fs.copyFileSync(path.join(raiz, "scripts/gmail-contas.gs"), path.join(dist, "scripts/gmail-contas.gs")); // baixado em Configurações > E-mails
 fs.writeFileSync(path.join(dist, ".nojekyll"), "");
 
 const kb = (n) => (n / 1024).toFixed(0) + " KB";

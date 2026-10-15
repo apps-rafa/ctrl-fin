@@ -10,7 +10,7 @@
  *
  * Não precisa de filtro por remetente além do que você já usa para aplicar o rótulo "Contas".
  * Cada e-mail com "Contas" e sem "Contas/enviado" é enviado uma vez ao bot e recebe "Contas/enviado". O bot liga o e-mail a uma
- * recorrência (pelo campo "E-mail da conta" dela ou pelas palavras da descrição, ex.: "condomínio", "light", "naturgy"), lê valor e
+ * recorrência (pelos vínculos de ⚙️ Configurações > E-mails ou pelas palavras da descrição, ex.: "condomínio", "light", "naturgy"), lê valor e
  * vencimento do texto (sem valor, vale o do mês anterior) e manda o rascunho. Vários e-mails da mesma conta (lembretes de
  * vencimento) viram um rascunho só; só avisa de novo se o valor ou o vencimento mudarem.
  */
@@ -53,6 +53,7 @@ function processarContas() {
         headers: { 'x-email-secret': segredo },
         muteHttpExceptions: true,
         payload: JSON.stringify({
+          conta: Session.getEffectiveUser().getEmail(), // diz ao app de quem é a conta (o Gmail salvo em Configurações > E-mails)
           messageId: m.getId(),
           from: m.getFrom(),
           subject: m.getSubject(),

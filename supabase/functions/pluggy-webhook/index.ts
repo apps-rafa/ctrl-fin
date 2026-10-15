@@ -19,6 +19,7 @@
 // Ver plano da integração: memória "app-financeiro-pluggy-integracao".
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { enviarPush } from "../_shared/webpush.ts";
 import { analisarParecidos, textoParecidos, tecladoParecidos, montarAvisoPluggy } from "../_shared/parecidos.ts";
 
 const PLUGGY_API_URL = "https://api.pluggy.ai";
@@ -115,15 +116,24 @@ async function notificarTelegramNovas(
   const mesVigente = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 7); // mês de hoje em Brasília
   itens = itens.filter((i) => String(i.data).slice(0, 7) === mesVigente);
   if (!itens.length) return;
-  const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
-  if (!token) return;
-
   const { data: tgUser } = await supabaseAdmin
     .from("telegram_users")
     .select("chat_id")
     .eq("user_id", userId)
     .maybeSingle();
-  if (!tgUser) return; // usuário não vinculou o Telegram — nada a fazer
+  if (!tgUser) {
+    // Sem Telegram: um aviso só no aparelho (Web Push) — as movimentações ficam para revisar em Open Finance
+    const n = itens.length;
+    const primeira = limparLinks(itens[0].descricao_banco || "Lançamento do banco");
+    await enviarPush(supabaseAdmin, userId, {
+      titulo: "🏦 Banco: " + (n === 1 ? "1 movimentação nova" : n + " movimentações novas"),
+      corpo: (n === 1 ? primeira + " · R$ " + Number(itens[0].valor).toFixed(2).replace(".", ",") : "Inclui: " + primeira) + "\nRevise no app em ⚙️ Configurações > 🏦 Open Finance.",
+      url: "./", tag: "pluggy",
+    });
+    return;
+  }
+  const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
+  if (!token) return;
 
   const metodoIds = [...new Set(itens.map((i) => i.metodo_sugerido).filter((x): x is number => x != null))];
   const { data: metodos } = metodoIds.length

@@ -15,32 +15,25 @@
   gap: 0.4rem;
   margin-bottom: var(--spacing-md);
 }
-/* Grid em vez de flex-wrap: toda linha tem o mesmo número de colunas, então
-   quebrar nunca sobra 1 botão sozinho esticado numa linha própria (a
-   "viúva"). 6 itens hoje — 6, 3 e 2 colunas são todos divisores exatos de
-   6, então em qualquer largura as linhas saem com a mesma quantidade de
-   botões, nunca uma linha final mais curta. */
+/* Grid em vez de flex-wrap: as linhas sempre preenchem 100% da largura e
+   quebrar nunca deixa 1 botão sozinho (a "viúva"). 7 itens: 7 colunas numa
+   linha só; ao quebrar, grade de 12 colunas com spans — 4+3 (até 700px) e
+   2+2+3 (até 420px). */
 .subtabs-itens {
   flex: 1 1 auto;
   min-width: 0;
   display: grid;
-  /* 5 itens: 5 colunas; ao quebrar, grade de 6 colunas com spans que
-     preenchem 100% de TODAS as linhas — 3+2 (até 700px) e 2+3 (até 420px),
-     nunca um item sozinho (viúva). */
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 0.35rem;
 }
 @media (max-width: 700px) {
-  .subtabs-itens { grid-template-columns: repeat(6, 1fr); }
-  .subtabs-itens > .subtab { grid-column: span 2; }
+  .subtabs-itens { grid-template-columns: repeat(12, 1fr); }
+  .subtabs-itens > .subtab { grid-column: span 3; }
+  .subtabs-itens > .subtab:nth-child(n+5) { grid-column: span 4; }
 }
 @media (max-width: 420px) {
-  .subtabs-itens > .subtab { grid-column: span 3; }
-  /* 2 por linha aqui (span 3 de 6) dá o dobro de largura por botão que o
-     layout de 3 colunas acima — o clamp geral (pensado pro pior caso, 3
-     colunas com "Formas de pagamento") deixava esses bem maiores sobrando
-     de graça. Sobe o tamanho: "Open Finance"/"Notificações" (os mais
-     longos aqui) ainda cabem numa linha só nessa largura de botão. */
+  .subtabs-itens > .subtab { grid-column: span 6; }
+  .subtabs-itens > .subtab:nth-child(n+5) { grid-column: span 4; }
   .subtabs .subtab { font-size: clamp(0.72rem, 0.5rem + 1.6vw, 0.95rem); }
 }
 
@@ -1289,3 +1282,31 @@ summary [role="button"] { font-family: Arial; text-align: center; }
 .pluggy-contas-cab-tit { font-size: .8rem; font-weight: 700; color: var(--text); }
 /* "Saldo em contas": sempre com cara de botão (como "Dados cadastrais"); ligado = destacado */
 #btnSaldoContas.ligado { border-color: var(--primary); color: var(--text); background: color-mix(in srgb, var(--primary) 22%, transparent); }
+
+/* Configurações > E-mails (js/emails-contas.js) */
+.eml-linha { display: flex; gap: .5rem; align-items: flex-end; margin-bottom: .8rem; }
+.eml-linha .form-group input { line-height: 1.2; }
+.eml-linha .form-group, .eml-form .form-group { margin-bottom: 0; }
+.eml-form label .opt { font-weight: 400; opacity: .8; }
+.eml-linha .form-group { flex: 1 1 auto; min-width: 0; }
+/* Mesma altura e corpo de texto do campo ao lado (.form-group input: 0.5rem + 1px de borda, 0.82rem) */
+.eml-linha .eml-btn { flex: 0 0 auto; width: auto; padding: calc(0.5rem + 1px) 1.1rem; font-size: 0.82rem; line-height: 1.2; }
+.eml-status { margin: -.4rem 0 .8rem; font-size: .8rem; color: var(--text-muted); }
+.eml-form { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-bottom: .6rem; }
+.eml-form .eml-campo-rec, .eml-form .eml-acoes { grid-column: 1 / -1; }
+.eml-acoes > button { flex: 1 1 0; }
+@media (min-width: 701px) { .eml-form { grid-template-columns: 1fr 1fr 1.2fr; } .eml-form .eml-campo-rec { grid-column: auto; } }
+@media (max-width: 480px) { .eml-form { grid-template-columns: 1fr; } }
+.eml-rec-linha { display: flex; gap: .35rem; }
+.eml-rec-linha select { flex: 1 1 auto; min-width: 0; }
+.eml-rec-nova { flex: 0 0 auto; width: 2.4rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); font-size: 1.2rem; font-weight: 700; cursor: pointer; }
+.eml-rec-nova:hover { border-color: var(--primary); color: var(--primary); }
+.eml-item .item-actions { display: flex; gap: .2rem; flex: 0 0 auto; }
+.eml-lista { display: flex; flex-direction: column; gap: .35rem; margin-bottom: .8rem; }
+.eml-item { display: flex; align-items: center; gap: .4rem; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .4rem .55rem; }
+.eml-item--editando { border-color: var(--primary); }
+.eml-item-txt { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.eml-termos { font-weight: 600; color: var(--text); font-size: .88rem; }
+.eml-e { color: var(--text-muted); font-weight: 400; }
+.eml-rec { color: var(--text-muted); font-size: .8rem; }
+.eml-passos { margin: .2rem 0 .8rem 1.2rem; display: flex; flex-direction: column; gap: .3rem; color: var(--text-muted); font-size: .88rem; }

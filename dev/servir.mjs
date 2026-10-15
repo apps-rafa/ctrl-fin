@@ -7,7 +7,7 @@ import path from "node:path";
 const repo = path.resolve(import.meta.dirname, "..");
 const usarDist = process.env.SERVIR_DIST === "1";
 const raiz = usarDist ? path.join(repo, "dist") : repo;
-const porta = Number(process.env.PORT) || (usarDist ? 8779 : 8778); // PORT: outra porta, se a padrão estiver ocupada
+const porta = Number(process.env.PORT) || (usarDist ? 8779 : 8778);
 const tipos = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json" };
 
 http.createServer((req, res) => {

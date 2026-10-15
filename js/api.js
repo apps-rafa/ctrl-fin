@@ -516,3 +516,25 @@ function definirGeradoAteAPI(id, dataISO) { return atualizarRecorrenciaAPI(id, {
 function encerrarRecorrenciaAPI(id, hoje) { return atualizarRecorrenciaAPI(id, { status: 'encerrada', encerrada_em: hoje }); }
 function reativarRecorrenciaAPI(id, hoje, ontem) { return atualizarRecorrenciaAPI(id, { status: 'ativa', encerrada_em: null, ativa_desde: hoje, gerado_ate: ontem }); }
 function excluirRecorrenciaAPI(id) { return sb.from('recorrencias').delete().eq('id', id); }
+
+/** Fatura reaberta (checkbox "Fatura fechada" desmarcado): compras do cartão `metodo` com data entre `inicio` e o mês da
+ *  fatura seguinte (`proxima`, 'YYYY-MM-01') que foram para ela por causa do fechamento. */
+async function lancamentosLevadosPeloFechamentoAPI(metodo, proxima, inicio) {
+    return sb.from('transacoes').select('id, grupo_id')
+        .eq('metodo', metodo).eq('competencia', proxima).lt('data', proxima).gte('data', inicio);
+}
+
+/** Traz de volta para a fatura anterior (competência - 1 mês) os lançamentos dados; num parcelado, todas as parcelas recuam. */
+async function trazerParaFaturaAnteriorAPI(lancamentos) {
+    for (const t of lancamentos) {
+        const { data: linhas, error } = t.grupo_id
+            ? await sb.from('transacoes').select('id, competencia').eq('grupo_id', t.grupo_id)
+            : await sb.from('transacoes').select('id, competencia').eq('id', t.id);
+        if (error) return { error };
+        for (const l of (linhas || [])) {
+            const { error: e2 } = await sb.from('transacoes').update({ competencia: addMeses(String(l.competencia).slice(0, 10), -1) }).eq('id', l.id);
+            if (e2) return { error: e2 };
+        }
+    }
+    return { error: null };
+}

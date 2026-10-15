@@ -425,5 +425,5 @@ function recalcularCompetencia() {
         if (estadoApp.mesAtual) campo.value = mesDeCompetencia(formatarDataISO(estadoApp.mesAtual));
         return;
     }
-    campo.value = mesDeCompetencia(competenciaDe(iso, metodo.diaFechamento));
+    campo.value = mesDeCompetencia(competenciaDoCartao(iso, metodo));
 }
