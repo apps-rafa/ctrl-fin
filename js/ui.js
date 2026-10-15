@@ -738,8 +738,8 @@ function _htmlFaturaVirtual(f, compacta = false) {
           <div class="fv-info"><b>${nomeExibido}</b>${compacta ? '' : `<span>${detalhe}</span>`}</div>
           <div class="fv-lado">
             ${compacta ? '' : `<b class="fv-valor">${formatarMoeda(f.total)}</b>`}
-            <label class="fv-fechada" title="${f.fechAuto ? 'Fechada pelo dia de fechamento do cartão — desmarque para reabrir' : 'Marcada: compras novas neste cartão vão para a próxima fatura'}"><input type="checkbox" data-fatura-fechar data-metodo="${esc(f.rot)}" data-comp="${f.comp}" data-fechada="${f.fechada ? 1 : 0}" data-auto="${f.fechAuto ? 1 : 0}" data-inicio="${f.fechInicio || ''}" ${f.fechada ? 'checked' : ''}> Fatura fechada</label>
-            <button type="button" class="fv-btn${f.paga ? ' on' : ''}" data-fatura-pagar data-metodo="${esc(f.rot)}" data-comp="${f.comp}" data-paga="${f.paga ? 1 : 0}" data-auto="${f.auto ? 1 : 0}" title="${f.auto ? 'Marcada automaticamente pelo vencimento — clique para alterar' : 'Marcar/desmarcar como paga'}">${f.paga ? '✓ ' : ''}paga</button>
+            <label class="pago-check fv-check" title="${f.fechAuto ? 'Fechada pelo dia de fechamento do cartão — desmarque para reabrir' : 'Marcada: compras novas neste cartão vão para a próxima fatura'}"><input type="checkbox" data-fatura-fechar data-metodo="${esc(f.rot)}" data-comp="${f.comp}" data-fechada="${f.fechada ? 1 : 0}" data-auto="${f.fechAuto ? 1 : 0}" data-inicio="${f.fechInicio || ''}" ${f.fechada ? 'checked' : ''}> fatura fechada</label>
+            <label class="pago-check fv-check" title="${f.auto ? 'Marcada automaticamente pelo vencimento — clique para alterar' : 'Marcar/desmarcar como paga'}"><input type="checkbox" data-fatura-pagar data-metodo="${esc(f.rot)}" data-comp="${f.comp}" data-paga="${f.paga ? 1 : 0}" data-auto="${f.auto ? 1 : 0}" ${f.paga ? 'checked' : ''}> paga</label>
           </div>
         </div>`;
 }
