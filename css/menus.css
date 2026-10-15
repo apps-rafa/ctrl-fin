@@ -1291,6 +1291,8 @@ summary [role="button"] { font-family: Arial; text-align: center; }
 .eml-linha .form-group { flex: 1 1 auto; min-width: 0; }
 /* Mesma altura e corpo de texto do campo ao lado (.form-group input: 0.5rem + 1px de borda, 0.82rem) */
 .eml-linha .eml-btn { flex: 0 0 auto; width: auto; padding: calc(0.5rem + 1px) 1.1rem; font-size: 0.82rem; line-height: 1.2; }
+.eml-cadastro { display: flex; align-items: center; gap: .4rem; margin: -.4rem 0 .5rem; font-size: .85rem; color: var(--text); cursor: pointer; }
+.eml-linha input[readonly] { opacity: .75; }
 .eml-status { margin: -.4rem 0 .8rem; font-size: .8rem; color: var(--text-muted); }
 .eml-form { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-bottom: .6rem; }
 .eml-form .eml-campo-rec, .eml-form .eml-acoes { grid-column: 1 / -1; }

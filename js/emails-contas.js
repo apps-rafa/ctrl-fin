@@ -14,21 +14,24 @@
 let _emlVinculos = [];
 let _emlRecs = [];        // recorrências de despesa (as que recebem conta por e-mail)
 let _emlEditandoId = null;
+let _emlEmailCadastro = ''; // e-mail do login (já confirmado no cadastro); vazio no modo teste
 
 const _emlEsc = s => escaparHtml(String(s ?? ''));
 
 async function iniciarEmailsContas() {
     const sec = document.getElementById('secEmails');
     if (!sec) return;
-    const [cfg, vinc, recs] = await Promise.all([
-        sb.from('email_contas_config').select('email').maybeSingle(),
+    const [cfg, vinc, recs, usuario] = await Promise.all([
+        sb.from('email_contas_config').select('email, usar_cadastro').maybeSingle(),
         sb.from('email_contas_vinculos').select('id, remetente, palavra, recorrencia_id').order('id'),
         listarRecorrenciasAPI(),
+        sb.auth.getUser(),
     ]);
+    _emlEmailCadastro = String(usuario.data?.user?.email || '').toLowerCase();
     _emlVinculos = vinc.data || [];
     _emlRecs = (recs.data || []).filter(r => r.tipo === 'saidas');
     _emlEditandoId = null;
-    sec.innerHTML = _emlHtml(cfg.data?.email || '');
+    sec.innerHTML = _emlHtml(cfg.data?.email || '', !!cfg.data?.usar_cadastro && !!_emlEmailCadastro);
     _emlRenderLista();
     _emlLigar(sec);
 }
@@ -44,16 +47,18 @@ function _emlStatusTxt(email) {
     return email ? `✅ Salvo: <b>${_emlEsc(email)}</b>` : 'Nenhum e-mail salvo ainda: digite o seu Gmail e toque em Salvar.';
 }
 
-function _emlHtml(email) {
+function _emlHtml(email, usarCadastro) {
     const opcoes = _emlRecs.map(r => `<option value="${r.id}">${_emlEsc(_emlNomeRec(r))}</option>`).join('');
+    const valor = usarCadastro ? _emlEmailCadastro : email;
     return `
         <h3 class="dados-selecao-titulo">Seu Gmail</h3>
-        <p class="menu-hint">O e-mail onde chegam as contas (luz, gás, condomínio...). As contas com o rótulo <b>Contas</b> viram rascunho no bot do Telegram.</p>
+        <p class="menu-hint">O e-mail onde chegam as contas (luz, gás, condomínio...). As contas com o rótulo <b>Contas</b> viram rascunho no bot do Telegram (ou notificação no aparelho).</p>
         <form id="emlCfgForm" class="eml-linha">
             <div class="form-group"><label for="emlEmail">E-mail monitorado</label>
-                <input type="email" id="emlEmail" autocomplete="off" placeholder="voce@gmail.com" value="${_emlEsc(email)}"></div>
+                <input type="email" id="emlEmail" autocomplete="off" placeholder="voce@gmail.com" value="${_emlEsc(valor)}"${usarCadastro ? ' readonly' : ''}></div>
             <button type="submit" class="btn-submit eml-btn">Salvar</button>
         </form>
+        ${_emlEmailCadastro ? `<label class="eml-cadastro"><input type="checkbox" id="emlUsarCadastro"${usarCadastro ? ' checked' : ''}> Usar o mesmo e-mail do cadastro (<b>${_emlEsc(_emlEmailCadastro)}</b>)</label>` : ''}
         <p class="eml-status" id="emlStatus">${_emlStatusTxt(email)}</p>
 
         <h3 class="dados-selecao-titulo">Contas vinculadas</h3>
@@ -113,14 +118,23 @@ function _emlLimparForm() {
 }
 
 function _emlLigar(sec) {
-    sec.querySelector('#emlCfgForm').addEventListener('submit', async ev => {
-        ev.preventDefault();
-        const email = document.getElementById('emlEmail').value.trim().toLowerCase();
+    const salvarEmail = async () => {
+        const usarCadastro = !!document.getElementById('emlUsarCadastro')?.checked;
+        const email = usarCadastro ? _emlEmailCadastro : document.getElementById('emlEmail').value.trim().toLowerCase();
         if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return mostrarNotificacao('E-mail inválido', 'info');
-        const { error } = await sb.from('email_contas_config').upsert({ email, atualizado_em: new Date().toISOString() }, { onConflict: 'user_id' });
+        const { error } = await sb.from('email_contas_config').upsert({ email, usar_cadastro: usarCadastro, atualizado_em: new Date().toISOString() }, { onConflict: 'user_id' });
+        // índice único no banco: cada Gmail monitorado pertence a uma conta só
+        if (error && String(error.code) === '23505') return mostrarNotificacao('Esse e-mail já está em uso por outra conta do app', 'erro');
         if (error) { console.error(error); return mostrarNotificacao('Erro ao salvar o e-mail', 'erro'); }
         document.getElementById('emlStatus').innerHTML = _emlStatusTxt(email);
         mostrarNotificacao(email ? 'E-mail salvo' : 'E-mail removido');
+    };
+    sec.querySelector('#emlCfgForm').addEventListener('submit', ev => { ev.preventDefault(); salvarEmail(); });
+    // Marcar já salva (o e-mail do cadastro dispensa digitar); desmarcar libera o campo para outro e-mail
+    sec.querySelector('#emlUsarCadastro')?.addEventListener('change', ev => {
+        const campo = document.getElementById('emlEmail');
+        campo.readOnly = ev.target.checked;
+        if (ev.target.checked) { campo.value = _emlEmailCadastro; salvarEmail(); } else campo.focus();
     });
 
     sec.querySelector('#emlVincForm').addEventListener('submit', async ev => {

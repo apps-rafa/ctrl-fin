@@ -20,6 +20,7 @@ import type { createClient } from "npm:@supabase/supabase-js@2";
 import { tg, formatarMoedaBR, rotuloMetodo } from "./util.ts";
 import { hojeBrasiliaISO } from "./parser.ts";
 import { mesAbrevAno } from "./lancamentos.ts";
+import { enviarPush } from "../_shared/webpush.ts";
 import { proximoDiaUtil, criarEhFeriado, type LinhaFeriado } from "../_shared/diautil.ts";
 
 export interface TransacaoLembrete {
@@ -211,7 +212,7 @@ export function corpoAvisoRecorrencia(chatId: number, texto: string) {
   return { chat_id: chatId, text: texto, reply_markup: { remove_keyboard: true } };
 }
 
-/** Roda os lembretes de TODOS os usuários vinculados ao Telegram. Devolve quantos vencimentos foram avisados. */
+/** Roda os lembretes de TODOS os usuários vinculados ao Telegram (e, por notificação no aparelho, de quem só ativou o push). Devolve quantos vencimentos foram avisados. */
 export async function executarLembretes(
   admin: ReturnType<typeof createClient>, token: string, agora: Date = new Date(),
 ): Promise<number> {
@@ -219,8 +220,16 @@ export async function executarLembretes(
   const compMes = `${hojeISO.slice(0, 7)}-01`;
   const compAnt = competenciaAnterior(compMes); // fatura do mês anterior empurrada para este mês pelo dia útil
   const { data: users } = await admin.from("telegram_users").select("user_id, chat_id");
+  // Quem não usa o Telegram mas ativou as notificações no aparelho (push_inscricoes) também é lembrado — por Web Push
+  const { data: inscritos } = await admin.from("push_inscricoes").select("user_id");
+  const comTelegram = new Set(((users ?? []) as { user_id: string }[]).map((u) => u.user_id));
+  const soPush = [...new Set(((inscritos ?? []) as { user_id: string }[]).map((i) => i.user_id))].filter((id) => !comTelegram.has(id));
+  const todos = [...((users ?? []) as { user_id: string; chat_id: number | null }[]), ...soPush.map((user_id) => ({ user_id, chat_id: null }))];
   let enviados = 0;
-  for (const u of (users ?? []) as { user_id: string; chat_id: number }[]) {
+  for (const u of todos) {
+    const avisar = (corpo: { text: string }, titulo: string) => u.chat_id
+      ? tg(token, "sendMessage", corpo)
+      : enviarPush(admin, u.user_id, { titulo, corpo: corpo.text, url: "./", tag: titulo });
     const [{ data: metodos }, { data: doDia }, { data: doMes }, { data: pagas }, { data: feriados }] = await Promise.all([
       admin.from("menu_itens").select("nome, metodo_kind, banco, dia_vencimento").eq("tipo", "Método").eq("user_id", u.user_id),
       admin.from("transacoes").select("id, tipo, data, valor, categoria, descricao, metodo, competencia, quitada, origem, criado_em, a_confirmar, agendado, data_indefinida, parcelas_total")
@@ -252,7 +261,7 @@ export async function executarLembretes(
       if (!error) novos.push(l); // erro = já existia (execução concorrente)
     }
     if (novos.length) {
-      await tg(token, "sendMessage", corpoAvisoVencimentos(u.chat_id, hojeISO, novos));
+      await avisar(corpoAvisoVencimentos(u.chat_id ?? 0, hojeISO, novos), "⏰ Vencimentos de hoje");
       enviados += novos.length;
     }
 
@@ -266,7 +275,7 @@ export async function executarLembretes(
     for (const l of lembRec) {
       const { error } = await admin.from("alertas_bot").insert({ chave: l.chave, enviado_em: new Date().toISOString() });
       if (error) continue; // já lembrada (execução concorrente)
-      await tg(token, "sendMessage", corpoAvisoRecorrencia(u.chat_id, l.texto));
+      await avisar(corpoAvisoRecorrencia(u.chat_id ?? 0, l.texto), "🔁 Recorrência vence hoje");
       enviados += 1;
     }
   }
