@@ -4,5 +4,6 @@
   "dados",
   "pluggy-credenciais",
   "pluggy-revisao",
-  "emails-contas"
+  "emails-contas",
+  "push"
 ]

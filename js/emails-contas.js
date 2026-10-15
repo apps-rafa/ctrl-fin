@@ -80,7 +80,8 @@ function _emlHtml(email) {
             <li><a href="scripts/gmail-contas.gs" download="gmail-contas.gs">⬇️ Baixe o script <b>gmail-contas.gs</b></a>, abra o arquivo (no Bloco de Notas, por exemplo) e copie todo o texto.</li>
             <li>Abra <a href="https://script.google.com" target="_blank" rel="noopener"><b>script.google.com</b></a> &rarr; <b>Novo projeto</b>, apague o que estiver no editor e cole o texto copiado.</li>
             <li>Na linha <code>var SEGREDO</code>, troque o texto entre aspas pelo segredo do bot (peça ao administrador do app).</li>
-            <li>Escolha a função <b>instalar</b> e clique em <b>Executar</b>; aceite as permissões do Google (Gmail e conexão externa).</li>
+            <li>Escolha a função <b>instalar</b> e clique em <b>Executar</b>; aceite as permissões do Google (Gmail, seu endereço de e-mail e conexão externa).</li>
+            <li>Já instalou antes? Cole a versão nova do script e rode <b>instalar</b> de novo: ela informa de qual Gmail veio a conta (necessário para quem não usa o Telegram).</li>
             <li>Pronto: a cada 5 minutos, os e-mails com <b>Contas</b> vão para o bot e ganham o rótulo <b>Contas/enviado</b>.</li>
         </ol>`;
 }
