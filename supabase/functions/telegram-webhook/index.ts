@@ -33,10 +33,10 @@ import { executarLembretes, tratarPagoVencimento } from "./lembretes.ts";
 import { responderPendencias, abrirDuplicata, aprovarDuplicata } from "./pendencias.ts";
 import { processarEmailConta, tratarDecisaoEmail, tratarDecisaoSms } from "./email.ts";
 import { analisarParecidos, textoParecidos, tecladoParecidos } from "../_shared/parecidos.ts";
-import { tratarDecisaoPluggy } from "./pluggy-parecido.ts";
+import { tratarDecisaoPluggy, tratarAvisoPluggy } from "./pluggy-parecido.ts";
 import { gerarOcorrencias } from "../_shared/ocorrencias.ts";
 import {
-  idRascunhoDaResposta, tratarRespostaRascunho,
+  idRascunhoDaResposta, tratarRespostaRascunho, idLancamentoDaResposta, tratarRespostaLancado,
   tratarFormularioMiniApp, tratarStart, tratarAtualizar, tratarPgtoPadraoComando, tratarBackup,
 } from "./comandos.ts";
 import {
@@ -229,7 +229,7 @@ async function processarTextoLivre(
   if (!achado) {
     await tg(token, "sendMessage", {
       chat_id: chatId,
-      text: "Não entendi. Pra lançar por aqui, manda algo tipo \"gastei 35,90 no mercado\" ou \"recebi 200 de salário\" — eu monto um rascunho com botões de Confirmar/Editar/Cancelar. Também entendo os botões de Confirmar/Ignorar (quando chegam da Pluggy) e o comando /atualizar.",
+      text: "Não entendi. Pra lançar por aqui, manda algo tipo \"gastei 35,90 no mercado\" ou \"recebi 200 de salário\" — eu monto um rascunho com botões de Confirmar/Editar/Cancelar. Pra corrigir um lançamento já feito, responda (reply) à mensagem dele. Também entendo o comando /atualizar.",
     });
     return;
   }
@@ -523,6 +523,12 @@ Deno.serve(async (req: Request) => {
         await tratarRespostaRascunho({ supabaseAdmin, token, chatId, texto, rascunhoId: idRespondido, mensagemRespondidaId: update.message.reply_to_message?.message_id });
         return json({ ok: true });
       }
+      // Resposta a um lançamento JÁ feito (com ✏️ Corrigir): corrige o próprio lançamento
+      const lancRespondido = idLancamentoDaResposta(update.message.reply_to_message);
+      if (lancRespondido) {
+        await tratarRespostaLancado({ supabaseAdmin, token, chatId, texto, transacaoId: lancRespondido, mensagemRespondida: update.message.reply_to_message });
+        return json({ ok: true });
+      }
 
       // Texto livre: tenta entender como um lançamento ("gastei 35,90 no
       // mercado", "recebi 200 de salário") ou SMS de cartão (ver processarTextoLivre).
@@ -563,18 +569,24 @@ Deno.serve(async (req: Request) => {
         return json({ ok: true });
       }
 
-      if ((acao === "emig" || acao === "emat" || acao === "emou") && chatId) {
+      if ((acao === "emig" || acao === "emeo" || acao === "emat" || acao === "emou") && chatId) {
         await tratarDecisaoEmail(supabaseAdmin, token, cq, chatId, acao, Number(idStr));
         return json({ ok: true });
       }
 
-      if ((acao === "pgig" || acao === "pgat" || acao === "pgou") && chatId) {
+      if ((acao === "pgig" || acao === "pgeo" || acao === "pgat" || acao === "pgou") && chatId) {
         await tratarDecisaoPluggy(supabaseAdmin, token, cq, chatId, acao, Number(idStr));
         return json({ ok: true });
       }
 
-      if ((acao === "smig" || acao === "smat" || acao === "smou") && chatId) {
+      if ((acao === "smig" || acao === "smeo" || acao === "smat" || acao === "smou") && chatId) {
         await tratarDecisaoSms(supabaseAdmin, token, cq, chatId, acao, Number(idStr));
+        return json({ ok: true });
+      }
+
+      // Aviso da Pluggy: ✏️ Editar (vira rascunho na própria mensagem) e ♻️ Resgatar (volta o aviso depois do Cancelar)
+      if ((acao === "pgeditar" || acao === "pgresgatar") && chatId) {
+        await tratarAvisoPluggy(supabaseAdmin, token, cq, chatId, acao, Number(idStr));
         return json({ ok: true });
       }
 
@@ -653,10 +665,11 @@ Deno.serve(async (req: Request) => {
 
       if (acao === "ignorar") {
         await supabaseAdmin.from("transacoes_importadas").update({ status: "ignorada" }).eq("id", importadaId);
-        await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Ignorado" });
+        await tg(token, "answerCallbackQuery", { callback_query_id: cq.id, text: "Cancelado" });
         await tg(token, "editMessageText", {
           chat_id: chatId, message_id: cq.message.message_id,
-          text: `${cq.message.text}\n\n❌ Ignorado`,
+          text: `${cq.message.text}\n\n❌ Cancelado — nada foi lançado`,
+          reply_markup: { inline_keyboard: [[{ text: "♻️ Resgatar", callback_data: `pgresgatar:${importadaId}` }]] }, // sempre dá pra voltar atrás
         });
         return json({ ok: true });
       }

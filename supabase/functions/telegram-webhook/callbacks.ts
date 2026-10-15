@@ -82,7 +82,7 @@ export async function descartarRascunho(
   admin: ReturnType<typeof createClient>, token: string, chatId: number, rascunhoId: number, mensagemId: number, textoAtual: string | null, ehOcorrencia: boolean,
 ): Promise<void> {
   await admin.from("telegram_rascunhos").update({ status: "descartado", editando_em: null, mensagem_id: mensagemId }).eq("id", rascunhoId);
-  const resgatar = { inline_keyboard: [[{ text: "♻️ Resgatar", callback_data: `nlresgatar:${rascunhoId}` }, { text: "❌ Cancelar", callback_data: "cancelar" }]] }; // Cancelar: fecha de vez (some o Resgatar)
+  const resgatar = { inline_keyboard: [[{ text: "♻️ Resgatar", callback_data: `nlresgatar:${rascunhoId}` }]] }; // fim do processo: sempre dá pra voltar (sem Cancelar que sumiria com o Resgatar)
   if (textoAtual === null) {
     await tg(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: mensagemId, reply_markup: resgatar });
   } else {

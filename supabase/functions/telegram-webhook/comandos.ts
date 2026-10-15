@@ -291,3 +291,59 @@ export async function tratarRespostaRascunho(
   if (mensagemRespondidaId) await tg(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: mensagemRespondidaId, reply_markup: { inline_keyboard: [] } });
   await enviarRascunho(token, chatId, rascunhoId, novo, supabaseAdmin, tgUser.user_id);
 }
+
+/** Id do LANÇAMENTO (já gravado) de uma mensagem do bot com ✏️ Corrigir (ou o menu Editar/Apagar aberto). */
+// deno-lint-ignore no-explicit-any
+export function idLancamentoDaResposta(respondida: any): number | null {
+  const botoes = (respondida?.reply_markup?.inline_keyboard ?? []).flat();
+  // deno-lint-ignore no-explicit-any
+  const b = botoes.find((x: any) => typeof x?.callback_data === "string" && /^(corrigir|corrigirvoltar|ultedit|apagartx):\d+$/.test(x.callback_data));
+  const id = b ? Number(String(b.callback_data).split(":")[1]) : 0;
+  return id > 0 ? id : null;
+}
+
+/** Texto enviado COMO RESPOSTA a um lançamento já feito (✏️ Corrigir): corrige o próprio lançamento, com as mesmas
+ *  regras da resposta a um rascunho (descrição, categoria, forma de pgto., data, valor), e a mensagem é refeita. */
+export async function tratarRespostaLancado(
+  c: ContextoComando & { transacaoId: number; mensagemRespondida: { message_id: number; text?: string } },
+): Promise<void> {
+  const { supabaseAdmin, token, chatId, texto, transacaoId, mensagemRespondida } = c;
+  const { data: tgUser } = await supabaseAdmin.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle();
+  const { data: t } = tgUser
+    ? await supabaseAdmin.from("transacoes").select("*").eq("id", transacaoId).eq("user_id", tgUser.user_id).maybeSingle()
+    : { data: null };
+  if (!tgUser || !t) { await tg(token, "sendMessage", { chat_id: chatId, text: "Esse lançamento já não existe mais." }); return; }
+  if (t.parcelas_total && t.parcelas_total > 1) { await tg(token, "sendMessage", { chat_id: chatId, text: "Lançamento parcelado: corrija pelo app (ou em ✏️ Corrigir › Editar)." }); return; }
+  const listas = await carregarListasUsuario(supabaseAdmin, tgUser.user_id);
+  const met = listas.metodos.find((m) => rotuloMetodo(m) === t.metodo) ?? null;
+  const ehEstorno = t.tipo === "entradas" && met?.metodo_kind === "Crédito"; // estorno gravado como entrada no cartão
+  const atual: RascunhoLancamento = {
+    tipo: ehEstorno ? "saidas" : (t.tipo === "entradas" ? "entradas" : "saidas"), valor: Number(t.valor), descricao: t.descricao ?? "",
+    categoria: ehEstorno ? "Estorno" : (t.categoria ?? ""), metodo: t.metodo || null, metodoKind: met?.metodo_kind ?? null, diaFechamento: met?.dia_fechamento ?? null,
+    data: String(t.data).slice(0, 10), competencia: t.competencia ? String(t.competencia).slice(0, 10) : null, parcelas: null, dataIndefinida: !!t.data_indefinida,
+  };
+  const cats = listas.catsR.map((nome) => ({ nome, categoria_tipo: "entradas" })).concat(listas.catsD.map((nome) => ({ nome, categoria_tipo: "saidas" })));
+  const novo = aplicarRespostaAoRascunho(atual, texto, cats, listas.metodos);
+  // Estorno e mudança de tipo/parcelas ficam para o formulário: aqui só os campos simples
+  const mudancas: Record<string, unknown> = { descricao: novo.descricao };
+  if (!ehEstorno && novo.tipo === atual.tipo) {
+    mudancas.valor = novo.valor; mudancas.categoria = novo.categoria; mudancas.metodo = novo.metodo; mudancas.data = novo.data;
+    if (novo.data !== atual.data || novo.metodo !== atual.metodo) {
+      mudancas.competencia = competenciaDe(novo.data, novo.tipo === "saidas" && novo.metodoKind === "Crédito" ? novo.diaFechamento : null);
+      novo.competencia = mudancas.competencia as string;
+      if (novo.data !== atual.data) mudancas.data_indefinida = false;
+    }
+  }
+  const { error } = await supabaseAdmin.from("transacoes").update(mudancas).eq("id", transacaoId).eq("user_id", tgUser.user_id);
+  if (error) { console.error(error); await tg(token, "sendMessage", { chat_id: chatId, text: "Não consegui corrigir — tenta pelo ✏️ Corrigir › Editar." }); return; }
+  const final: RascunhoLancamento = ehEstorno || novo.tipo !== atual.tipo ? { ...atual, descricao: novo.descricao } : novo;
+  // Mantém o cabeçalho da mensagem original (ex.: "🏦 Lançamento do banco (Pluggy)")
+  const primeira = String(mensagemRespondida.text ?? "").split("\n")[0];
+  const cab = /^(💸 Despesa|💰 Receita)$/.test(primeira) ? null : primeira || null;
+  await tg(token, "editMessageText", {
+    chat_id: chatId, message_id: mensagemRespondida.message_id,
+    text: await textoLancado(supabaseAdmin, tgUser.user_id, textoLancamento(final, cab), "✅ Corrigido"),
+    reply_markup: tecladoCorrigir(transacaoId),
+  });
+  await tg(token, "sendMessage", { chat_id: chatId, text: "✅ Lançamento corrigido (mensagem acima atualizada)." });
+}
