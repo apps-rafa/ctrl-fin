@@ -462,13 +462,21 @@ function transacoesDoPeriodoAPI(ini, fim) {
  *  sem essa conversão o "não é duplicata" e as ocorrências de recorrência deixavam de ser reconhecidos. */
 async function transacoesParaDuplicatasAPI() {
     const linhas = await _lerEmPaginas((a, b) => sb.from('transacoes')
-        .select('id, tipo, valor, metodo, descricao, data, competencia, duplicata_ok, a_confirmar, recorrencia_id, recorrencia_semanal_id')
+        .select('id, tipo, valor, metodo, descricao, data, competencia, duplicata_ok, a_confirmar, recorrencia_id, recorrencia_semanal_id, sugestao_rec_ok')
         .order('id', { ascending: true }).range(a, b));
     return linhas.map(r => ({
         id: r.id, tipo: r.tipo, valor: Number(r.valor), metodo: r.metodo, descricao: r.descricao || '',
         data: r.data, competencia: r.competencia, duplicataOk: !!r.duplicata_ok, aConfirmar: !!r.a_confirmar,
-        recorrenciaId: r.recorrencia_id || null, recorrenciaSemanalId: r.recorrencia_semanal_id || null,
+        recorrenciaId: r.recorrencia_id || null, recorrenciaSemanalId: r.recorrencia_semanal_id || null, sugestaoRecOk: !!r.sugestao_rec_ok,
     }));
+}
+
+/** Sugestão de recorrência: vincula os lançamentos à recorrência semanal (ficam agrupados com ela) ou recusa a sugestão. */
+function vincularSemanalAPI(ids, recorrenciaId) {
+    return _emIds(sb.from('transacoes').update({ recorrencia_semanal_id: recorrenciaId }), ids);
+}
+function recusarSugestaoRecAPI(ids) {
+    return _emIds(sb.from('transacoes').update({ sugestao_rec_ok: true }), ids);
 }
 
 /** Linhas completas de alguns ids (quem chama divide em lotes). */
