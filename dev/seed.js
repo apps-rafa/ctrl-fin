@@ -45,6 +45,8 @@
     t('saidas', '2026-10-02', 18.50, 'Alimentação', 'PIX', 'Padaria'),
     t('saidas', '2026-10-09', 64.00, 'Casa', 'PIX', 'Lavanderia'),
     t('saidas', '2026-10-09', 64.00, 'Casa', 'PIX', 'Lavanderia'),
+    // Sugestão de recorrência: terça, PIX, R$ 190 e o nome da recorrência semanal "Personal", mas sem o vínculo
+    t('saidas', '2026-10-06', 190.00, 'Saúde', 'PIX', 'Personal trainer'),
   ];
   const R = (id, tipo, frequencia, dia_semana, valor, meses, metodo, categoria, descricao, inicio, status = 'ativa') => ({ id, user_id: U, tipo, frequencia, dia_semana, dia_mes: frequencia === 'mensal' ? Number(inicio.slice(8, 10)) : null, valor, meses, metodo, categoria, descricao, inicio, status, encerrada_em: status === 'encerrada' ? '2026-09-20' : null, ativa_desde: inicio, gerado_ate: null });
   const recorrencias = [

@@ -885,3 +885,8 @@ body:has(.tab-content.active) #filaHome, body.buscando #filaHome { display: none
 /* Filho único de um grupo (qualquer nível): já aberto e sem recolher (ver _abrirFilhosUnicos em js/ui.js) */
 details.grupo-fixo > summary { cursor: default; }
 details.grupo-fixo > summary::before, details.grupo-fixo > .subgrupo-cab::before { content: none; }
+
+/* Pendências: "É da recorrência X?" abaixo do lançamento sugerido (texto em cima, os 2 botões dividem a largura toda) */
+.sugestao-rec { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 12px 10px; }
+.sugestao-rec-txt { flex: 1 0 100%; font-size: 0.85rem; color: var(--text-secondary, inherit); }
+.sugestao-rec .mini-btn { flex: 1 1 0; justify-content: center; }
