@@ -202,7 +202,7 @@ export async function processarEmailConta(
 /** Atualiza a ocorrência/lançamento da conta e manda o rascunho (ou o aviso de "a pagar" atualizado). */
 export async function executarConta(
   admin: Admin, token: string, userId: string, chatId: number | null, rec: RecorrenciaEmail, dados: DadosConta, marcar: Marcar,
-  jaTratada: { transacao_id: number | null; status: string }[], temParecido = false,
+  jaTratada: { transacao_id: number | null; status: string }[], temParecido = false, criou = false,
 ): Promise<{ ok: boolean; status: string }> {
   const hoje = hojeBrasiliaISO();
   const avisar = avisador(admin, token, userId, chatId);
@@ -236,6 +236,21 @@ export async function executarConta(
       await marcar("repetido", { recorrencia_id: rec.id });
       await avisar(`📧 ${nome}: chegou um e-mail de fatura antiga${dados.valor ? ` (${formatarMoedaBR(dados.valor)})` : ""}, vencimento ${dados.vencimento.split("-").reverse().join("/")}. Ignorei: não é a conta deste mês.`);
       return { ok: true, status: "repetido" };
+    }
+    // Nenhuma ocorrência da conta: cria a "a confirmar" (data do vencimento ou "?/mês") e segue o fluxo normal, para você ajustar no rascunho
+    if (!criou) {
+      const { data: r } = await admin.from("recorrencias").select("tipo, valor, metodo, categoria, descricao, frequencia").eq("id", rec.id).eq("user_id", userId).maybeSingle();
+      const valor = dados.valor ?? Number(r?.valor);
+      if (r && valor > 0) {
+        const { error } = await admin.from("transacoes").insert({
+          user_id: userId, tipo: r.tipo, data: dados.vencimento ?? hoje, valor, metodo: r.metodo, categoria: r.categoria, descricao: r.descricao,
+          forma_pagamento: "À vista", tipo_recorrencia: "Pontual", competencia: `${(dados.vencimento ?? hoje).slice(0, 7)}-01`,
+          status: "Ativa", recorrencia_id: rec.id, a_confirmar: true, data_indefinida: !dados.vencimento, agendado: true,
+          duplicata_ok: r.frequencia === "semanal",
+        });
+        if (!error) return await executarConta(admin, token, userId, chatId, rec, dados, marcar, jaTratada, temParecido, true);
+        console.error("Ocorrência não criada pelo e-mail:", error);
+      }
     }
     await marcar("sem_ocorrencia", { recorrencia_id: rec.id });
     await avisar(`📧 ${nome}: chegou o e-mail${dados.valor ? ` (${formatarMoedaBR(dados.valor)})` : ""}, mas não achei nenhum lançamento "a confirmar" nem "a pagar" dessa conta para atualizar.`);
