@@ -1292,6 +1292,9 @@ summary [role="button"] { font-family: Arial; text-align: center; }
 /* Mesma altura e corpo de texto do campo ao lado (.form-group input: 0.5rem + 1px de borda, 0.82rem) */
 .eml-linha .eml-btn { flex: 0 0 auto; width: auto; padding: calc(0.5rem + 1px) 1.1rem; font-size: 0.82rem; line-height: 1.2; }
 .eml-cadastro { display: flex; align-items: center; gap: .4rem; margin: -.4rem 0 .5rem; font-size: .85rem; color: var(--text); cursor: pointer; }
+.eml-backup { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; }
+.eml-backup label { margin: 0; }
+.eml-backup select { width: auto; flex: 0 0 auto; }
 .eml-linha input[readonly] { opacity: .75; }
 .eml-segredo { margin-top: .35rem; }
 .eml-segredo-linha { display: flex; gap: .5rem; }
