@@ -11,7 +11,7 @@ import { enviarPush } from "../_shared/webpush.ts";
 import { responderDecisaoParecido, acaoDe } from "./decisao-parecido.ts";
 import { hojeBrasiliaISO, somarDiasISO, normalizarTexto, type RascunhoLancamento } from "./parser.ts";
 
-export interface EmailConta { messageId: string; from: string; subject: string; body: string }
+export interface EmailConta { messageId: string; from: string; subject: string; body: string; /** dia (AAAA-MM-DD) em que o e-mail chegou; ausente em scripts antigos */ data?: string }
 export interface RecorrenciaEmail { id: number; descricao: string; categoria: string }
 /** Vínculo cadastrado em ⚙️ Configurações > E-mails (tabela email_contas_vinculos): remetente e/ou palavra do assunto -> recorrência. */
 export interface VinculoEmail { remetente: string; palavra: string; recorrencia_id: number }
@@ -159,7 +159,7 @@ export async function processarEmailConta(
   }
 
   const hoje = hojeBrasiliaISO();
-  const dados = extrairDadosConta(`${e.subject}\n${e.body}`, hoje);
+  const dados = extrairDadosConta(`${e.subject}\n${e.body}`, e.data ?? hoje); // ano do vencimento sem ano = o do dia em que o e-mail chegou
   const nome = rec.descricao || rec.categoria;
 
   // O que já aconteceu com essa conta (mesma recorrência) nos últimos 60 dias: lembrete repetido não avisa de novo, e uma

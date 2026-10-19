@@ -443,7 +443,7 @@ Deno.serve(async (req: Request) => {
     if (!alvo) return json({ error: "Dono do e-mail não encontrado: gere o seu segredo em Configurações > E-mails" }, 400);
     try {
       const r = await processarEmailConta(supabaseAdmin, token, alvo.user_id, alvo.chat_id, {
-        messageId: String(corpo.messageId).slice(0, 300), from: String(corpo.from), subject: String(corpo.subject ?? ""), body: String(corpo.body ?? "").slice(0, 60000),
+        messageId: String(corpo.messageId).slice(0, 300), from: String(corpo.from), subject: String(corpo.subject ?? ""), data: /^\d{4}-\d{2}-\d{2}$/.test(String(corpo.data ?? "")) ? String(corpo.data) : undefined, body: String(corpo.body ?? "").slice(0, 60000),
       });
       return json(r);
     } catch (e) {

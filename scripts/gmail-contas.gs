@@ -42,6 +42,8 @@ function processarContas() {
 
   // threads com "Contas" que ainda não têm "Contas/enviado" (no Gmail, o filho "Contas/enviado" vira "Contas-enviado" na busca)
   var threads = GmailApp.search('label:Contas -label:Contas-enviado newer_than:30d', 0, 30);
+  // do mais antigo para o mais novo: a conta de setembro é tratada antes da de outubro
+  threads.sort(function (a, b) { return a.getLastMessageDate() - b.getLastMessageDate(); });
   threads.forEach(function (thread) {
     var todosOk = true;
     thread.getMessages().forEach(function (m) {
@@ -56,6 +58,7 @@ function processarContas() {
           messageId: m.getId(),
           from: m.getFrom(),
           subject: m.getSubject(),
+          data: Utilities.formatDate(m.getDate(), 'America/Sao_Paulo', 'yyyy-MM-dd'), // quando o e-mail chegou
           body: corpo.substring(0, 40000)
         })
       });
