@@ -3,7 +3,8 @@
 // Manda o backup completo (mesmo formato do "Baixar backup" do app, então o "Importar backup" restaura) por e-mail, via Resend.
 //  - Botão "Enviar por e-mail" (Configurações > Dados): chamada com o JWT do usuário logado (verify_jwt desligado no deploy;
 //    a função valida o usuário sozinha para também aceitar o agendamento).
-//  - Agendamento mensal (pg_cron): cabeçalho x-cron-secret igual ao de public.app_cron_segredo ('tarefas'); manda o de cada usuário do bot.
+//  - Agendamento diário (pg_cron): cabeçalho x-cron-secret igual ao de public.app_cron_segredo ('tarefas'); manda o de cada usuário do bot
+//    que está no prazo da sua periodicidade (email_contas_config.backup_periodicidade, escolhida em Configurações > E-mails).
 // Segredos (Supabase > Edge Functions > Secrets): RESEND_API_KEY (obrigatório) e BACKUP_EMAIL_TO (opcional; padrão: e-mail do usuário).
 // Sem domínio verificado o Resend só entrega para o e-mail da própria conta dele — por isso o remetente é onboarding@resend.dev.
 
@@ -59,7 +60,20 @@ async function enviarBackup(admin: ReturnType<typeof createClient>, userId: stri
     }),
   });
   if (!resp.ok) throw new Error(`Resend falhou (${resp.status}): ${(await resp.text()).slice(0, 300)}`);
+  await admin.from("email_contas_config").upsert({ user_id: userId, backup_enviado_em: hoje }, { onConflict: "user_id" });
   return { para, lancamentos: transacoes.length };
+}
+
+const MESES_POR_PERIODO: Record<string, number> = { mensal: 1, bimestral: 2, trimestral: 3, semestral: 6 };
+
+/** Está na hora do backup agendado? Nunca = não; semanal = 7 dias; os demais = N meses desde o último (sem envio anterior: manda já). */
+function estaNoPrazo(periodo: string, ultimo: string | null, hoje: string): boolean {
+  if (periodo === "nunca") return false;
+  if (!ultimo) return true;
+  const prox = new Date(`${ultimo}T00:00:00Z`);
+  if (periodo === "semanal") prox.setUTCDate(prox.getUTCDate() + 7);
+  else prox.setUTCMonth(prox.getUTCMonth() + (MESES_POR_PERIODO[periodo] ?? 1));
+  return hoje >= prox.toISOString().slice(0, 10);
 }
 
 Deno.serve(async (req: Request) => {
@@ -75,7 +89,10 @@ Deno.serve(async (req: Request) => {
       if (!seg || segredoCron !== seg.valor) return json({ error: "Não autorizado" }, 401);
       const { data: usuarios } = await admin.from("telegram_users").select("user_id");
       const enviados = [];
+      const hoje = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
       for (const u of (usuarios ?? []) as { user_id: string }[]) {
+        const { data: cfg } = await admin.from("email_contas_config").select("backup_periodicidade, backup_enviado_em").eq("user_id", u.user_id).maybeSingle();
+        if (!estaNoPrazo(cfg?.backup_periodicidade ?? "mensal", cfg?.backup_enviado_em ?? null, hoje)) continue;
         const { data: { user } } = await admin.auth.admin.getUserById(u.user_id);
         enviados.push(await enviarBackup(admin, u.user_id, user?.email ?? undefined, chave));
       }
