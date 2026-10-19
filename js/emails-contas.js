@@ -70,7 +70,7 @@ function _emlHtml(email, usarCadastro) {
 
         <h3 class="dados-selecao-titulo">Backup por e-mail</h3>
         <p class="menu-hint">Com que frequência o backup completo é enviado sozinho para o e-mail da sua conta.</p>
-        <div class="form-group"><label for="emlBackup">Periodicidade</label>
+        <div class="form-group eml-backup"><label for="emlBackup">Periodicidade</label>
             <select id="emlBackup">${EML_PERIODOS.map(([v, t]) => `<option value="${v}"${v === _emlBackup ? ' selected' : ''}>${t}</option>`).join('')}</select></div>
 
         <h3 class="dados-selecao-titulo">Contas vinculadas</h3>
