@@ -51,7 +51,7 @@ function _emlNomeRec(r) {
 
 /** Diz se já há e-mail salvo (o campo sozinho não deixa claro). */
 function _emlStatusTxt(email) {
-    return email ? `✅ Salvo: <b>${_emlEsc(email)}</b>` : 'Nenhum e-mail salvo ainda: digite o seu Gmail e toque em Salvar.';
+    return email ? '✅ Salvo' :'Nenhum e-mail salvo ainda: digite o seu Gmail e toque em Salvar.';
 }
 
 function _emlHtml(email, usarCadastro) {
@@ -65,7 +65,7 @@ function _emlHtml(email, usarCadastro) {
                 <input type="email" id="emlEmail" autocomplete="off" placeholder="voce@gmail.com" value="${_emlEsc(valor)}"${usarCadastro ? ' readonly' : ''}></div>
             <button type="submit" class="btn-submit eml-btn">Salvar</button>
         </form>
-        ${_emlEmailCadastro ? `<label class="eml-cadastro"><input type="checkbox" id="emlUsarCadastro"${usarCadastro ? ' checked' : ''}> Usar o mesmo e-mail do cadastro (<b>${_emlEsc(_emlEmailCadastro)}</b>)</label>` : ''}
+        ${_emlEmailCadastro ? `<label class="eml-cadastro"><input type="checkbox" id="emlUsarCadastro"${usarCadastro ? ' checked' : ''}> Usar o mesmo e-mail do cadastro</label>` : ''}
         <p class="eml-status" id="emlStatus">${_emlStatusTxt(email)}</p>
 
         <h3 class="dados-selecao-titulo">Backup por e-mail</h3>
