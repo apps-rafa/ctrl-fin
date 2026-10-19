@@ -17,13 +17,16 @@ let _emlEditandoId = null;
 let _emlTemSegredo = false;   // já existe segredo pessoal do script (no banco só o hash)
 let _emlEmailCadastro = ''; // e-mail do login (já confirmado no cadastro); vazio no modo teste
 
-const _emlEsc = s => escaparHtml(String(s ?? ''));
+let _emlBackup = 'mensal';    // periodicidade do backup por e-mail
+const EML_PERIODOS = [['nunca', 'Nunca'], ['semanal', 'Semanal'], ['mensal', 'Mensal'], ['bimestral', 'Bimestral'], ['trimestral', 'Trimestral'], ['semestral', 'Semestral']];
+
+const _emlEsc =s => escaparHtml(String(s ?? ''));
 
 async function iniciarEmailsContas() {
     const sec = document.getElementById('secEmails');
     if (!sec) return;
     const [cfg, vinc, recs, usuario] = await Promise.all([
-        sb.from('email_contas_config').select('email, usar_cadastro, segredo_hash').maybeSingle(),
+        sb.from('email_contas_config').select('email, usar_cadastro, segredo_hash, backup_periodicidade').maybeSingle(),
         sb.from('email_contas_vinculos').select('id, remetente, palavra, recorrencia_id').order('id'),
         listarRecorrenciasAPI(),
         sb.auth.getUser(),
@@ -33,6 +36,7 @@ async function iniciarEmailsContas() {
     _emlRecs = (recs.data || []).filter(r => r.tipo === 'saidas');
     _emlEditandoId = null;
     _emlTemSegredo = !!cfg.data?.segredo_hash;
+    _emlBackup = cfg.data?.backup_periodicidade || 'mensal';
     sec.innerHTML = _emlHtml(cfg.data?.email || '', !!cfg.data?.usar_cadastro && !!_emlEmailCadastro);
     _emlRenderSegredo();
     _emlRenderLista();
@@ -63,6 +67,11 @@ function _emlHtml(email, usarCadastro) {
         </form>
         ${_emlEmailCadastro ? `<label class="eml-cadastro"><input type="checkbox" id="emlUsarCadastro"${usarCadastro ? ' checked' : ''}> Usar o mesmo e-mail do cadastro (<b>${_emlEsc(_emlEmailCadastro)}</b>)</label>` : ''}
         <p class="eml-status" id="emlStatus">${_emlStatusTxt(email)}</p>
+
+        <h3 class="dados-selecao-titulo">Backup por e-mail</h3>
+        <p class="menu-hint">Com que frequência o backup completo é enviado sozinho para o e-mail da sua conta.</p>
+        <div class="form-group"><label for="emlBackup">Periodicidade</label>
+            <select id="emlBackup">${EML_PERIODOS.map(([v, t]) => `<option value="${v}"${v === _emlBackup ? ' selected' : ''}>${t}</option>`).join('')}</select></div>
 
         <h3 class="dados-selecao-titulo">Contas vinculadas</h3>
         <p class="menu-hint">Quando chegar um e-mail desse <b>remetente</b> e/ou com essa <b>palavra no assunto</b>, o bot atualiza a recorrência escolhida. Com os dois preenchidos, precisam casar os dois.</p>
@@ -138,6 +147,13 @@ function _emlLigar(sec) {
         const campo = document.getElementById('emlEmail');
         campo.readOnly = ev.target.checked;
         if (ev.target.checked) { campo.value = _emlEmailCadastro; salvarEmail(); } else campo.focus();
+    });
+
+    sec.querySelector('#emlBackup').addEventListener('change', async ev => {
+        const { error } = await sb.from('email_contas_config').upsert({ backup_periodicidade: ev.target.value, atualizado_em: new Date().toISOString() }, { onConflict: 'user_id' });
+        if (error) { console.error(error); return mostrarNotificacao('Erro ao salvar a periodicidade', 'erro'); }
+        _emlBackup = ev.target.value;
+        mostrarNotificacao('Periodicidade do backup salva');
     });
 
     sec.querySelector('#emlVincForm').addEventListener('submit', async ev => {
