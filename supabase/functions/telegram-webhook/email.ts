@@ -232,6 +232,11 @@ export async function executarConta(
   }
   if (!ocorrencia) {
     if (jaTratada.length) { await marcar("repetido", { recorrencia_id: rec.id }); return { ok: true, status: "repetido" }; } // ex.: já confirmada
+    if (dados.vencimento && dados.vencimento < piso) { // fatura antiga (vencimento já passou): não é para nenhuma ocorrência atual
+      await marcar("repetido", { recorrencia_id: rec.id });
+      await avisar(`📧 ${nome}: chegou um e-mail de fatura antiga${dados.valor ? ` (${formatarMoedaBR(dados.valor)})` : ""}, vencimento ${dados.vencimento.split("-").reverse().join("/")}. Ignorei: não é a conta deste mês.`);
+      return { ok: true, status: "repetido" };
+    }
     await marcar("sem_ocorrencia", { recorrencia_id: rec.id });
     await avisar(`📧 ${nome}: chegou o e-mail${dados.valor ? ` (${formatarMoedaBR(dados.valor)})` : ""}, mas não achei nenhum lançamento "a confirmar" nem "a pagar" dessa conta para atualizar.`);
     return { ok: true, status: "sem_ocorrencia" };
