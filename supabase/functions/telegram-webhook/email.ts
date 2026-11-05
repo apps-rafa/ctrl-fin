@@ -108,27 +108,25 @@ type Marcar = (status: string, extra?: Record<string, unknown>) => unknown;
 
 const CAMPOS = "id, data, valor, tipo, metodo, categoria, descricao, competencia, data_indefinida";
 
-/** Palavras da descrição da recorrência ("Internet Predial" -> internet, predial), para comparar com a descrição de um lançamento. */
-function palavrasDe(s: string): string[] {
-  return [...new Set(normalizarTexto(s).split(/[^a-z0-9]+/).filter((p) => p.length >= 4 && !PALAVRAS_COMUNS.has(p)))];
+/** Data cadastrada no app para esta conta: a da próxima ocorrência "a confirmar" da recorrência (com data definida). */
+export async function dataCadastradaDaConta(admin: Admin, userId: string, rec: RecorrenciaEmail, hoje: string): Promise<string | null> {
+  const { data } = await admin.from("transacoes").select("id, data, valor, data_indefinida")
+    .eq("user_id", userId).eq("recorrencia_id", rec.id).eq("a_confirmar", true).order("data", { ascending: true });
+  const ocs = ((data ?? []) as (OcorrenciaEmail & { data_indefinida?: boolean })[]).filter((o) => !o.data_indefinida);
+  return escolherOcorrencia(ocs, null, hoje)?.data.slice(0, 10) ?? null;
 }
 
-/** Lançamentos JÁ existentes (confirmados) que parecem ser esta conta: da própria recorrência, com a mesma descrição, ou com o
- *  mesmo valor na mesma data (±3 dias). Janela: vencimento ±25 dias (sem vencimento: de 10 dias atrás a 45 dias à frente). */
-export async function buscarSimilares(admin: Admin, userId: string, rec: RecorrenciaEmail, dados: DadosConta, hoje: string): Promise<Record<string, unknown>[]> {
-  const base = dados.vencimento ?? hoje;
-  const ini = somarDiasISO(base, dados.vencimento ? -25 : -10), fim = somarDiasISO(base, dados.vencimento ? 25 : 45);
+/** Lançamentos JÁ existentes (confirmados) com o MESMO valor (centavo a centavo) e a MESMA data da conta. A data é o vencimento
+ *  do e-mail; sem ele, a cadastrada no app (`dataCadastrada`); sem as duas, o dia em que o e-mail chegou (`chegada`).
+ *  Sem valor no e-mail não há o que comparar: nada é parecido. */
+export async function buscarSimilares(admin: Admin, userId: string, _rec: RecorrenciaEmail, dados: DadosConta, chegada: string, dataCadastrada: string | null = null): Promise<Record<string, unknown>[]> {
+  if (dados.valor === null) return [];
+  const base = dados.vencimento ?? dataCadastrada ?? chegada;
   const { data } = await admin.from("transacoes").select(`${CAMPOS}, recorrencia_id`)
-    .eq("user_id", userId).eq("tipo", "saidas").eq("a_confirmar", false).gte("data", ini).lte("data", fim).order("data", { ascending: true });
-  const palavras = palavrasDe(`${rec.descricao}`);
-  const dias = (a: string, b: string) => Math.abs((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86400000);
-  return ((data ?? []) as Record<string, unknown>[]).filter((t) => {
-    const mesmaRec = t.recorrencia_id === rec.id;
-    const desc = normalizarTexto(String(t.descricao ?? ""));
-    const mesmaDesc = palavras.length > 0 && palavras.some((p) => desc.includes(p));
-    const mesmoValorEData = dados.valor !== null && Math.abs(Number(t.valor) - dados.valor) < 0.5 && dias(String(t.data).slice(0, 10), base) <= 3;
-    return mesmaRec || mesmaDesc || mesmoValorEData;
-  });
+    .eq("user_id", userId).eq("tipo", "saidas").eq("a_confirmar", false).eq("data", base).order("data", { ascending: true });
+  const centavos = (n: number) => Math.round(Math.abs(n) * 100);
+  return ((data ?? []) as Record<string, unknown>[]).filter((t) =>
+    String(t.data).slice(0, 10) === base && centavos(Number(t.valor)) === centavos(dados.valor as number));
 }
 
 /** Avisa o usuário: pelo Telegram quando vinculado (chatId), senão por notificação no aparelho (Web Push). */
@@ -159,7 +157,9 @@ export async function processarEmailConta(
   }
 
   const hoje = hojeBrasiliaISO();
-  const dados = extrairDadosConta(`${e.subject}\n${e.body}`, e.data ?? hoje); // ano do vencimento sem ano = o do dia em que o e-mail chegou
+  const chegada = e.data ?? hoje; // dia em que o e-mail chegou
+  const dados = extrairDadosConta(`${e.subject}\n${e.body}`, chegada);
+  const similaresDaConta = async () => buscarSimilares(admin, userId, rec, dados, chegada, dados.vencimento ? null : await dataCadastradaDaConta(admin, userId, rec, hoje)); // ano do vencimento sem ano = o do dia em que o e-mail chegou
   const nome = rec.descricao || rec.categoria;
 
   // O que já aconteceu com essa conta (mesma recorrência) nos últimos 60 dias: lembrete repetido não avisa de novo, e uma
@@ -175,12 +175,12 @@ export async function processarEmailConta(
 
   // Sem Telegram não há botões para perguntar "é o mesmo?": segue com a conta e o aviso no aparelho pede para conferir.
   if (!chatId) {
-    const parecido = !jaTratada.some((x) => x.status === "outro") && (await buscarSimilares(admin, userId, rec, dados, hoje)).length > 0;
+    const parecido = !jaTratada.some((x) => x.status === "outro") && (await similaresDaConta()).length > 0;
     return await executarConta(admin, token, userId, null, rec, dados, marcar, jaTratada, parecido);
   }
   // Já existe um lançamento parecido? Pergunta se é o mesmo (não decidiu "é outro" antes).
   if (!jaTratada.some((x) => x.status === "outro")) {
-    const similares = await buscarSimilares(admin, userId, rec, dados, hoje);
+    const similares = await similaresDaConta();
     if (similares.length) {
       const { data: linhaEmail } = await admin.from("emails_processados")
         .update({ status: "aguardando", recorrencia_id: rec.id, pendente: { valor: dados.valor, vencimento: dados.vencimento, similares: similares.map((s) => s.id) } })

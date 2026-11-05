@@ -46,9 +46,9 @@ export async function analisarParecidos(
     .map((t) => ({ t, p: nomeBate(t) >= 2 || (nomeBate(t) >= 1 && mesmoValor(t)) ? nomeBate(t) + (mesmoValor(t) ? 1 : 0) : 0 }))
     .filter((x) => x.p > 0).sort((x, y) => y.p - x.p || dias(x.t.data) - dias(y.t.data));
   if (casadas.length) return { casada: casadas[0].t, parecidos: [] };
-  const parecidos = lista.filter((t) => t.data.slice(0, 7) === mes &&
-    // Uma palavra só em comum NÃO basta: nome parcial precisa do mesmo valor; sem o valor, o nome tem que bater inteiro (em até 3 dias)
-    ((nomeBate(t) > 0 && mesmoValor(t)) || (mesmoValor(t) && dias(t.data) <= 3) || (nomeBate(t) >= 2 && dias(t.data) <= 3))).slice(0, 3);
+  // Parecido = mesmo valor (centavo a centavo) e mesma data. O nome não entra.
+  const centavos = (n: number) => Math.round(Math.abs(n) * 100);
+  const parecidos = lista.filter((t) => centavos(Number(t.valor)) === centavos(q.valor) && t.data.slice(0, 10) === q.data.slice(0, 10)).slice(0, 3);
   return { casada: null, parecidos };
 }
 

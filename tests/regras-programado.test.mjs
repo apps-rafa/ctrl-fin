@@ -80,7 +80,7 @@ test("parecidos: ocorrência a confirmar de recorrência casa por nome; senão l
   const oc = tx({ id: 7, descricao: "Netflix", a_confirmar: true, recorrencia_id: "r1", valor: 55.9, data: "2026-10-12" });
   const r1 = await analisarParecidos(fake([oc]), "u", { tipo: "saidas", valor: 55.9, data: "2026-10-12", texto: "compra NETFLIX.COM" });
   assert.equal(r1.casada?.id, 7);
-  const velho = tx({ id: 3, descricao: "Mercado", valor: 80, data: "2026-10-11" });
+  const velho = tx({ id: 3, descricao: "Mercado", valor: 80, data: "2026-10-12" });
   const r2 = await analisarParecidos(fake([velho]), "u", { tipo: "saidas", valor: 80, data: "2026-10-12", texto: "mercado" });
   assert.equal(r2.casada, null);
   assert.deepEqual(r2.parecidos.map((p) => p.id), [3]);
@@ -103,14 +103,12 @@ test("aviso de parecido: mesmo texto e mesmos botões em qualquer origem (só mu
   assert.match(textoParecidos({ origem: "email", titulo: "Mercado", valor: null, parecidos: p }), /⚠️ Já existe algo parecido:\n\n💸 Despesa\nValor: R\$\s?80,00\nData: 10\/10\/2026\nCategoria: Casa\nDescrição: Mercado\nForma de pgto\.: PIX/);
 });
 
-test("parecidos: uma palavra em comum (pedaço de outra) não basta — 'churras' x 'churrasquinhodajo'", async () => {
-  const taxi = tx({ id: 9, descricao: "Taxi pro churras", valor: 12.3, data: "2026-10-11" });
-  const r = await analisarParecidos(fake([taxi]), "u", { tipo: "saidas", valor: 41, data: "2026-10-14", texto: "Churrasquinhodajo" });
-  assert.deepEqual(r.parecidos, []);
-  const r2 = await analisarParecidos(fake([taxi]), "u", { tipo: "saidas", valor: 41, data: "2026-10-12", texto: "uber churras" });
-  assert.deepEqual(r2.parecidos, []); // só uma palavra do nome, sem o mesmo valor
-  const r3 = await analisarParecidos(fake([taxi]), "u", { tipo: "saidas", valor: 41, data: "2026-10-12", texto: "taxi pro churras" });
-  assert.deepEqual(r3.parecidos.map((p) => p.id), [9]); // nome inteiro em até 3 dias
+test("parecidos: só vale o mesmo valor (centavo a centavo) na mesma data; o nome não importa", async () => {
+  const gu = tx({ id: 9, descricao: "Google One", valor: 9.99, data: "2026-11-02" });
+  const pix = { tipo: "saidas", valor: 10, data: "2026-11-03", texto: "Pix enviado" };
+  assert.deepEqual((await analisarParecidos(fake([gu]), "u", pix)).parecidos, []); // 9,99 x 10,00 e 1 dia de diferença
+  assert.deepEqual((await analisarParecidos(fake([gu]), "u", { ...pix, valor: 9.99 })).parecidos, []); // valor igual, data diferente
+  assert.deepEqual((await analisarParecidos(fake([gu]), "u", { ...pix, valor: 9.99, data: "2026-11-02", texto: "qualquer" })).parecidos.map((p) => p.id), [9]);
 });
 
 // ---- Cliente: gravação de lançamento (api.js) e forma de pagamento padrão da receita (menus-api.js) ----
