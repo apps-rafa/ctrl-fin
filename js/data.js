@@ -117,6 +117,7 @@ async function carregarMenus() {
         estadoApp.menus.metodos = menus.metodos || [];
         estadoApp.menus.metodosTodos = menus.metodosTodos || menus.metodos || [];
         estadoApp.menus.cores = menus.cores || { categoria: {}, metodo: {} };
+        estadoApp.menus.palavrasChave = menus.palavrasChave || { saidas: {}, entradas: {} };
 
 
         // Preencher dropdowns

@@ -245,7 +245,7 @@ async function processarTextoLivre(
   }
 
   const [{ data: categoriasApp }, { data: metodosApp }] = await Promise.all([
-    supabaseAdmin.from("menu_itens").select("nome, categoria_tipo").eq("tipo", "Categoria").eq("status", "Ativo").eq("user_id", tgUser.user_id),
+    supabaseAdmin.from("menu_itens").select("nome, categoria_tipo, palavras_chave").eq("tipo", "Categoria").eq("status", "Ativo").eq("user_id", tgUser.user_id),
     supabaseAdmin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("tipo", "Método").eq("status", "Ativo").eq("user_id", tgUser.user_id).order("ordem"),
   ]);
 
@@ -254,7 +254,7 @@ async function processarTextoLivre(
   const catsSugestao = [...(categoriasApp ?? [])];
   const temCartaoTxt = ((metodosApp ?? []) as MetodoMenu[]).some((m) => m.metodo_kind === "Crédito");
   if (!temCartaoTxt) { const ix = catsSugestao.findIndex((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && c.nome === "Estorno"); if (ix >= 0) catsSugestao.splice(ix, 1); }
-  else if (!catsSugestao.some((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && c.nome === "Estorno")) catsSugestao.push({ nome: "Estorno", categoria_tipo: "saidas" });
+  else if (!catsSugestao.some((c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && c.nome === "Estorno")) catsSugestao.push({ nome: "Estorno", categoria_tipo: "saidas", palavras_chave: ["estorn"] });
   let cat = sugerirCategoriaTexto(texto, tipo, catsSugestao);
   let categoria = cat.nome;
   // Receita de "reembolso" de uma categoria que só existe em Despesas (ex.: "370 reembolso saúde"): fica na

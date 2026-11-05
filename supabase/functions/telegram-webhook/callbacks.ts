@@ -297,7 +297,7 @@ export async function tratarUltimaPluggy(c: ContextoCallback): Promise<void> {
     const { data: m } = await supabaseAdmin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("id", item.metodo_id).eq("user_id", userId).maybeSingle();
     met = m ?? null;
   }
-  const cats = (item.tipo === "entradas" ? listas.catsR : listas.catsD).map((nome) => ({ nome, categoria_tipo: item.tipo }));
+  const cats = listas.catsInfo.filter((c) => c.categoria_tipo === item.tipo);
   const categoria = imp?.categoria_sugerida || sugerirCategoriaTexto(item.descricao, item.tipo, cats).nome;
   const dados: RascunhoLancamento = {
     tipo: item.tipo, valor: Number(item.valor), descricao: limparLinks(item.descricao), categoria,
