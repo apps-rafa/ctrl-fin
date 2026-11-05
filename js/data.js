@@ -15,11 +15,13 @@ async function carregarDados() {
 
 
         // As três leituras são independentes: vão juntas (1 ida e volta em vez de 3)
-        const [entradas, saidas, faturasPagas] = await Promise.all([
+        const [entradas, saidas, faturasPagas, creditoPos] = await Promise.all([
             carregarTransacoes('entradas', mes, ano),
             carregarTransacoes('saidas', mes, ano),
             carregarFaturasPagasAPI(),
+            carregarCreditoPosFechamento(mes, ano),
         ]);
+        estadoApp.creditoPosFechamento = creditoPos;
         estadoApp.transacoes.entradas = entradas;
         estadoApp.transacoes.saidas = saidas;
         estadoApp.faturasPagas = faturasPagas;

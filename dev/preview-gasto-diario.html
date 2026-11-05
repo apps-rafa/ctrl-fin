@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Preview: gasto diário com cartão virado</title>
+<link rel="stylesheet" href="../css/variables.css">
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/animations.css">
+<link rel="stylesheet" href="../css/layout.css">
+<link rel="stylesheet" href="../css/dashboard.css">
+<link rel="stylesheet" href="../css/tabs.css">
+<link rel="stylesheet" href="../css/transactions.css">
+<link rel="stylesheet" href="../css/forms.css">
+<link rel="stylesheet" href="../css/menus.css">
+<link rel="stylesheet" href="../css/responsive.css">
+<link rel="stylesheet" href="../css/theme.css">
+<style>
+/* Só do preview: controles de simulação (não fazem parte da proposta) */
+.sim { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; align-items: center; padding: .6rem var(--pad-main, 1rem); background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: .8rem; color: var(--text-muted); }
+.sim label { display: flex; align-items: center; gap: .5rem; }
+.sim b { color: var(--text); min-width: 4.5em; }
+
+/* PROPOSTA: faixa "cartão virou", logo abaixo do dashboard, no molde dos cards de resumo */
+.cartao-virou { display: block; margin: 0 0 var(--spacing-xl); padding: .9rem 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); }
+.cartao-virou[hidden] { display: none; }
+.cartao-virou h3 { margin: 0 0 .5rem; font-size: .85rem; display: flex; align-items: center; gap: .4rem; }
+.cartao-virou .cv-linhas { display: flex; flex-direction: column; gap: .25rem; font-size: .85rem; }
+.cartao-virou .cv-linha { display: flex; justify-content: space-between; gap: 1rem; }
+.cartao-virou .cv-linha i { font-style: normal; color: var(--text-muted); }
+.cartao-virou .cv-sep { height: 1px; background: var(--border); margin: .35rem 0; }
+.cartao-virou .cv-destaque b { font-size: 1.15rem; }
+.cartao-virou .cv-aviso { margin: .6rem 0 0; padding: .5rem .7rem; border-radius: var(--radius); font-size: .8rem; font-weight: 600; background: color-mix(in srgb, var(--balanco-text) 18%, var(--surface)); border: 1px solid color-mix(in srgb, var(--balanco-text) 45%, var(--border)); }
+.cartao-virou .cv-aviso[hidden] { display: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="topo">
+    <header class="header"><div class="header-content"><h1><span class="app-emoji">💰</span><span class="app-titulo-full">Controle Financeiro</span></h1></div></header>
+  </div>
+
+  <div class="sim">
+    <label>Dia do mês <input type="range" id="dia" min="1" max="31" step="1" value="23"> <b id="diaO"></b></label>
+    <label>Crédito após o fechamento (dia 20) <input type="range" id="cred" min="0" max="1500" step="10" value="340"> <b id="credO"></b></label>
+    <label>Tema <button type="button" id="tema" class="month-btn">🌙</button></label>
+  </div>
+
+  <main class="main">
+    <section class="dashboard">
+      <div class="summary-card entradas">
+        <h3><span class="card-titulo-txt">Receita</span></h3>
+        <div class="card-linhas"><div class="card-linhas-topo"></div><span class="linha-sep" aria-hidden="true"></span>
+          <span class="linha total"><i class="rot-total">total</i><b class="amount">R$ 4.500,00</b></span></div>
+      </div>
+      <div class="summary-card saidas">
+        <h3><span class="card-titulo-txt">Despesa</span></h3>
+        <div class="card-linhas"><div class="card-linhas-topo"></div><span class="linha-sep" aria-hidden="true"></span>
+          <span class="linha total"><i class="rot-total">total</i><b class="amount" id="totalSaidas"></b></span></div>
+      </div>
+      <div class="summary-card balanco">
+        <h3><span class="card-emoji">📊</span> Balanço</h3>
+        <p class="amount" id="balanco"></p>
+      </div>
+      <div class="summary-card gasto-diario">
+        <h3><span class="card-emoji">📅</span> Gasto diário</h3>
+        <p class="amount" id="gastoDiario"></p>
+        <p class="sub" id="gastoDiarioSub"></p>
+      </div>
+    </section>
+
+    <!-- PROPOSTA -->
+    <section class="cartao-virou" id="cv" hidden>
+      <h3>💳 Cartão virou dia 20</h3>
+      <div class="cv-linhas">
+        <span class="cv-linha"><i>fatura aberta · vence 10/nov</i><b id="cvFat"></b></span>
+        <span class="cv-linha"><i>já descontada do balanço de novembro</i><b>✓</b></span>
+        <span class="cv-sep" aria-hidden="true"></span>
+        <span class="cv-linha cv-destaque"><i>gasto diário previsto · novembro</i><b id="cvD2"></b></span>
+      </div>
+      <p class="cv-aviso" id="cvAviso" hidden></p>
+    </section>
+  </main>
+</div>
+
+<script>
+// Números de exemplo (inventados): receita do mês R$ 4.500, 1.800 gastos até o dia 20, ritmo constante.
+var RECEITA = 4500, FIXOS_E_RITMO_ATE_20 = 1800, FECH = 20, DIAS = 31;
+var moeda = function (v) { return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+var $ = function (id) { return document.getElementById(id); };
+function atualizar() {
+  var dia = +$('dia').value, cred = +$('cred').value;
+  $('diaO').textContent = dia; $('credO').textContent = moeda(cred);
+  var gasto = FIXOS_E_RITMO_ATE_20 * Math.min(dia, FECH) / FECH;
+  var restam = DIAS - dia + 1;
+  var balanco = RECEITA - gasto;
+  var d1 = balanco / restam;
+  $('totalSaidas').textContent = moeda(gasto);
+  $('balanco').textContent = moeda(balanco);
+  $('gastoDiario').textContent = moeda(d1);
+  $('gastoDiarioSub').textContent = restam + ' dias restantes';
+  var virou = dia > FECH;
+  $('cv').hidden = !virou;
+  if (!virou) return;
+  var d2 = (RECEITA - cred) / 30;
+  $('cvFat').textContent = moeda(cred);
+  $('cvD2').textContent = moeda(d2);
+  var proj = cred / (dia - FECH) * 30, d2p = (RECEITA - proj) / 30;
+  var av = $('cvAviso');
+  av.hidden = !(d2p < d1 * 0.8);
+  av.textContent = '⚠️ No ritmo atual, a fatura de novembro fecha em ~' + moeda(proj) + ' e o gasto diário cai para ~' + moeda(d2p) + '.';
+}
+$('dia').oninput = atualizar; $('cred').oninput = atualizar;
+$('tema').onclick = function () {
+  var r = document.documentElement, escuro = r.getAttribute('data-theme') !== 'light';
+  r.setAttribute('data-theme', escuro ? 'light' : 'dark'); $('tema').textContent = escuro ? '🌙' : '☀️';
+};
+atualizar();
+</script>
+</body>
+</html>

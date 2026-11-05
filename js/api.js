@@ -95,6 +95,31 @@ async function carregarTransacoes(tipo, mes, ano) {
 }
 
 /**
+ * Compras no crédito já feitas neste mês mas que caem na fatura do mês seguinte
+ * (feitas depois do fechamento): `competencia` do mês seguinte, `data` dentro do
+ * mês de `mes`/`ano` e até hoje. Alimenta o gasto diário (crédito conta na data da compra).
+ */
+async function carregarCreditoPosFechamento(mes, ano) {
+    try {
+        const [ini, fim] = intervaloDoMes(mes, ano);
+        const hoje = hojeISO();
+        const { data, error } = await sb
+            .from('transacoes')
+            .select('*')
+            .eq('tipo', 'saidas')
+            .gte('competencia', fim)
+            .lt('competencia', intervaloDoMes(mes === 12 ? 1 : mes + 1, mes === 12 ? ano + 1 : ano)[1])
+            .gte('data', ini)
+            .lt('data', fim);
+        if (error) throw error;
+        return (data || []).map(mapearTransacao).filter(t => t.data <= hoje);
+    } catch (error) {
+        console.error('Erro ao carregar crédito pós-fechamento:', error);
+        return [];
+    }
+}
+
+/**
  * Bolinha de cada mês no calendário do topo: 'passado' (já aconteceu, pelo
  * menos 1 lançamento não pendente com data até hoje) ou 'futuro' (só tem
  * lançamento a confirmar ou com data futura). Agrupa por `competencia`
@@ -376,6 +401,11 @@ function desmarcarPagoAPI(trans) {
     return sb.from('transacoes').update(campos).eq('id', trans.id);
 }
 
+/** Apaga de vez (sem Lixeira) lançamentos que acabaram de ser criados — usado pelo "Desfazer" do lançamento novo. Devolve { error }. */
+function desfazerCriacaoAPI(ids) {
+    return _emIds(sb.from('transacoes').delete(), ids);
+}
+
 /** Apaga lançamento(s) pelo id, sem a regra de parcelas (use deletarTransacaoAPI para isso). */
 /** Apaga por id, passando antes pela Lixeira (recuperável por 30 dias). Devolve { error }. */
 async function apagarPorIdAPI(ids) {
@@ -401,11 +431,6 @@ function atualizarOcorrenciasDaRecorrenciaAPI(recorrenciaId, campos, desde = nul
 function restaurarTransacaoAPI(linha) {
     return sb.from('transacoes').insert(linha);
 }
-/** Apaga de vez (sem Lixeira) lançamentos que acabaram de ser criados — usado pelo "Desfazer" do lançamento novo. Devolve { error }. */
-function desfazerCriacaoAPI(ids) {
-    return _emIds(sb.from('transacoes').delete(), ids);
-}
-
 
 /** Uma parcela vinda da Pluggy: insere a linha pronta e devolve a transação já mapeada. */
 function inserirLinhaTransacaoAPI(registro) {

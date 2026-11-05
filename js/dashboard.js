@@ -276,7 +276,15 @@ function atualizarResumo() {
     // Mês futuro: já dá para estimar o gasto diário se houver ao menos uma receita e uma despesa previstas (usa o mês inteiro)
     const previsto = dias === 0 && _mesFuturo() && (estadoApp.resumo.entradas || 0) > 0 && (estadoApp.resumo.saidas || 0) > 0;
     if (previsto) { const m = estadoApp.mesAtual; dias = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate(); }
-    const gastoDiarioValor = dias > 0 ? (estadoApp.resumo.balanco || 0) / dias : 0;
+    // Crédito conta na data da compra: o que foi gasto depois do fechamento (fatura do mês seguinte) já sai do gasto diário
+    const creditoPos = dias > 0 && !previsto ? (estadoApp.creditoPosFechamento || []).reduce((s, t) => s + (t.valor || 0), 0) : 0;
+    const gastoDiarioValor = dias > 0 ? ((estadoApp.resumo.balanco || 0) - creditoPos) / dias : 0;
+    const cartaoVirou = document.getElementById('cartaoVirou');
+    if (cartaoVirou) {
+        cartaoVirou.hidden = !(creditoPos > 0);
+        cartaoVirou.closest('.dashboard').classList.toggle('com-cartao', creditoPos > 0);
+        if (creditoPos > 0) document.getElementById('cvFatura').textContent = mask(formatarMoeda(creditoPos));
+    }
     if (gd) {
         gd.textContent = mask(formatarMoeda(gastoDiarioValor));
         if (gdSub) gdSub.textContent = previsto ? `previsto · ${dias} dias` : dias > 0 ? `${dias} dia${dias === 1 ? '' : 's'} restante${dias === 1 ? '' : 's'}` : (_mesFuturo() ? 'sem receita e despesa previstas' : 'mês encerrado');
