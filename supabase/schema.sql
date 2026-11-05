@@ -53,6 +53,7 @@ create table if not exists public.menu_itens (
   nome              text not null,
   categoria_tipo    text check (categoria_tipo in ('entradas', 'saidas')),  -- só Categoria: receita x despesa
   cor               text,   -- cor do "chip" (categoria / método / recorrência)
+  palavras_chave    text[], -- só Categoria: palavras que sugerem a categoria (bot e importação do banco); editável em Configurações
   descricao         text default '',
   status            text not null default 'Ativo' check (status in ('Ativo', 'Inativo')),
   metodo_kind       text,

@@ -67,32 +67,26 @@ function tituloContaPluggyCurto(c) {
     return banco ? `${banco}: ${tipo}` : tipo;
 }
 
-// Mesma heurística do servidor (supabase/functions/pluggy-sync e
-// pluggy-webhook) — duplicada aqui só pra também sugerir categoria nas
-// linhas que já estavam na fila antes dessa lógica existir no servidor.
-const PALAVRAS_CHAVE_CATEGORIA_PLUGGY = [
-    { padrao: /drogaria|farm[aá]cia|droga ?raia|pacheco|pague ?menos/, categoria: 'Saúde' },
-    { padrao: /hospital|cl[ií]nica|laborat[oó]rio|dentista|odont/, categoria: 'Saúde' },
-    { padrao: /academia|smart ?fit|bodytech|bio ?ritmo/, categoria: 'Saúde' },
-    { padrao: /supermercado|hortifruti|atacad[ãa]o|carrefour|extra|p[ãa]o de a[çc][uú]car|assa[íi]/, categoria: 'Mercado' },
-    { padrao: /restaurante|lanchonete|padaria|pizzaria|churrascaria/, categoria: 'Alimentação' },
-    { padrao: /ifood|rappi|mcdonalds|burger king|habib|subway/, categoria: 'Alimentação' },
-    { padrao: /uber|99app|99pop/, categoria: 'Transporte app' },
-    { padrao: /t[áa]xi/, categoria: 'Transporte' },
-    { padrao: /posto|ipiranga|shell|petrobras|ale combust/, categoria: 'Transporte' },
-    { padrao: /estacionamento|zona azul/, categoria: 'Transporte' },
-    { padrao: /netflix|spotify|disney|amazon prime|hbo|paramount/, categoria: 'Lazer' },
-    { padrao: /cinema|cinemark|teatro/, categoria: 'Lazer' },
-    { padrao: /escola|faculdade|universidade|udemy|alura/, categoria: 'Educação' },
-    { padrao: /condom[ií]nio|imobili[aá]ria|aluguel/, categoria: 'Casa' },
-    { padrao: /cemig|light sa|enel|sabesp|copasa|eletropaulo/, categoria: 'Casa' },
-];
+// Mesma busca por palavra-chave do servidor (supabase/functions/_shared/palavras-chave.ts; tests/palavras-chave.test.mjs
+// confere os dois) — duplicada aqui só pra também sugerir categoria nas linhas que já estavam na fila.
+function _normalizarPalavraChave(s) {
+    return String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+}
 
-function sugerirCategoriaPorPalavraChavePluggy(descricaoBanco) {
-    if (!descricaoBanco) return null;
-    const alvo = descricaoBanco.toLowerCase();
-    const achado = PALAVRAS_CHAVE_CATEGORIA_PLUGGY.find(p => p.padrao.test(alvo));
-    return achado ? achado.categoria : null;
+/** Categoria (de `categorias` = [{ nome, palavras_chave }]) cujas palavras aparecem no texto: a palavra mais longa ganha. */
+function categoriaPorPalavraChaveCliente(texto, categorias) {
+    const alvo = ` ${_normalizarPalavraChave(texto)} `;
+    if (alvo.trim() === '') return null;
+    let melhor = null;
+    for (const c of categorias) {
+        for (const p of c.palavras_chave || []) {
+            const palavra = _normalizarPalavraChave(p);
+            if (!palavra) continue;
+            const casa = palavra.length <= 3 ? (alvo.includes(` ${palavra} `) || alvo.includes(` ${palavra}s `)) : alvo.includes(` ${palavra}`);
+            if (casa && (!melhor || palavra.length > melhor.termo.length)) melhor = { nome: c.nome, termo: palavra };
+        }
+    }
+    return melhor;
 }
 
 /** Sugestão de categoria calculada no cliente (fallback quando a linha já
@@ -105,11 +99,9 @@ function sugerirCategoriaClientePluggy(item, categoriasApp) {
         const exata = categoriasApp.find(nome => nome.toLowerCase() === descNorm);
         if (exata) return exata;
     }
-    const porPalavraChave = sugerirCategoriaPorPalavraChavePluggy(item.descricao_banco);
-    if (porPalavraChave) {
-        const achada = categoriasApp.find(nome => nome.toLowerCase() === porPalavraChave.toLowerCase());
-        if (achada) return achada;
-    }
+    const palavrasDoTipo = (estadoApp.menus && estadoApp.menus.palavrasChave && estadoApp.menus.palavrasChave[item.tipo === 'entradas' ? 'entradas' : 'saidas']) || {};
+    const porPalavraChave = categoriaPorPalavraChaveCliente(item.descricao_banco, categoriasApp.map(nome => ({ nome, palavras_chave: palavrasDoTipo[nome] })));
+    if (porPalavraChave) return porPalavraChave.nome;
     if (item.categoria_pluggy) {
         const alvo = item.categoria_pluggy.trim().toLowerCase();
         const exata = categoriasApp.find(nome => nome.toLowerCase() === alvo);

@@ -1,5 +1,6 @@
 // Funções puras do bot do Telegram (interpretação de texto/SMS, datas, categorias).
 // Ficam separadas do index.ts para poderem ser testadas em Node (ver tests/).
+import { categoriaPorPalavraChave } from "../_shared/palavras-chave.ts";
 
 /** Texto preenchido sozinho (banco/SMS) sem endereço de site ("apple.com/bill" -> "Apple"): campos automáticos não levam link. */
 export function limparLinks(t: string): string {
@@ -9,38 +10,6 @@ export function limparLinks(t: string): string {
 // ---------- Linguagem natural: "gastei 35,90 no mercado" vira um rascunho de
 // lançamento (mesma ideia da fila de revisão — nada é gravado sem um toque
 // em "✅ Confirmar"). Fase 2 prometida no comentário antigo aqui embaixo. ----------
-
-// Mesma heurística por palavra-chave do pluggy-sync/pluggy-webhook, duplicada
-// aqui só pra também sugerir categoria a partir do texto digitado no bot.
-export const PALAVRAS_CHAVE_CATEGORIA: { padrao: RegExp; categoria: string }[] = [
-  { padrao: /drogaria|farm[aá]cia|droga ?raia|pacheco|pague ?menos|rem[eé]dio/, categoria: "Saúde" },
-  { padrao: /hospital|cl[ií]nica|laborat[oó]rio|dentista|odont|m[eé]dico|consulta/, categoria: "Saúde" },
-  { padrao: /academia|smart ?fit|bodytech|bio ?ritmo/, categoria: "Saúde" },
-  { padrao: /supermercado|hortifruti|atacad[ãa]o|carrefour|extra|p[ãa]o de a[çc][uú]car|assa[íi]|mercado|feira/, categoria: "Mercado" },
-  { padrao: /restaurante|lanchonete|padaria|pizzaria|churrascaria|almo[çc]o|janta|comida/, categoria: "Alimentação" },
-  { padrao: /ifood|rappi|mcdonalds|burger king|habib|subway/, categoria: "Alimentação" },
-  { padrao: /uber|99app|99pop/, categoria: "Transporte app" },
-  { padrao: /t[áa]xi|[oô]nibus|metr[oô]/, categoria: "Transporte" },
-  { padrao: /posto|ipiranga|shell|petrobras|ale combust|gasolina/, categoria: "Transporte" },
-  { padrao: /estacionamento|zona azul/, categoria: "Transporte" },
-  { padrao: /netflix|spotify|disney|amazon prime|hbo|paramount|assinatura/, categoria: "Assinaturas" },
-  { padrao: /cinema|cinemark|teatro|show|festa|balada/, categoria: "Lazer" },
-  { padrao: /escola|faculdade|universidade|udemy|alura|curso/, categoria: "Educação" },
-  { padrao: /condom[ií]nio|imobili[aá]ria|aluguel|luz|[aá]gua|g[aá]s\b|internet\b/, categoria: "Casa" },
-  { padrao: /sal[aá]rio|sal[aá]rios/, categoria: "Salário" },
-  { padrao: /\bvend(i|eu|emos|eram|er|a|as)\b|revend/, categoria: "Venda" },
-  { padrao: /\bb[oô]nus\b|\bpremia[çc][aã]o\b/, categoria: "Bônus" },
-  { padrao: /\bfreela|\bfreelance\b/, categoria: "Freelance" },
-  { padrao: /\bracha|\brachei|\bracharam|\bdividi|\bdividiram/, categoria: "Racha" },
-  { padrao: /estorn/, categoria: "Estorno" },
-  { padrao: /reembols/, categoria: "Reembolso" },
-];
-
-export function sugerirCategoriaPorPalavraChave(texto: string): string | null {
-  const alvo = texto.toLowerCase();
-  const achado = PALAVRAS_CHAVE_CATEGORIA.find((p) => p.padrao.test(alvo));
-  return achado ? achado.categoria : null;
-}
 
 /** Palavras do texto sem acento/pontuação, em minúsculas ("Saúde e Bem-estar" -> ["saude","e","bem","estar"]). */
 export function palavrasNormalizadas(s: string): string[] {
@@ -74,21 +43,14 @@ export function categoriaCadastradaNoTexto(
 export function sugerirCategoriaTexto(
   texto: string,
   tipo: "entradas" | "saidas",
-  categoriasApp: { nome: string; categoria_tipo: string | null }[],
+  categoriasApp: { nome: string; categoria_tipo: string | null; palavras_chave?: string[] | null }[],
 ): { nome: string; termo: string | null; palavras: string[]; porNome: boolean } {
   const candidatas = categoriasApp.filter((c) => c.categoria_tipo === tipo);
   const porNome = categoriaCadastradaNoTexto(texto, candidatas);
   if (porNome) return { nome: porNome.nome, termo: porNome.nome, palavras: porNome.palavras, porNome: true };
 
-  const alvo = texto.toLowerCase();
-  const porPalavraChave = sugerirCategoriaPorPalavraChave(texto);
-  if (porPalavraChave) {
-    const achada = candidatas.find((c) => normalizarTexto(c.nome) === normalizarTexto(porPalavraChave));
-    if (achada) {
-      const padrao = PALAVRAS_CHAVE_CATEGORIA.find((p) => p.padrao.test(alvo))!.padrao;
-      return { nome: achada.nome, termo: alvo.match(padrao)?.[0] ?? null, palavras: [], porNome: false };
-    }
-  }
+  const porPalavraChave = categoriaPorPalavraChave(texto, candidatas);
+  if (porPalavraChave) return { nome: porPalavraChave.nome, termo: porPalavraChave.termo, palavras: [], porNome: false };
 
   const outros = candidatas.find((c) => normalizarTexto(c.nome) === "outros");
   return { nome: outros?.nome || candidatas[0]?.nome || "Outros", termo: null, palavras: [], porNome: false };

@@ -3,9 +3,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { sugerirCategoriaTexto, categoriaCadastradaNoTexto, montarDescricao, interpretarValorETipo, detectarMetodoNoTexto } from "../supabase/functions/telegram-webhook/parser.ts";
 import { idRascunhoDaResposta } from "../supabase/functions/telegram-webhook/comandos.ts";
+import { comPalavras } from "./helpers/palavras-padrao.mjs";
 
-const D = (nome) => ({ nome, categoria_tipo: "saidas" });
-const R = (nome) => ({ nome, categoria_tipo: "entradas" });
+const D = (nome) => comPalavras(nome, "saidas");
+const R = (nome) => comPalavras(nome, "entradas");
 const cats = [D("Saúde"), D("Casa"), D("Casa e Manutenção"), D("Saúde e Bem-estar"), D("Mercado"), D("Outros"), R("Salário"), R("Reembolso")];
 const metodos = [{ nome: "PIX", metodo_kind: "PIX", banco: null, dia_fechamento: null }];
 

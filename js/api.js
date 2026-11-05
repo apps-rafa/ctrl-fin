@@ -185,6 +185,11 @@ async function carregarMenusAPI() {
             metodos,
             // inclui inativos: cartão que você parou de usar ainda tem fatura nos meses em que foi usado
             metodosTodos: todos.filter(i => i.tipo === 'Método'),
+            // palavras-chave de cada categoria ativa, por tipo (a sugestão da fila do Open Finance também roda no navegador)
+            palavrasChave: {
+                saidas: Object.fromEntries(cats.filter(c => c.categoriaTipo !== 'entradas').map(i => [i.nome, i.palavrasChave])),
+                entradas: Object.fromEntries(cats.filter(c => c.categoriaTipo === 'entradas').map(i => [i.nome, i.palavrasChave]))
+            },
             cores: {
                 categoria: mapaCor(todos.filter(i => i.tipo === 'Categoria')),
                 categoriaDespesa: mapaCor(todos.filter(i => i.tipo === 'Categoria' && i.categoriaTipo !== 'entradas')),

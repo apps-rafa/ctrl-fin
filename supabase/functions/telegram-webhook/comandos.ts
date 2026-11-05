@@ -283,10 +283,10 @@ export async function tratarRespostaRascunho(
   }
   // O texto pode citar uma categoria ou forma de pagamento cadastrada: troca o campo em vez de virar descrição
   const [{ data: cats }, { data: mets }] = await Promise.all([
-    supabaseAdmin.from("menu_itens").select("nome, categoria_tipo").eq("tipo", "Categoria").eq("status", "Ativo").eq("user_id", tgUser.user_id),
+    supabaseAdmin.from("menu_itens").select("nome, categoria_tipo, palavras_chave").eq("tipo", "Categoria").eq("status", "Ativo").eq("user_id", tgUser.user_id),
     supabaseAdmin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("tipo", "Método").eq("status", "Ativo").eq("user_id", tgUser.user_id),
   ]);
-  const novo = aplicarRespostaAoRascunho(rasc.dados as RascunhoLancamento, texto, (cats ?? []) as { nome: string; categoria_tipo: string | null }[], (mets ?? []) as MetodoMenu[]);
+  const novo = aplicarRespostaAoRascunho(rasc.dados as RascunhoLancamento, texto, (cats ?? []) as { nome: string; categoria_tipo: string | null; palavras_chave: string[] | null }[], (mets ?? []) as MetodoMenu[]);
   await supabaseAdmin.from("telegram_rascunhos").update({ dados: novo }).eq("id", rascunhoId);
   if (mensagemRespondidaId) await tg(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: mensagemRespondidaId, reply_markup: { inline_keyboard: [] } });
   await enviarRascunho(token, chatId, rascunhoId, novo, supabaseAdmin, tgUser.user_id);
@@ -322,7 +322,7 @@ export async function tratarRespostaLancado(
     categoria: ehEstorno ? "Estorno" : (t.categoria ?? ""), metodo: t.metodo || null, metodoKind: met?.metodo_kind ?? null, diaFechamento: met?.dia_fechamento ?? null,
     data: String(t.data).slice(0, 10), competencia: t.competencia ? String(t.competencia).slice(0, 10) : null, parcelas: null, dataIndefinida: !!t.data_indefinida,
   };
-  const cats = listas.catsR.map((nome) => ({ nome, categoria_tipo: "entradas" })).concat(listas.catsD.map((nome) => ({ nome, categoria_tipo: "saidas" })));
+  const cats = listas.catsInfo;
   const novo = aplicarRespostaAoRascunho(atual, texto, cats, listas.metodos);
   // Estorno e mudança de tipo/parcelas ficam para o formulário: aqui só os campos simples
   const mudancas: Record<string, unknown> = { descricao: novo.descricao };

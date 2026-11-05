@@ -2,6 +2,7 @@
 // Rodar: node --test tests/
 import test from "node:test";
 import assert from "node:assert/strict";
+import { comPalavras } from "./helpers/palavras-padrao.mjs";
 import {
   extrairData, interpretarValorETipo, interpretarSmsCartao, competenciaDe, addMeses,
   limparLinks, sugerirCategoriaTexto, detectarMetodoNoTexto,
@@ -75,11 +76,7 @@ test("limparLinks: endereço de site vira só o nome", () => {
 });
 
 test("sugerirCategoriaTexto: palavra-chave e fallback", () => {
-  const cats = [
-    { nome: "Mercado", categoria_tipo: "saidas" },
-    { nome: "Outros", categoria_tipo: "saidas" },
-    { nome: "Salário", categoria_tipo: "entradas" },
-  ];
+  const cats = [comPalavras("Mercado", "saidas"), comPalavras("Outros", "saidas"), comPalavras("Salário", "entradas")];
   assert.equal(sugerirCategoriaTexto("gastei 10 no supermercado", "saidas", cats).nome, "Mercado");
   assert.equal(sugerirCategoriaTexto("coisa estranha", "saidas", cats).nome, "Outros");
   assert.equal(sugerirCategoriaTexto("recebi salário", "entradas", cats).nome, "Salário");

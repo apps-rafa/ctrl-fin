@@ -186,24 +186,29 @@ export const MINIAPP_URL = "https://apps-rafa.github.io/ctrl-fin/lancamento-tg.h
 export interface ListasUsuario {
   catsR: string[];
   catsD: string[];
+  /** As mesmas categorias (já sem as que não valem), com as palavras-chave de cada uma — pra sugerir categoria pelo texto. */
+  catsInfo: { nome: string; categoria_tipo: string | null; palavras_chave: string[] | null }[];
   metodos: { nome: string; metodo_kind: string | null; banco: string | null; dia_fechamento: number | null }[];
 }
 
 export async function carregarListasUsuario(admin: ReturnType<typeof createClient>, userId: string): Promise<ListasUsuario> {
   const [{ data: cats }, { data: mets }] = await Promise.all([
-    admin.from("menu_itens").select("nome, categoria_tipo").eq("tipo", "Categoria").eq("status", "Ativo").eq("user_id", userId).order("ordem"),
+    admin.from("menu_itens").select("nome, categoria_tipo, palavras_chave").eq("tipo", "Categoria").eq("status", "Ativo").eq("user_id", userId).order("ordem"),
     admin.from("menu_itens").select("nome, metodo_kind, banco, dia_fechamento").eq("tipo", "Método").eq("status", "Ativo").eq("user_id", userId).order("ordem"),
   ]);
-  const lista = (cats ?? []) as { nome: string; categoria_tipo: string | null }[];
+  const lista = (cats ?? []) as { nome: string; categoria_tipo: string | null; palavras_chave?: string[] | null }[];
   // "Estorno" (Despesa) é fixa e sempre ativa, mas só existe a partir do 1º cartão de crédito.
   const temCartao = ((mets ?? []) as { metodo_kind: string | null }[]).some((m) => m.metodo_kind === "Crédito");
   if (temCartao && !lista.some((c) => c.categoria_tipo === "saidas" && c.nome === "Estorno")) {
     const { data: ex } = await admin.from("menu_itens").select("id").eq("tipo", "Categoria").eq("categoria_tipo", "saidas").eq("nome", "Estorno").eq("user_id", userId).maybeSingle();
     if (ex) await admin.from("menu_itens").update({ status: "Ativo" }).eq("id", ex.id);
     else await admin.from("menu_itens").insert({ tipo: "Categoria", nome: "Estorno", categoria_tipo: "saidas", cor: corPadraoChip("Estorno"), user_id: userId });
-    lista.push({ nome: "Estorno", categoria_tipo: "saidas" });
+    lista.push({ nome: "Estorno", categoria_tipo: "saidas", palavras_chave: ["estorn"] });
   }
+  const valeR = (c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "entradas" && c.nome !== "Estorno";
+  const valeD = (c: { nome: string; categoria_tipo: string | null }) => c.categoria_tipo === "saidas" && (temCartao || c.nome !== "Estorno");
   return {
+    catsInfo: lista.filter((c) => valeR(c) || valeD(c)).map((c) => ({ nome: c.nome, categoria_tipo: c.categoria_tipo, palavras_chave: c.palavras_chave ?? null })),
     catsR: lista.filter((c) => c.categoria_tipo === "entradas" && c.nome !== "Estorno").map((c) => c.nome),
     catsD: lista.filter((c) => c.categoria_tipo === "saidas" && (temCartao || c.nome !== "Estorno")).map((c) => c.nome),
     metodos: (mets ?? []) as ListasUsuario["metodos"],

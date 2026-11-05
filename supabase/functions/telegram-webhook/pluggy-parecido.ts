@@ -86,7 +86,7 @@ export async function tratarAvisoPluggy(
   const tipo: "entradas" | "saidas" = item.tipo === "entradas" ? "entradas" : "saidas";
   const listas = await carregarListasUsuario(admin, userId);
   if (!met && tipo === "entradas") met = listas.metodos.find((m) => m.metodo_kind === "PIX" || m.metodo_kind === "PIX/Débito") ?? null;
-  const cats = (tipo === "entradas" ? listas.catsR : listas.catsD).map((nome) => ({ nome, categoria_tipo: tipo }));
+  const cats = listas.catsInfo.filter((c) => c.categoria_tipo === tipo);
   const descricao = limparLinks(item.descricao_banco || "");
   const dados: RascunhoLancamento = {
     tipo, valor: Number(item.valor), descricao, categoria: item.categoria_sugerida || sugerirCategoriaTexto(descricao, tipo, cats).nome,

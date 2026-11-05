@@ -12,6 +12,28 @@ const CATEGORIAS_DESPESA_SEED = ['Alimentação', 'Alimentação app', 'Assinatu
     'Transporte app', 'Transporte'];
 const CATEGORIAS_RECEITA_SEED = ['Salário', 'Bônus', '13º', 'PL', 'Freelance', CATEGORIA_REEMBOLSO, CATEGORIA_DINHEIRO_RECEITA];
 
+// Palavras-chave padrão por categoria (despesa e receita): é o que o bot e a importação do banco usam para sugerir a
+// categoria pelo texto/estabelecimento. Ficam na coluna menu_itens.palavras_chave e o usuário edita em Configurações > Categorias.
+// Mesma lista da migração supabase/migrations/20261106_palavras_chave_categorias.sql (tests/palavras-chave.test.mjs confere).
+const PALAVRAS_CHAVE_PADRAO = {
+    'Saúde': ['drogaria', 'farmácia', 'droga raia', 'drogaraia', 'pacheco', 'pague menos', 'paguemenos', 'remédio', 'hospital', 'clínica', 'laboratório', 'dentista', 'odont', 'médico', 'consulta', 'academia', 'smart fit', 'smartfit', 'bodytech', 'bio ritmo', 'bioritmo'],
+    'Mercado': ['supermercado', 'hortifruti', 'atacadão', 'carrefour', 'extra', 'pão de açúcar', 'assaí', 'mercado', 'feira'],
+    'Alimentação': ['restaurante', 'lanchonete', 'padaria', 'pizzaria', 'churrascaria', 'almoço', 'janta', 'comida', 'ifood', 'rappi', 'mcdonalds', 'burger king', 'habib', 'subway'],
+    'Transporte app': ['uber', '99app', '99pop'],
+    'Transporte': ['táxi', 'ônibus', 'metrô', 'posto', 'ipiranga', 'shell', 'petrobras', 'ale combust', 'gasolina', 'estacionamento', 'zona azul'],
+    'Assinaturas': ['netflix', 'spotify', 'disney', 'amazon prime', 'hbo', 'paramount', 'assinatura'],
+    'Lazer': ['cinema', 'cinemark', 'teatro', 'show', 'festa', 'balada'],
+    'Educação': ['escola', 'faculdade', 'universidade', 'udemy', 'alura', 'curso'],
+    'Casa': ['condomínio', 'imobiliária', 'aluguel', 'luz', 'água', 'gás', 'internet', 'cemig', 'light sa', 'enel', 'sabesp', 'copasa', 'eletropaulo'],
+    'Salário': ['salário'],
+    'Venda': ['vendi', 'vendeu', 'vendemos', 'venderam', 'vender', 'venda', 'revend'],
+    'Bônus': ['bônus', 'premiação'],
+    'Freelance': ['freela'],
+    'Racha': ['racha', 'dividi'],
+    'Estorno': ['estorn'],
+    'Reembolso': ['reembols']
+};
+
 /**
  * Se o usuário atual ainda não tem nenhum item de menu, cria o conjunto padrão.
  * Chamado no primeiro carregamento (novo usuário ou visitante).
@@ -26,8 +48,8 @@ async function semearMenusPadraoSeVazio() {
 
         const cor = n => (typeof corPadraoChip === 'function' ? corPadraoChip(n) : null);
         const linhas = [
-            ...CATEGORIAS_DESPESA_SEED.map(nome => ({ tipo: 'Categoria', nome, categoria_tipo: 'saidas', cor: cor(nome) })),
-            ...CATEGORIAS_RECEITA_SEED.map(nome => ({ tipo: 'Categoria', nome, categoria_tipo: 'entradas', cor: cor(nome) })),
+            ...CATEGORIAS_DESPESA_SEED.map(nome => ({ tipo: 'Categoria', nome, categoria_tipo: 'saidas', cor: cor(nome), palavras_chave: PALAVRAS_CHAVE_PADRAO[nome] || null })),
+            ...CATEGORIAS_RECEITA_SEED.map(nome => ({ tipo: 'Categoria', nome, categoria_tipo: 'entradas', cor: cor(nome), palavras_chave: PALAVRAS_CHAVE_PADRAO[nome] || null })),
             { tipo: 'Método', nome: 'Dinheiro', metodo_kind: 'Dinheiro', cor: cor('Dinheiro') },
             { tipo: 'Método', nome: 'PIX', metodo_kind: 'PIX', cor: cor('PIX') }
         ];
@@ -103,6 +125,7 @@ function mapearItemMenu(row) {
         descricao: row.descricao || '',
         status: row.status || 'Ativo',
         cor: row.cor || null,
+        palavrasChave: Array.isArray(row.palavras_chave) ? row.palavras_chave : [],   // só Categoria: palavras que sugerem esta categoria
         categoriaTipo: row.categoria_tipo || null,   // 'saidas' | 'entradas' (só Categoria)
         metodoKind: row.metodo_kind || null,
         banco: row.banco || '',
