@@ -401,6 +401,11 @@ function atualizarOcorrenciasDaRecorrenciaAPI(recorrenciaId, campos, desde = nul
 function restaurarTransacaoAPI(linha) {
     return sb.from('transacoes').insert(linha);
 }
+/** Apaga de vez (sem Lixeira) lançamentos que acabaram de ser criados — usado pelo "Desfazer" do lançamento novo. Devolve { error }. */
+function desfazerCriacaoAPI(ids) {
+    return _emIds(sb.from('transacoes').delete(), ids);
+}
+
 
 /** Uma parcela vinda da Pluggy: insere a linha pronta e devolve a transação já mapeada. */
 function inserirLinhaTransacaoAPI(registro) {

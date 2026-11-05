@@ -30,7 +30,7 @@ test("Pago/Recebido: programado sem marcar é a pagar (mesmo com data passada); 
 
 test("checkbox: só programado, a partir do dia; marcado (agendado=false) some", () => {
   const t = { agendado: true, aConfirmar: false, data: "2026-10-20" };
-  assert.equal(mostra(t, "2026-10-19"), false, "antes do dia programado não aparece");
+  assert.equal(mostra(t, "2026-10-19"), true, "antes do dia programado também aparece (todo 'a pagar'/'a receber')");
   assert.equal(mostra(t, "2026-10-20"), true, "no dia aparece");
   assert.equal(mostra(t, "2026-10-25"), true, "depois do dia segue até marcar");
   assert.equal(mostra({ ...t, agendado: false }, "2026-10-25"), false, "marcado: some");
@@ -197,4 +197,14 @@ test("o app sempre abre com os valores escondidos (olho fechado), mesmo que o ap
   const c = vm.createContext({ console, Date, localStorage: { getItem: () => "0", setItem: () => {} } });
   vm.runInContext(fs.readFileSync(new URL("../js/state.js", import.meta.url), "utf8") + "\nglobalThis.__oculto = valoresOcultos;", c);
   assert.equal(c.__oculto, true);
+});
+
+test("pago antes da data: realizado; futuro sem a marca de programado também ganha o botão", () => {
+  const futuro = { agendado: false, pendente: false, pagoEm: null, data: "2026-11-28" };
+  assert.equal(realizado(futuro, "2026-11-05"), false, "futuro sem marca: ainda a pagar");
+  assert.equal(mostra(futuro, "2026-11-05"), true, "e mostra o botão");
+  const pago = { ...futuro, pagoEm: "2026-11-05" };
+  assert.equal(realizado(pago, "2026-11-05"), true, "marcado como pago antes da data: realizado");
+  assert.equal(realizado(pago, "2026-11-06"), true, "e continua no dia seguinte");
+  assert.equal(mostra(pago, "2026-11-06"), false, "sem botão depois de marcado (o marcado do dia vem de marcadoPagoHoje)");
 });

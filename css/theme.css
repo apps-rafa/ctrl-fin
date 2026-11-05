@@ -672,3 +672,25 @@ main.main > * { flex-shrink: 0; }
 @container (max-width: 340px) { .acoes-topo .acao-sec .b-emo { display: none; } .acoes-topo .acao-sec .b-txt { margin: 0; } }
 @container (max-width: 296px) { .acoes-topo .acao-sec .b-txt { display: none; } .acoes-topo .acao-sec .b-emo { display: inline; margin-right: 0; } .acoes-topo .acao-sec { font-size: 1rem; padding: 0 .3rem; } }
 body.modo-anual .acoes-topo { display: none; }
+
+/* Botões do lançamento (Pago/Recebido, quitar, ✓, ✏️, ✗/🗑️): sempre juntos, alinhados à direita, cada um com largura fixa e o próprio contorno.
+   Colunas fixas: quem falta não desloca os outros (o ✗ e a 🗑️ ocupam a mesma). */
+body .despesa-actions { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: .3rem; margin-left: auto; max-width: 62%; }
+body .despesa-actions .btn-icon,
+body .despesa-actions .pago-check,
+body .despesa-actions .quitar-check {
+    box-sizing: border-box; height: 26px; border: 1px solid var(--border-strong, #D1D5DB); border-radius: 8px;
+    background: var(--surface-2); padding: 0; flex: none;
+}
+body .despesa-actions .btn-icon { min-width: 30px; width: 30px; font-size: 13px; }
+body .despesa-actions .btn-icon.btn-success { border-color: color-mix(in srgb, var(--success, #28a745) 55%, transparent); }
+body .despesa-actions .btn-icon.btn-danger { border-color: color-mix(in srgb, var(--danger, #dc3545) 55%, transparent); }
+body .despesa-actions .pago-check, body .despesa-actions .quitar-check { justify-content: center; gap: .3rem; padding: 0 .4rem; }
+body .despesa-actions .pago-check { width: 5.6rem; }   /* "recebido" é a palavra mais longa */
+body .despesa-actions .quitar-check { width: 4.4rem; }
+body .despesa-actions .pago-check:has(input:checked), body .despesa-actions .quitar-check:has(input:checked) { border-color: var(--primary); }
+@media (max-width: 480px), (pointer: coarse) {
+    body .despesa-actions { gap: .35rem; }
+    body .despesa-actions .btn-icon, body .despesa-actions .pago-check, body .despesa-actions .quitar-check { height: 30px; }
+    body .despesa-actions .btn-icon { min-width: 34px; width: 34px; font-size: 15px; }
+}

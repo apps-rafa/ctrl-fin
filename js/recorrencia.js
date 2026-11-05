@@ -136,17 +136,19 @@ function sugerirMelhorDiaCompra(diaFechamento) {
   return ajustarDiaUtil(alvo).getDate();
 }
 
-/** Regra ÚNICA do checkbox "Pago"/"Recebido": só em lançamento programado (campo agendado), a partir do dia programado
- *  (data variável: sempre) e até ser marcado. Fora: rascunhos "a confirmar", parcelas, cartão de crédito e estornos. */
+/** Regra ÚNICA do checkbox "Pago"/"Recebido": todo lançamento programado ("a pagar"/"a receber", campo agendado), seja qual for
+ *  a data (futura, de hoje, vencida ou variável), até ser marcado. Fora: rascunhos "a confirmar", parcelas, cartão de crédito e estornos. */
 function deveMostrarPagoRecebido(t, hoje, { credito = false, estorno = false, parcela = false } = {}) {
-  if (!t || !t.agendado || t.aConfirmar || parcela || credito || estorno || !t.data) return false;
-  return !!t.dataIndefinida || String(t.data).slice(0, 10) <= hoje;
+  if (!t || t.aConfirmar || parcela || credito || estorno || !t.data) return false;
+  if (t.agendado) return true;
+  // sem a marca de programado mas com data futura (ainda "a pagar"/"a receber"), enquanto não for marcado
+  return !t.pendente && !t.pagoEm && String(t.data).slice(0, 10) > hoje;
 }
 
-/** Já aconteceu (conta em Pago/Recebido e nos totais): data até hoje e não programado sem marcar. Programado sem marcar é
- *  "a pagar"/"a receber", igual ao checkbox desmarcado. */
+/** Já aconteceu (conta em Pago/Recebido e nos totais): não programado e com data até hoje — ou marcado como Pago/Recebido
+ *  (pago_em), mesmo antes da data. Programado sem marcar é "a pagar"/"a receber", igual ao checkbox desmarcado. */
 function aconteceuAteHoje(t, hoje) {
-  return !t.pendente && !t.agendado && String(t.data).slice(0, 10) <= hoje;
+  return !t.pendente && !t.agendado && (String(t.data).slice(0, 10) <= hoje || !!(t.pagoEm || t.pago_em));
 }
 
 /** Sem data definida de verdade: a data original segue "?/mês". Depois de marcado como Pago/Recebido, a data passa a ser o dia

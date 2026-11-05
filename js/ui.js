@@ -1332,16 +1332,17 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     // A linha da descrição existe sempre (a 2ª linha do lançamento), mesmo em branco: assim todos os lançamentos têm a mesma estrutura/altura
     const descTxt = `<span class="despesa-desc${opts.descReservada ? ' despesa-desc--reserva' : ''}${trans.descricao ? '' : ' despesa-desc--vazia'}">${recNaDesc ? seloRec : ''}${trans.descricao ? escaparHtml(trans.descricao) : '&nbsp;'}</span>`;
 
-    // Ações
+    // Ações: todos os botões do lançamento ficam juntos, à direita, cada um com largura fixa e o próprio contorno.
+    // Ordem (e coluna): Pago/Recebido, quitar, ✓ confirmar, ✏️ editar, ✗ não vai acontecer / 🗑️ excluir.
     let acoes = '';
-    let confirmaBtns = ''; // ✓ / ✗ de uma ocorrência "a confirmar": ficam na 1ª linha, ao lado do último item dela
     if (!opts.semAcoes) {
+        acoes += pagoCheck + quitarCheckbox;
         if (opts.comConfirmarOcorrencia || trans.aConfirmar) {
-            confirmaBtns += `<button class="btn-icon btn-success" data-act="confirmar-ocorrencia" data-id="${trans.id}" title="Confirmar: este lançamento veio de uma recorrência e ainda é só um rascunho" aria-label="Confirmar">✓</button>`;
+            acoes += `<button class="btn-icon btn-success" data-act="confirmar-ocorrencia" data-id="${trans.id}" title="Confirmar: este lançamento veio de uma recorrência e ainda é só um rascunho" aria-label="Confirmar">✓</button>`;
         }
         acoes += `<button class="btn-icon" data-act="editar-trans" data-id="${trans.id}" title="${ehParcela && !ehOriginal ? 'Editar (abre o lançamento original)' : 'Editar'}" aria-label="Editar">${ICONE_LAPIS}</button>`;
         if (opts.comConfirmarOcorrencia) {
-            confirmaBtns += `<button class="btn-icon btn-danger" data-act="recusar-ocorrencia" data-id="${trans.id}" title="Não vai acontecer">✗</button>`;
+            acoes += `<button class="btn-icon btn-danger" data-act="recusar-ocorrencia" data-id="${trans.id}" title="Não vai acontecer">✗</button>`;
         } else if (!trans.quitada) {
             acoes += `<button class="btn-icon btn-danger" data-act="excluir-trans" data-id="${trans.id}" title="Excluir" aria-label="Excluir">${ICONE_LIXEIRA}</button>`;
         }
@@ -1360,10 +1361,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
                 ${lado}
                 <span class="despesa-valor">${sinal} ${valorFormatado}</span>
                 ${parcelaTag}
-                ${quitarCheckbox}
-                ${pagoCheck}
                 ${(metaChip || quandoTag || quitadoTag) ? `<span class="despesa-badges">${metaChip}${quandoTag}${quitadoTag}</span>` : ''}
-                ${confirmaBtns ? `<span class="despesa-confirmar">${confirmaBtns}</span>` : ''}
                 <span class="despesa-linha2">${descTxt}${catChip}${seloDup}</span>
             </div>
             <div class="despesa-actions">${acoes}</div>

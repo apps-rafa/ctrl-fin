@@ -554,6 +554,74 @@ function mudarAba(novaAba) {
     }
 }
 
+/** Foto dos campos do formulário de lançamento (valores crus + marcas internas), pra devolvê-los iguais. */
+function _fotoFormulario() {
+    const v = sel => document.querySelector(sel);
+    const comp = document.getElementById('competencia');
+    const data = v(SELECTORS.data);
+    return {
+        tipo: v(SELECTORS.tipoTransacao)?.value || 'saidas',
+        data: data?.value || '', dataVazio: data?.dataset.vazio || '', dataUserVal: data?.dataset.userVal || '',
+        valor: v(SELECTORS.valor)?.value || '',
+        categoria: v(SELECTORS.categoria)?.value || '',
+        descricao: v(SELECTORS.descricao)?.value || '',
+        metodo: v(SELECTORS.metodo)?.value || '',
+        parcelas: document.getElementById('parcelas')?.value || '',
+        competencia: comp?.value || '', compEditado: comp?.dataset.editado || '', compAno: comp?.dataset.ano || '',
+    };
+}
+
+/** Devolve o formulário ao que a foto guardou (mesma ordem da edição: tipo, categoria, método, parcelas, mês). */
+function _restaurarFormulario(f) {
+    if (document.querySelector('.tab-content.active')?.id !== 'adicionar') mudarAba('adicionar');
+    const v = sel => document.querySelector(sel);
+    const form = v(SELECTORS.formTransacao);
+    estadoApp.tipoAtual = f.tipo;
+    const tipoField = v(SELECTORS.tipoTransacao);
+    if (tipoField) tipoField.value = f.tipo;
+    form?.querySelectorAll('.tipo-btn').forEach(b => b.classList.toggle('active', b.dataset.tipo === f.tipo));
+    atualizarLabelsPorTipo();
+    const data = v(SELECTORS.data);
+    if (data) {
+        data.value = f.data;
+        data.dataset.vazio = f.dataVazio;
+        if (f.dataUserVal) data.dataset.userVal = f.dataUserVal; else delete data.dataset.userVal;
+    }
+    v(SELECTORS.valor).value = f.valor;
+    v(SELECTORS.categoria).value = f.categoria;
+    v(SELECTORS.descricao).value = f.descricao;
+    atualizarCampoMetodoReceita();
+    preencherDropdownMetodos();
+    v(SELECTORS.metodo).value = f.metodo;
+    const parc = document.getElementById('parcelas');
+    if (parc && f.parcelas) parc.value = f.parcelas;
+    const comp = document.getElementById('competencia');
+    if (comp) {
+        comp.value = f.competencia;
+        if (f.compEditado) comp.dataset.editado = f.compEditado; else delete comp.dataset.editado;
+        if (f.compAno) comp.dataset.ano = f.compAno; else delete comp.dataset.ano;
+    }
+    atualizarCampoParcelas();
+    atualizarCampoCredito();
+}
+
+/** Aviso "Lançamento adicionado" com Desfazer (5 s): o lançamento já foi gravado; desfazer apaga o(s) criado(s) e devolve o formulário preenchido. */
+function _avisarLancamentoAdicionado(criadas, foto) {
+    const ids = (Array.isArray(criadas) ? criadas : [criadas]).map(t => t && t.id).filter(Boolean);
+    executarComDesfazer({
+        texto: 'Lançamento adicionado',
+        confirmar: async () => {},
+        aoDesfazer: async () => {
+            if (ids.length) {
+                const { error } = await desfazerCriacaoAPI(ids);
+                if (error) { console.error(error); mostrarNotificacao('Não consegui desfazer', 'erro'); return; }
+            }
+            _restaurarFormulario(foto);
+            await recarregarDados();
+        },
+    });
+}
+
 /**
  * Submete formulário de transação
  */
@@ -579,9 +647,10 @@ async function submeterFormulario(e) {
             estadoApp.voltandoDaEdicao = true; // a tela de origem (busca incluída) volta inteira depois
             cancelarEdicaoTransacao(false);
         } else {
-            await adicionarTransacaoAPI(dados);
-            mostrarNotificacao('✓ Lançamento adicionado!', 'sucesso');
+            const foto = _fotoFormulario(); // pro "Desfazer" devolver o formulário todo preenchido
+            const criadas = await adicionarTransacaoAPI(dados);
             limparFormulario();
+            _avisarLancamentoAdicionado(criadas, foto);
             // Depois de lançar, a interface volta no MESMO tipo do último
             // lançamento (Receita/Despesa) pra encadear vários. Abrir "+
             // Lançamento" de novo (mudarAba) continua começando em Despesa.
