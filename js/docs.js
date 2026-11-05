@@ -207,7 +207,7 @@ const DOCS_SECOES = [
     id: 'telegram', emoji: '🤖', titulo: 'Bot do Telegram',
     itens: [
       { t: 'Vincular', r: 'Em {ver:config} > Notificações, gere o código e toque no link para vincular o bot à sua conta.',
-        m: 'Depois de vinculado, o bot avisa quando chega lançamento novo do banco (só do mês vigente; os de meses anteriores ficam só na fila do app), manda um backup semanal (domingo) e avisa vencimentos e erros.' },
+        m: 'Depois de vinculado, o bot avisa quando chega lançamento novo do banco (só do mês vigente; os de meses anteriores ficam só na fila do app) e avisa vencimentos e erros.' },
       { t: 'Lançar por mensagem', r: 'Escreva como falaria: "gastei 35,90 no mercado", "recebi 200 de salário", "comprei um carro de 80000 em 10x".',
         m: 'O bot entende valor, tipo, categoria (pelo texto), forma de pagamento (ex.: "no pix", "no nubank") e parcelas. Reconhece as categorias que você cadastrou, inclusive de várias palavras (entre "Casa" e "Casa e Manutenção", vale a mais específica), sem diferenciar maiúsculas e acentos. O que sobra do texto vira a descrição. Receita entra sempre como PIX. Escreva "sem data" (ou "data indefinida") para lançar só com o mês. Monta um rascunho e só grava após ✅ Confirmar. Para ajustar, responda (reply) ao rascunho: o bot troca o que o texto citar — categoria, forma de pagamento, tipo ("receita"/"despesa"), valor, data ("25/09", "ontem", "há 3 dias") e parcelas ("5x", "à vista", só no crédito) — e o que sobrar vira a descrição.' },
       { t: 'Datas no texto', r: 'Diga a data: "ontem uber 10 reais", "25/09 uber 10 reais", "25 de setembro", "dia 25". Sem data vale hoje.',
