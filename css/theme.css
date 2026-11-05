@@ -675,7 +675,7 @@ body.modo-anual .acoes-topo { display: none; }
 
 /* Botões do lançamento (Pago/Recebido, quitar, ✓, ✏️, ✗/🗑️): sempre juntos, alinhados à direita, cada um com largura fixa e o próprio contorno.
    Colunas fixas: quem falta não desloca os outros (o ✗ e a 🗑️ ocupam a mesma). */
-body .despesa-actions { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: .3rem; margin-left: auto; max-width: 62%; }
+body .despesa-actions { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: .2rem; margin-left: auto; max-width: 62%; }
 body .despesa-actions .btn-icon,
 body .despesa-actions .pago-check,
 body .despesa-actions .quitar-check {
@@ -683,14 +683,22 @@ body .despesa-actions .quitar-check {
     background: var(--surface-2); padding: 0; flex: none;
 }
 body .despesa-actions .btn-icon { min-width: 30px; width: 30px; font-size: 13px; }
-body .despesa-actions .btn-icon.btn-success { border-color: color-mix(in srgb, var(--success, #28a745) 55%, transparent); }
-body .despesa-actions .btn-icon.btn-danger { border-color: color-mix(in srgb, var(--danger, #dc3545) 55%, transparent); }
-body .despesa-actions .pago-check, body .despesa-actions .quitar-check { justify-content: center; gap: .3rem; padding: 0 .4rem; }
-body .despesa-actions .pago-check { width: 5.6rem; }   /* "recebido" é a palavra mais longa */
-body .despesa-actions .quitar-check { width: 4.4rem; }
+body .despesa-actions .btn-icon.btn-success { border-color: rgba(40, 167, 69, .6); }
+body .despesa-actions .btn-icon.btn-danger { border-color: rgba(220, 53, 69, .6); }
+body .despesa-actions .pago-check, body .despesa-actions .quitar-check { justify-content: center; gap: .25rem; padding: 0; }
+body .despesa-actions .pago-check { width: 3.1rem; }   /* texto "OK" */
+body .despesa-actions .quitar-check { width: 4rem; }
 body .despesa-actions .pago-check:has(input:checked), body .despesa-actions .quitar-check:has(input:checked) { border-color: var(--primary); }
 @media (max-width: 480px), (pointer: coarse) {
-    body .despesa-actions { gap: .35rem; }
+    body .despesa-actions { gap: .2rem; }
+    body .despesa-item { padding-right: .3rem; }
+    body .rec-grupo { margin-left: -.95rem; margin-right: -.95rem; }
     body .despesa-actions .btn-icon, body .despesa-actions .pago-check, body .despesa-actions .quitar-check { height: 30px; }
     body .despesa-actions .btn-icon { min-width: 34px; width: 34px; font-size: 15px; }
 }
+
+/* A regra global de botões só com lixeira (borda 0 !important) não vale nos botões do lançamento: a 🗑️ também tem contorno */
+body .despesa-actions button.btn-icon:has(> .ico-lixeira:only-child) {
+    border: 1px solid rgba(220, 53, 69, .6) !important; background: var(--surface-2) !important; color: #dc3545;
+}
+body .despesa-actions .pago-check { text-transform: uppercase; }

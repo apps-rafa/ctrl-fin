@@ -1275,7 +1275,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     // Marcado hoje: continua marcado até o dia seguinte (desmarcar reverte); depois some.
     const _pagoHoje = !opts.semAcoes && marcadoPagoHoje(trans, hojeISO());
     const pagoCheck = (!opts.semAcoes && (_pagoHoje || deveMostrarPagoRecebido(trans, hojeISO(), { credito: !!(_metTrans && _metTrans.metodoKind === 'Crédito'), estorno: _ehEstornoCartao(trans), parcela: ehParcela })))
-        ? `<label class="pago-check" title="${_pagoHoje ? `Desmarcar ${_rotPago.toLowerCase()} (volta a ser programado)` : `Marcar como ${_rotPago.toLowerCase()}${semDefinicao ? ' (a data passa a ser hoje)' : ''}`}"><input type="checkbox" name="marcar-pago" data-act="marcar-pago" data-id="${trans.id}"${_pagoHoje ? ' checked' : ''}> ${_rotPago}</label>`
+        ? `<label class="pago-check" aria-label="${_rotPago}" title="${_pagoHoje ? `Desmarcar ${_rotPago.toLowerCase()} (volta a ser programado)` : `Marcar como ${_rotPago.toLowerCase()}${semDefinicao ? ' (a data passa a ser hoje)' : ''}`}"><input type="checkbox" name="marcar-pago" data-act="marcar-pago" data-id="${trans.id}"${_pagoHoje ? ' checked' : ''}> OK</label>`
         : '';
     const quitadoTag = ehParcela && trans.quitadoEm
         ? `<span class="quitado-badge">quitado ${mesTri(String(trans.quitadoEm).slice(5, 7)) + '/' + String(trans.quitadoEm).slice(2, 4)}</span>`
