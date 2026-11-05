@@ -1275,7 +1275,7 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
     // Marcado hoje: continua marcado até o dia seguinte (desmarcar reverte); depois some.
     const _pagoHoje = !opts.semAcoes && marcadoPagoHoje(trans, hojeISO());
     const pagoCheck = (!opts.semAcoes && (_pagoHoje || deveMostrarPagoRecebido(trans, hojeISO(), { credito: !!(_metTrans && _metTrans.metodoKind === 'Crédito'), estorno: _ehEstornoCartao(trans), parcela: ehParcela })))
-        ? `<label class="pago-check" aria-label="${_rotPago}" title="${_pagoHoje ? `Desmarcar ${_rotPago.toLowerCase()} (volta a ser programado)` : `Marcar como ${_rotPago.toLowerCase()}${semDefinicao ? ' (a data passa a ser hoje)' : ''}`}"><input type="checkbox" name="marcar-pago" data-act="marcar-pago" data-id="${trans.id}"${_pagoHoje ? ' checked' : ''}> OK</label>`
+        ? `<label class="pago-check" aria-label="${_rotPago}" title="${_pagoHoje ? `Desmarcar ${_rotPago.toLowerCase()} (volta a ser programado)` : `Marcar como ${_rotPago.toLowerCase()}${semDefinicao ? ' (a data passa a ser hoje)' : ''}`}"><input type="checkbox" name="marcar-pago" data-act="marcar-pago" data-id="${trans.id}"${_pagoHoje ? ' checked' : ''}> <span class="pago-txt-full">${_rotPago}</span><span class="pago-txt-ok">OK</span></label>`
         : '';
     const quitadoTag = ehParcela && trans.quitadoEm
         ? `<span class="quitado-badge">quitado ${mesTri(String(trans.quitadoEm).slice(5, 7)) + '/' + String(trans.quitadoEm).slice(2, 4)}</span>`
@@ -1340,11 +1340,13 @@ function gerarHTMLTransacao(trans, tipo, opts = {}) {
         if (opts.comConfirmarOcorrencia || trans.aConfirmar) {
             acoes += `<button class="btn-icon btn-success" data-act="confirmar-ocorrencia" data-id="${trans.id}" title="Confirmar: este lançamento veio de uma recorrência e ainda é só um rascunho" aria-label="Confirmar">✓</button>`;
         }
-        acoes += `<button class="btn-icon" data-act="editar-trans" data-id="${trans.id}" title="${ehParcela && !ehOriginal ? 'Editar (abre o lançamento original)' : 'Editar'}" aria-label="Editar">${ICONE_LAPIS}</button>`;
+        const btnEditar = `<button class="btn-icon" data-act="editar-trans" data-id="${trans.id}" title="${ehParcela && !ehOriginal ? 'Editar (abre o lançamento original)' : 'Editar'}" aria-label="Editar">${ICONE_LAPIS}</button>`;
         if (opts.comConfirmarOcorrencia) {
-            acoes += `<button class="btn-icon btn-danger" data-act="recusar-ocorrencia" data-id="${trans.id}" title="Não vai acontecer">✗</button>`;
-        } else if (!trans.quitada) {
-            acoes += `<button class="btn-icon btn-danger" data-act="excluir-trans" data-id="${trans.id}" title="Excluir" aria-label="Excluir">${ICONE_LIXEIRA}</button>`;
+            // a confirmar: ✓, ✗ e por último ✏️
+            acoes += `<button class="btn-icon btn-danger" data-act="recusar-ocorrencia" data-id="${trans.id}" title="Não vai acontecer">✗</button>` + btnEditar;
+        } else {
+            acoes += btnEditar;
+            if (!trans.quitada) acoes += `<button class="btn-icon btn-danger" data-act="excluir-trans" data-id="${trans.id}" title="Excluir" aria-label="Excluir">${ICONE_LIXEIRA}</button>`;
         }
     }
 

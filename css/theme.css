@@ -702,3 +702,14 @@ body .despesa-actions button.btn-icon:has(> .ico-lixeira:only-child) {
     border: 1px solid rgba(220, 53, 69, .6) !important; background: var(--surface-2) !important; color: #dc3545;
 }
 body .despesa-actions .pago-check { text-transform: uppercase; }
+
+/* Pago/Recebido: palavra inteira quando há espaço; "OK" quando o layout aperta (celular) */
+body .despesa-actions .pago-check { width: 5.2rem; text-transform: none; }
+body .despesa-actions .pago-check .pago-txt-ok { display: none; }
+@media (max-width: 480px) {
+    body .despesa-actions .pago-check { width: 3.1rem; text-transform: uppercase; }
+    body .despesa-actions .pago-check .pago-txt-full { display: none; }
+    body .despesa-actions .pago-check .pago-txt-ok { display: inline; }
+}
+/* Descrição mais estreita: quebra a linha antes, e a tag (categoria) fica colada ao fim do texto */
+body .despesa-linha2 > .despesa-desc { max-width: 65%; }
