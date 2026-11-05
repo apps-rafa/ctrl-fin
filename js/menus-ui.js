@@ -37,6 +37,18 @@ function htmlSecaoCategorias(estadoAberto) {
   `;
 }
 
+/** Aba Categorias, parte de baixo: tabela (só leitura) das palavras que fazem o app e o bot sugerirem cada categoria. */
+function htmlSecaoRegrasCategoria(estadoAberto) {
+  return `
+      <div class="menu-section" data-sub="cat" hidden>
+        <details class="regras-cat" id="regrasCatDetalhes" ${estadoAberto.regras ? 'open' : ''}>
+          <summary>🪄 Como o app sugere a categoria</summary>
+          <div id="regrasCatCorpo" class="regras-cat-corpo"></div>
+        </details>
+      </div>
+  `;
+}
+
 /** Aba Formas de pagamento. */
 function htmlSecaoFormasDePagamento() {
   return `
@@ -249,6 +261,7 @@ async function carregarAbaMenus() {
   const estadoAberto = {};
   document.querySelectorAll(`${SELECTORS.menusContainer} details[data-cat-tipo], ${SELECTORS.menusContainer} details[data-fer-cat]`)
     .forEach(d => { estadoAberto[d.dataset.catTipo || `fer-${d.dataset.ferCat}`] = d.open; });
+  estadoAberto.regras = !!document.querySelector(`${SELECTORS.menusContainer} #regrasCatDetalhes[open]`);
 
   document.querySelector(SELECTORS.menusContainer).innerHTML = `
     <div class="menus-gerenciamento">
@@ -269,6 +282,8 @@ async function carregarAbaMenus() {
       </div>
 
       ${htmlSecaoCategorias(estadoAberto)}
+
+      ${htmlSecaoRegrasCategoria(estadoAberto)}
 
       ${htmlSecaoFormasDePagamento()}
 
@@ -310,6 +325,7 @@ async function carregarAbaMenus() {
   }
 
   iniciarPluggy();
+  carregarModulo('regras-categoria').then(() => iniciarRegrasCategoria()).catch(err => mostrarNotificacao(err.message, 'erro'));
   carregarModulo('dados').then(() => iniciarDados()).catch(err => mostrarNotificacao(err.message, 'erro'));
   carregarModulo('push').then(() => iniciarPush()).catch(err => mostrarNotificacao(err.message, 'erro'));
   carregarModulo('emails-contas').then(() => iniciarEmailsContas()).catch(err => mostrarNotificacao(err.message, 'erro'));
