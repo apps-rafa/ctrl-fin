@@ -704,7 +704,7 @@ body .despesa-actions button.btn-icon:has(> .ico-lixeira:only-child) {
 body .despesa-actions .pago-check { text-transform: uppercase; }
 
 /* Pago/Recebido: palavra inteira quando há espaço; "OK" quando o layout aperta (celular) */
-body .despesa-actions .pago-check { width: 5.2rem; text-transform: none; }
+body .despesa-actions .pago-check { width: 5.2rem; text-transform: lowercase; }
 body .despesa-actions .pago-check .pago-txt-ok { display: none; }
 @media (max-width: 480px) {
     body .despesa-actions .pago-check { width: 3.1rem; text-transform: uppercase; }
