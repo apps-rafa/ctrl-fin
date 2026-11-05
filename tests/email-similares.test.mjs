@@ -1,32 +1,38 @@
-// E-mail de conta: comparar com os lançamentos que já existem antes de criar/atualizar qualquer coisa.
+// E-mail de conta: só é "parecido" o que tem o MESMO valor e a MESMA data.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buscarSimilares } from "../supabase/functions/telegram-webhook/email.ts";
 
-// admin falso: from().select().eq()...order() devolve as linhas já "filtradas" pelo teste
+// admin falso: from().select().eq()...order() devolve as linhas do teste (o filtro de data/valor é refeito em JS)
 const adminCom = (linhas) => {
   const q = { select: () => q, eq: () => q, gte: () => q, lte: () => q, order: () => Promise.resolve({ data: linhas }) };
   return { from: () => q };
 };
-const rec = { id: 4, descricao: "Internet Predial", categoria: "Casa" };
-const t = (o) => ({ id: 1, data: "2026-10-26", valor: 99.9, descricao: "Internet Predial", categoria: "Casa", recorrencia_id: null, ...o });
+const rec = { id: 4, descricao: "Gás Naturgy", categoria: "Casa" };
+const t = (o) => ({ id: 1, data: "2026-10-26", valor: 68.06, descricao: "Gás Naturgy", categoria: "Casa", recorrencia_id: 4, ...o });
 
-test("parecido pela descrição (mesmas palavras da recorrência)", async () => {
-  const r = await buscarSimilares(adminCom([t({ id: 7, descricao: "predialnet fatura" })]), "u", rec, { valor: null, vencimento: "2026-10-26" }, "2026-10-05");
+test("mesmo valor e mesma data (vencimento do e-mail) é parecido", async () => {
+  const r = await buscarSimilares(adminCom([t({ id: 7 })]), "u", rec, { valor: 68.06, vencimento: "2026-10-26" }, "2026-10-05");
   assert.deepEqual(r.map((x) => x.id), [7]);
 });
-test("parecido por ser da própria recorrência", async () => {
-  const r = await buscarSimilares(adminCom([t({ id: 8, descricao: "x", recorrencia_id: 4 })]), "u", rec, { valor: null, vencimento: null }, "2026-10-05");
-  assert.deepEqual(r.map((x) => x.id), [8]);
+test("mesmo nome e mesma recorrência, mas valor diferente: não é parecido", async () => {
+  const r = await buscarSimilares(adminCom([t({ id: 8, valor: 67.87 })]), "u", rec, { valor: 68.06, vencimento: "2026-10-26" }, "2026-10-05");
+  assert.deepEqual(r, []);
 });
-test("mesmo valor na mesma data (±3 dias) conta; mesmo valor em data distante não", async () => {
-  const dados = { valor: 99.9, vencimento: "2026-10-26" };
-  const perto = await buscarSimilares(adminCom([t({ id: 9, descricao: "outra coisa", data: "2026-10-27" })]), "u", rec, dados, "2026-10-05");
-  assert.deepEqual(perto.map((x) => x.id), [9]);
-  const longe = await buscarSimilares(adminCom([t({ id: 10, descricao: "outra coisa", data: "2026-10-12" })]), "u", rec, dados, "2026-10-05");
-  assert.deepEqual(longe, []);
+test("mesmo valor em outra data (até 1 dia): não é parecido", async () => {
+  const r = await buscarSimilares(adminCom([t({ id: 9, data: "2026-10-27" })]), "u", rec, { valor: 68.06, vencimento: "2026-10-26" }, "2026-10-05");
+  assert.deepEqual(r, []);
 });
-test("nada parecido: lista vazia (segue o fluxo normal)", async () => {
-  const r = await buscarSimilares(adminCom([t({ id: 11, descricao: "mercado", valor: 50 })]), "u", rec, { valor: 120, vencimento: "2026-10-26" }, "2026-10-05");
+test("sem vencimento no e-mail: usa a data cadastrada no app; sem ela, a de chegada", async () => {
+  const dados = { valor: 68.06, vencimento: null };
+  const app = await buscarSimilares(adminCom([t({ id: 10 })]), "u", rec, dados, "2026-10-05", "2026-10-26");
+  assert.deepEqual(app.map((x) => x.id), [10]);
+  const chegada = await buscarSimilares(adminCom([t({ id: 11, data: "2026-10-05" })]), "u", rec, dados, "2026-10-05");
+  assert.deepEqual(chegada.map((x) => x.id), [11]);
+  const outra = await buscarSimilares(adminCom([t({ id: 12 })]), "u", rec, dados, "2026-10-05");
+  assert.deepEqual(outra, []);
+});
+test("e-mail sem valor: nada é parecido", async () => {
+  const r = await buscarSimilares(adminCom([t({ id: 13 })]), "u", rec, { valor: null, vencimento: "2026-10-26" }, "2026-10-05");
   assert.deepEqual(r, []);
 });
