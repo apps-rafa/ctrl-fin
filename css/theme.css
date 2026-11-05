@@ -713,3 +713,9 @@ body .despesa-actions .pago-check .pago-txt-ok { display: none; }
 }
 /* Descrição mais estreita: quebra a linha antes, e a tag (categoria) fica colada ao fim do texto */
 body .despesa-linha2 > .despesa-desc { max-width: 65%; }
+
+/* Pago/Recebido: caixa do tamanho do próprio texto (sem sobra); no celular o "OK" mantém largura fixa */
+body .despesa-actions .pago-check { width: auto; padding: 0 .5rem 0 .4rem; }
+@media (max-width: 480px) {
+    body .despesa-actions .pago-check { width: 3.1rem; padding: 0; }
+}
