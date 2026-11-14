@@ -427,3 +427,21 @@
 .card-linhas-topo .linha-detalhe i { font-style: normal; }
 /* emojis dos detalhes ("⚡ 37 + 💳 0") não ficam em itálico */
 .card-linhas-topo .linha-detalhe i .emo { font-style: normal; }
+
+/* ===== Olhinho (valores escondidos) =====
+   O texto real continua no card (os tamanhos de fonte/rótulos já foram calculados com ele) e só o desenho vira "••••":
+   alternar o olho não muda o layout. Sem selecionar/copiar o número escondido. */
+body.valores-ocultos :is(#entradasAtual, #entradasAReceber, #saidasAtual, #saidasAPagar, #totalEntradas, #totalSaidas, #balanco, #gastoDiario, #cvFatura, .summary-card .linha-detalhe i) {
+    position: relative;
+    -webkit-text-fill-color: transparent;
+    user-select: none;
+}
+body.valores-ocultos :is(#entradasAtual, #entradasAReceber, #saidasAtual, #saidasAPagar, #totalEntradas, #totalSaidas, #balanco, #gastoDiario, #cvFatura, .summary-card .linha-detalhe i)::after {
+    content: '••••';
+    position: absolute;
+    top: 0;
+    right: 0;
+    -webkit-text-fill-color: currentColor;
+    white-space: nowrap;
+}
+body.valores-ocultos :is(#balanco, #gastoDiario, #cvFatura)::after { right: auto; left: 0; }
