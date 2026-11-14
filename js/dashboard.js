@@ -199,11 +199,11 @@ function ajustarFontesDashboard() {
         tentar('total', false);                         // cabe com "total"
     });
     // Balanço e Gasto diário (3ª coluna, estreita): o CSS (cqw) já faz caber; aqui só encolhe se ainda estourar.
-    const par = ['balanco', 'gastoDiario'].map(id => document.getElementById(id)).filter(Boolean);
+    const par = ['balanco', 'gastoDiario', 'cvFatura'].map(id => document.getElementById(id)).filter(el => el && !el.closest('[hidden]'));
     par.forEach(el => ajustarFonteParaCaber(el, 10));
     if (par.some(el => !el.clientWidth)) return;
     // Lado a lado: mesmo tamanho entre os dois (o menor dos dois, caso um precise encolher mais que o outro)
-    if (par.length === 2) {
+    if (par.length >= 2) {
         const menor = Math.min(...par.map(el => parseFloat(getComputedStyle(el).fontSize)));
         par.forEach(el => { el.style.fontSize = menor + 'px'; });
     }
