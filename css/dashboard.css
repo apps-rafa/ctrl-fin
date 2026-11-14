@@ -263,8 +263,15 @@
 .dashboard.com-cartao .summary-card.gasto-diario { grid-column: 3 / span 2; grid-row: 2; }
 .dashboard.com-cartao .summary-card.cartao-virou { grid-column: 5 / span 2; grid-row: 2; }
 @media (max-width: 480px) {
+    /* O bloco mobile acima deixa .dashboard com 2 colunas; aqui os cards
+       usam as 6 colunas do molde "com cartão" — sem restaurar as 6, o grid
+       criava colunas implícitas e o Despesa/Balanço vazavam pra direita. */
+    .dashboard.com-cartao { grid-template-columns: repeat(6, minmax(0, 1fr)); }
     .dashboard.com-cartao .summary-card.entradas { grid-column: 1 / span 3; }
     .dashboard.com-cartao .summary-card.saidas { grid-column: 4 / span 3; }
+    .dashboard.com-cartao .summary-card.balanco { grid-column: 1 / span 2; grid-row: 2; }
+    .dashboard.com-cartao .summary-card.gasto-diario { grid-column: 3 / span 2; grid-row: 2; }
+    .dashboard.com-cartao .summary-card.cartao-virou { grid-column: 5 / span 2; grid-row: 2; }
 }
 
 /* ============ Resumo compacto fixo (aparece ao rolar) ============ */
