@@ -218,7 +218,14 @@ function atualizarResumo() {
     // os NÚMEROS do dashboard, nada mais (listas, formulário etc. continuam
     // normais). Mascara depois de formatar, então o "R$" contextual some
     // junto — "••••" sozinho já deixa claro que é um valor escondido.
-    const mask = s => (typeof valoresOcultos !== 'undefined' && valoresOcultos) ? '••••' : s;
+    const oculto = typeof valoresOcultos !== 'undefined' && valoresOcultos;
+    // Faixa de saldo das contas e resumo compacto: trocam o texto por "••••" mesmo.
+    const maskTxt = s => oculto ? '••••' : s;
+    // Cards do dashboard: o texto REAL fica sempre no DOM (as fontes e rótulos são calculados com o valor de verdade)
+    // e o "••••" é só uma máscara visual por CSS (body.valores-ocultos) — assim abrir/fechar o olhinho não muda
+    // tamanho de fonte, emoji dos rótulos nem altura dos cards (antes a página toda "sambava").
+    document.body.classList.toggle('valores-ocultos', oculto);
+    const mask = s => s;
 
     const totalEntradasEl = document.querySelector(SELECTORS.totalEntradas);
     const totalSaidasEl = document.querySelector(SELECTORS.totalSaidas);
@@ -250,7 +257,7 @@ function atualizarResumo() {
     if (scEl) {
         scEl.hidden = estadoApp.saldoContas == null || !saldoContasLigado();
         const scVal = document.getElementById('saldoContasValor');
-        if (scVal && estadoApp.saldoContas != null) scVal.textContent = mask(formatarMoeda(estadoApp.saldoContas));
+        if (scVal && estadoApp.saldoContas != null) scVal.textContent = maskTxt(formatarMoeda(estadoApp.saldoContas));
         // A faixa é um toggle que descortina o saldo de cada conta (empurrando o
         // resto pra baixo) — mesmo com uma conta só.
         const lista = estadoApp.saldoContasLista || [];
@@ -264,7 +271,7 @@ function atualizarResumo() {
             const aberto = varias && !!estadoApp.saldoContasAberto && estadoApp.saldoContas != null && saldoContasLigado();
             detalhe.hidden = !aberto;
             detalhe.innerHTML = aberto
-                ? lista.map(c => `<div class="sc-linha"><span>${escaparHtml(c.nome)}</span><b>${mask(formatarMoeda(c.saldo))}</b></div>`).join('')
+                ? lista.map(c => `<div class="sc-linha"><span>${escaparHtml(c.nome)}</span><b>${maskTxt(formatarMoeda(c.saldo))}</b></div>`).join('')
                 : '';
         }
     }
@@ -291,7 +298,7 @@ function atualizarResumo() {
     }
 
     // Espelha os totais no resumo compacto (barra fixa) — com "R$", sem centavos ",00"
-    const setMini = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = mask(formatarMoeda(v || 0)); };
+    const setMini = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = maskTxt(formatarMoeda(v || 0)); };
     setMini('miniEntradas', estadoApp.resumo.entradas);
     setMini('miniSaidas', estadoApp.resumo.saidas);
     setMini('miniBalanco', estadoApp.resumo.balanco);
